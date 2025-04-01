@@ -3,6 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Folder, FolderOpen, FileText, ChevronRight } from "lucide-react";
 import { load, Store } from "@tauri-apps/plugin-store";
+import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
+import "./resizable.css";
 
 let store: Store;
 
@@ -15,6 +17,8 @@ interface FileTreeNode {
   tokenCount?: number;
   parent?: string;
   dirPercentage?: number;
+  isLoading?: boolean;
+  selectionState?: "none" | "partial" | "all";
 }
 
 function App() {
@@ -113,15 +117,24 @@ function App() {
 
     // Helper function to calculate tokens for a file
     const calculateTokensForFile = async (file: FileTreeNode) => {
-      if (!file.is_directory && !file.tokenCount) {
+      if (!file.is_directory && !file.tokenCount && !file.isLoading) {
         try {
+          // Mark file as loading
+          setSelectedFiles((prev) =>
+            prev.map((f) =>
+              f.path === file.path ? { ...f, isLoading: true } : f
+            )
+          );
+
           const count = await invoke<number>("calculate_file_tokens", {
             filePath: file.path,
           });
-          return { ...file, tokenCount: count };
+
+          // Update file with token count and remove loading state
+          return { ...file, tokenCount: count, isLoading: false };
         } catch (err) {
           console.error(`Error calculating tokens for ${file.path}:`, err);
-          return file;
+          return { ...file, isLoading: false };
         }
       }
       return file;
@@ -137,6 +150,8 @@ function App() {
         newSelection = prevSelected.filter(
           (f) => !allDescendants.some((d) => d.path === f.path)
         );
+        setSelectedFiles(newSelection);
+        return;
       } else {
         // Add self and all descendants that aren't already selected
         const newItems = allDescendants.filter(
@@ -147,40 +162,42 @@ function App() {
         newSelection = [...prevSelected, ...newItems];
         setSelectedFiles(newSelection);
 
-        // Then calculate tokens in the background
-        setProcessingTokens(true);
-        try {
+        // Then calculate tokens in batches of 5 to avoid overwhelming
+        const batchSize = 5;
+        for (let i = 0; i < newItems.length; i += batchSize) {
+          const batch = newItems.slice(i, i + batchSize);
           const itemsWithTokens = await Promise.all(
-            newItems.map((item) => calculateTokensForFile(item))
+            batch.map((item) => calculateTokensForFile(item))
           );
+
           // Update the selection with calculated tokens
           setSelectedFiles((prev) => {
             const withoutNewItems = prev.filter(
-              (f) => !newItems.some((n) => n.path === f.path)
+              (f) => !batch.some((n) => n.path === f.path)
             );
             return [...withoutNewItems, ...itemsWithTokens];
           });
-        } finally {
-          setProcessingTokens(false);
         }
-        return; // Early return since we're handling updates separately
+        return;
       }
     } else {
       // Handle single file selection/deselection
       if (isCurrentlySelected) {
         newSelection = prevSelected.filter((f) => f.path !== node.path);
+        setSelectedFiles(newSelection);
+        return;
       } else {
-        setProcessingTokens(true);
-        try {
-          const nodeWithTokens = await calculateTokensForFile(node);
-          newSelection = [...prevSelected, nodeWithTokens];
-        } finally {
-          setProcessingTokens(false);
-        }
+        // Add file immediately with loading state
+        const nodeWithLoading = { ...node, isLoading: true };
+        setSelectedFiles([...prevSelected, nodeWithLoading]);
+
+        // Calculate tokens in background
+        const nodeWithTokens = await calculateTokensForFile(node);
+        setSelectedFiles((prev) =>
+          prev.map((f) => (f.path === node.path ? nodeWithTokens : f))
+        );
       }
     }
-
-    setSelectedFiles(newSelection);
   };
 
   const toggleFolder = (path: string) => {
@@ -202,23 +219,82 @@ function App() {
     }
 
     try {
-      let total = 0;
-      for (const file of selectedFiles) {
-        if (!file.is_directory) {
-          // Only calculate for files that don't have a token count yet
-          if (!file.tokenCount) {
-            const count = await invoke<number>("calculate_file_tokens", {
-              filePath: file.path,
-            });
-            file.tokenCount = count;
-          }
-          total += file.tokenCount || 0;
+      // First sum up all files that already have token counts
+      let total = selectedFiles.reduce((sum, file) => {
+        if (!file.is_directory && file.tokenCount !== undefined) {
+          return sum + file.tokenCount;
+        }
+        return sum;
+      }, 0);
+
+      // Then calculate tokens for files that don't have them yet
+      const filesNeedingCalculation = selectedFiles.filter(
+        (file) =>
+          !file.is_directory && file.tokenCount === undefined && !file.isLoading
+      );
+
+      if (filesNeedingCalculation.length > 0) {
+        // Calculate tokens in batches of 5
+        const batchSize = 5;
+        for (let i = 0; i < filesNeedingCalculation.length; i += batchSize) {
+          const batch = filesNeedingCalculation.slice(i, i + batchSize);
+          const counts = await Promise.all(
+            batch.map((file) =>
+              invoke<number>("calculate_file_tokens", { filePath: file.path })
+            )
+          );
+
+          // Update the selected files with new token counts
+          setSelectedFiles((prev) =>
+            prev.map((file) => {
+              const batchIndex = batch.findIndex((f) => f.path === file.path);
+              if (batchIndex !== -1) {
+                return { ...file, tokenCount: counts[batchIndex] };
+              }
+              return file;
+            })
+          );
+
+          // Add to total
+          total += counts.reduce((sum, count) => sum + count, 0);
         }
       }
+
       setTotalTokens(total);
     } catch (err) {
       console.error("Error calculating tokens:", err);
     }
+  };
+
+  const calculateDirectorySelectionState = (
+    node: FileTreeNode
+  ): "none" | "partial" | "all" => {
+    if (!node.is_directory || !node.children) return "none";
+
+    // Get all descendants (including nested directories)
+    const getAllDescendants = (node: FileTreeNode): FileTreeNode[] => {
+      let items: FileTreeNode[] = [node];
+      if (node.children) {
+        node.children.forEach((child) => {
+          items = items.concat(getAllDescendants(child));
+        });
+      }
+      return items;
+    };
+
+    const allDescendants = getAllDescendants(node);
+
+    // Count selected files (not directories) among all descendants
+    const selectedDescendants = allDescendants.filter(
+      (f) =>
+        !f.is_directory &&
+        selectedFiles.some((s: FileTreeNode) => s.path === f.path)
+    );
+    const totalFiles = allDescendants.filter((f) => !f.is_directory);
+
+    if (selectedDescendants.length === 0) return "none";
+    if (selectedDescendants.length === totalFiles.length) return "all";
+    return "partial";
   };
 
   const renderFileTree = (nodes: FileTreeNode[], level = 0) => {
@@ -226,17 +302,27 @@ function App() {
       const isFolder = node.is_directory;
       const isExpanded = expandedFolders.has(node.path);
       const isSelected = selectedFiles.some((f) => f.path === node.path);
+      const selectedFile = selectedFiles.find((f) => f.path === node.path);
+      const isLoading = selectedFile?.isLoading;
+      const selectionState = isFolder
+        ? calculateDirectorySelectionState(node)
+        : undefined;
 
       return (
         <div key={node.path} style={{ marginLeft: `${level * 16}px` }}>
           <div className="flex items-center py-1 cursor-pointer">
             <input
               type="checkbox"
-              checked={isSelected}
+              checked={isFolder ? selectionState === "all" : isSelected}
+              ref={(el) => {
+                if (el && isFolder) {
+                  el.indeterminate = selectionState === "partial";
+                }
+              }}
               onChange={() => handleFileSelect(node)}
               onClick={(e) => e.stopPropagation()}
               className={`mr-1 w-4 h-4 border border-gray-600 rounded bg-${
-                isSelected ? "blue-500" : "gray-700"
+                isSelected || selectionState === "all" ? "blue-500" : "gray-700"
               } inline-block align-middle relative cursor-pointer`}
             />
             <div
@@ -268,9 +354,13 @@ function App() {
               </span>
               <span>{node.name}</span>
             </div>
-            {!isFolder && node.tokenCount !== undefined && (
+            {!isFolder && (
               <span className="ml-2 text-sm text-gray-500">
-                {node.tokenCount} tokens
+                {isLoading ? (
+                  <span className="animate-pulse">Calculating...</span>
+                ) : node.tokenCount !== undefined ? (
+                  `${node.tokenCount} tokens`
+                ) : null}
               </span>
             )}
           </div>
@@ -284,13 +374,22 @@ function App() {
     });
   };
 
+  const resetStates = () => {
+    setSelectedFiles([]);
+    setExpandedFolders(new Set());
+    setFileTree([]);
+    setTotalTokens(0);
+    setError(null);
+    setShowChat(false);
+    setProcessingTokens(false);
+  };
+
   const handleChooseDirectory = async () => {
     try {
       const selected = await open({ directory: true });
       if (selected) {
+        resetStates();
         setDir(selected as string);
-        setSelectedFiles([]);
-        setExpandedFolders(new Set());
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -455,7 +554,10 @@ ${fileData}`;
                 <div
                   key={index}
                   className="py-2 text-blue-500 cursor-pointer text-left"
-                  onClick={() => setDir(workspace.path)}
+                  onClick={() => {
+                    resetStates();
+                    setDir(workspace.path);
+                  }}
                 >
                   {workspace.name}
                 </div>
@@ -470,219 +572,239 @@ ${fileData}`;
   return (
     <div className="flex h-screen flex-col bg-gray-900">
       <div className="flex flex-1 overflow-hidden">
-        {/* File Navigation Sidebar */}
-        <div className="w-75 border-r border-gray-600 overflow-y-auto bg-gray-800 text-white h-full">
-          {!dir ? (
-            renderWorkspaceSelector()
-          ) : (
-            <div className="p-2.5 h-full">
-              <div className="mb-2.5 flex items-center gap-2">
-                <button
-                  onClick={handleChooseDirectory}
-                  disabled={loading}
-                  className="bg-gray-700 text-white border border-gray-600 p-2 rounded cursor-pointer"
-                >
-                  Choose Directory
-                </button>
-                <button
-                  onClick={handleClose}
-                  className="bg-red-600 hover:bg-red-700 text-white border border-red-700 p-2 rounded cursor-pointer"
-                >
-                  Close
-                </button>
-                {dir && <p className="text-sm break-all mt-2">{dir}</p>}
-              </div>
-
-              {fileTree.length > 0 ? (
-                <div>
-                  <h3>Files</h3>
-                  {renderFileTree(fileTree)}
-                </div>
+        <PanelGroup direction="horizontal" className="flex-1">
+          {/* File Navigation Sidebar */}
+          <Panel
+            defaultSize={25}
+            minSize={15}
+            maxSize={50}
+            className="overflow-hidden"
+          >
+            <div className="h-full border-r border-gray-600 overflow-y-auto bg-gray-800 text-white">
+              {!dir ? (
+                renderWorkspaceSelector()
               ) : (
-                <p>Loading files...</p>
-              )}
+                <div className="flex flex-col h-full">
+                  {/* Fixed Header */}
+                  <div className="p-2.5 border-b border-gray-600">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handleChooseDirectory}
+                        disabled={loading}
+                        className="bg-gray-700 text-white border border-gray-600 p-2 rounded cursor-pointer"
+                      >
+                        Choose Directory
+                      </button>
+                      <button
+                        onClick={handleClose}
+                        className="bg-red-600 hover:bg-red-700 text-white border border-red-700 p-2 rounded cursor-pointer"
+                      >
+                        Close
+                      </button>
+                    </div>
+                    {dir && <p className="text-sm break-all mt-2">{dir}</p>}
+                  </div>
 
-              {selectedFiles.length > 0 && (
-                <div className="mt-5">
-                  <h3>Selected Files ({selectedFiles.length})</h3>
-                  <div className="flex items-center">
-                    <span className="mr-2.5">{selectedFiles.length} files</span>
-                    <span>
-                      {totalTokens < 0 ? "" : "-"}
-                      {Math.abs(totalTokens / 1000).toFixed(2)}k Tokens
-                    </span>
-                    {processingTokens && (
-                      <span className="ml-2 text-blue-500 text-sm animate-pulse">
-                        Calculating...
-                      </span>
+                  {/* Scrollable Content */}
+                  <div className="flex-1 overflow-y-auto p-2.5">
+                    {fileTree.length > 0 ? (
+                      <div>
+                        <h3>Files</h3>
+                        {renderFileTree(fileTree)}
+                      </div>
+                    ) : (
+                      <p>Loading files...</p>
                     )}
                   </div>
-                  <div className="max-h-50 overflow-y-auto">
-                    {selectedFiles.map((file) => (
-                      <div key={file.path} className="flex justify-between">
-                        <span>{file.name}</span>
-                        <span>{file.tokenCount || "..."}</span>
-                      </div>
-                    ))}
+
+                  {/* Fixed Footer */}
+                  <div className="p-2.5 border-t border-gray-600">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-400">
+                        {selectedFiles.filter((f) => !f.is_directory).length}{" "}
+                        files selected
+                      </span>
+                      <span className="text-sm text-gray-400">
+                        {totalTokens < 0 ? "" : "-"}
+                        {Math.abs(totalTokens / 1000).toFixed(2)}k Tokens
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
-          )}
-        </div>
+          </Panel>
 
-        {/* Main Content */}
-        <div className="flex-1 p-5 overflow-y-auto bg-gray-900 h-full">
-          {dir && (
-            <>
-              <div className="bg-gray-800 text-white rounded-lg p-2.5 shadow-lg">
-                <div className="flex justify-between items-center mb-2.5">
-                  <div className="flex items-center">
-                    <h3 className="m-0">Selected Files</h3>
-                    <button
-                      onClick={handleSort}
-                      className="ml-2 bg-transparent border-none text-white flex items-center cursor-pointer"
-                    >
-                      <span className="mr-0.5">
-                        {sortDirection === "asc" ? "↑" : "↓"}
-                      </span>{" "}
-                      Sort
-                    </button>
-                  </div>
-                  <div className="flex items-center">
-                    <span className="mr-2.5">{selectedFiles.length} files</span>
-                    <span>
-                      {totalTokens < 0 ? "" : "-"}
-                      {Math.abs(totalTokens / 1000).toFixed(2)}k Tokens
-                    </span>
-                  </div>
-                </div>
+          <PanelResizeHandle className="w-1 bg-gray-700 hover:bg-gray-600 transition-colors" />
 
-                <div className="mb-5">
-                  {getGroupedFiles().map((file, index, files) => {
-                    const isDirectoryHeader =
-                      file.is_directory && file.dirPercentage !== undefined;
-                    const isFirstFileInGroup =
-                      isDirectoryHeader &&
-                      index < files.length - 1 &&
-                      !files[index + 1].is_directory;
-
-                    return (
-                      <div key={file.path}>
-                        <div
-                          className={`flex justify-between p-2.5 ${
-                            isDirectoryHeader ? "mt-2.5" : "my-0.5"
-                          } ${
-                            isDirectoryHeader ? "bg-gray-800" : "bg-gray-700"
-                          } rounded ${
-                            isDirectoryHeader
-                              ? "border-l-4 border-blue-500"
-                              : ""
-                          }`}
+          {/* Main Content */}
+          <Panel
+            defaultSize={75}
+            minSize={50}
+            maxSize={85}
+            className="overflow-hidden"
+          >
+            <div className="h-full p-5 overflow-y-auto bg-gray-900">
+              {dir && (
+                <>
+                  <div className="bg-gray-800 text-white rounded-lg p-2.5 shadow-lg">
+                    <div className="flex justify-between items-center mb-2.5">
+                      <div className="flex items-center">
+                        <h3 className="m-0">Selected Files</h3>
+                        <button
+                          onClick={handleSort}
+                          className="ml-2 bg-transparent border-none text-white flex items-center cursor-pointer"
                         >
-                          <div className="flex items-center">
-                            <span
-                              className={`mr-2 ${
+                          <span className="mr-0.5">
+                            {sortDirection === "asc" ? "↑" : "↓"}
+                          </span>{" "}
+                          Sort
+                        </button>
+                      </div>
+                      <div className="flex items-center">
+                        <span className="mr-2.5">
+                          {selectedFiles.length} files
+                        </span>
+                        <span>
+                          {totalTokens < 0 ? "" : "-"}
+                          {Math.abs(totalTokens / 1000).toFixed(2)}k Tokens
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mb-5">
+                      {getGroupedFiles().map((file, index, files) => {
+                        const isDirectoryHeader =
+                          file.is_directory && file.dirPercentage !== undefined;
+                        const isFirstFileInGroup =
+                          isDirectoryHeader &&
+                          index < files.length - 1 &&
+                          !files[index + 1].is_directory;
+
+                        return (
+                          <div key={file.path}>
+                            <div
+                              className={`flex justify-between p-2.5 ${
+                                isDirectoryHeader ? "mt-2.5" : "my-0.5"
+                              } ${
                                 isDirectoryHeader
-                                  ? "text-blue-500"
-                                  : "text-gray-300"
+                                  ? "bg-gray-800"
+                                  : "bg-gray-700"
+                              } rounded ${
+                                isDirectoryHeader
+                                  ? "border-l-4 border-blue-500"
+                                  : ""
                               }`}
                             >
-                              {isDirectoryHeader ? "📁" : "📄"}
-                            </span>
-                            <span>
-                              {isDirectoryHeader ? `${file.name}/` : file.name}
-                            </span>
-                          </div>
-                          <div>
-                            {file.tokenCount !== undefined && (
-                              <span
-                                className={`${
-                                  isDirectoryHeader
-                                    ? "text-blue-500"
-                                    : "text-gray-300"
-                                }`}
-                              >
-                                -{(file.tokenCount / 1000).toFixed(2)}k
-                                {isDirectoryHeader &&
-                                  file.dirPercentage !== undefined &&
-                                  ` (${file.dirPercentage}%)`}
-                                {!isDirectoryHeader &&
-                                  totalTokens > 0 &&
-                                  ` (${Math.round(
-                                    (file.tokenCount / totalTokens) * 100
-                                  )}%)`}
-                              </span>
+                              <div className="flex items-center">
+                                <span
+                                  className={`mr-2 ${
+                                    isDirectoryHeader
+                                      ? "text-blue-500"
+                                      : "text-gray-300"
+                                  }`}
+                                >
+                                  {isDirectoryHeader ? "📁" : "📄"}
+                                </span>
+                                <span>
+                                  {isDirectoryHeader
+                                    ? `${file.name}/`
+                                    : file.name}
+                                </span>
+                              </div>
+                              <div>
+                                {file.tokenCount !== undefined && (
+                                  <span
+                                    className={`${
+                                      isDirectoryHeader
+                                        ? "text-blue-500"
+                                        : "text-gray-300"
+                                    }`}
+                                  >
+                                    -{(file.tokenCount / 1000).toFixed(2)}k
+                                    {isDirectoryHeader &&
+                                      file.dirPercentage !== undefined &&
+                                      ` (${file.dirPercentage}%)`}
+                                    {!isDirectoryHeader &&
+                                      totalTokens > 0 &&
+                                      ` (${Math.round(
+                                        (file.tokenCount / totalTokens) * 100
+                                      )}%)`}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {isFirstFileInGroup && (
+                              <div className="h-px bg-gray-700 ml-5"></div>
                             )}
                           </div>
-                        </div>
-                        {isFirstFileInGroup && (
-                          <div className="h-px bg-gray-700 ml-5"></div>
-                        )}
+                        );
+                      })}
+                    </div>
+
+                    <div className="flex justify-between items-center border-t border-gray-600 pt-2.5">
+                      <button
+                        onClick={handleCopySelectedFiles}
+                        className="flex items-center bg-transparent border border-gray-600 rounded text-white p-1.5 cursor-pointer"
+                      >
+                        <span className="mr-1">📋</span> Copy
+                      </button>
+                      <div>
+                        Approx. Token Total: -{(totalTokens / 1000).toFixed(2)}k
                       </div>
-                    );
-                  })}
-                </div>
-
-                <div className="flex justify-between items-center border-t border-gray-600 pt-2.5">
-                  <button
-                    onClick={handleCopySelectedFiles}
-                    className="flex items-center bg-transparent border border-gray-600 rounded text-white p-1.5 cursor-pointer"
-                  >
-                    <span className="mr-1">📋</span> Copy
-                  </button>
-                  <div>
-                    Approx. Token Total: -{(totalTokens / 1000).toFixed(2)}k
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleExport}
+                          disabled={loading}
+                          className="flex items-center bg-transparent border border-gray-600 rounded text-white p-1.5 cursor-pointer"
+                        >
+                          <span className="mr-1">📥</span> Export
+                        </button>
+                        <button
+                          onClick={handleChatToggle}
+                          className={`flex items-center ${
+                            showChat ? "bg-blue-500" : "bg-transparent"
+                          } border border-gray-600 rounded text-white p-1.5 cursor-pointer`}
+                        >
+                          <span className="mr-1">💬</span> Chat
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={handleExport}
-                      disabled={loading}
-                      className="flex items-center bg-transparent border border-gray-600 rounded text-white p-1.5 cursor-pointer"
-                    >
-                      <span className="mr-1">📥</span> Export
-                    </button>
-                    <button
-                      onClick={handleChatToggle}
-                      className={`flex items-center ${
-                        showChat ? "bg-blue-500" : "bg-transparent"
-                      } border border-gray-600 rounded text-white p-1.5 cursor-pointer`}
-                    >
-                      <span className="mr-1">💬</span> Chat
-                    </button>
-                  </div>
-                </div>
-              </div>
 
-              {error && (
-                <div className="text-red-500 mt-2.5">
-                  <strong>Error:</strong> {error}
-                </div>
+                  {error && (
+                    <div className="text-red-500 mt-2.5">
+                      <strong>Error:</strong> {error}
+                    </div>
+                  )}
+
+                  {loading && (
+                    <p className="text-white">Generating report...</p>
+                  )}
+
+                  {showChat && (
+                    <div className="mt-5 bg-gray-800 p-4 rounded-lg text-white">
+                      <h3>Chat</h3>
+                      <div className="bg-gray-700 rounded p-2.5 min-h-50">
+                        <p>Chat with your codebase using the selected files.</p>
+                      </div>
+                      <div className="flex mt-2.5">
+                        <input
+                          type="text"
+                          placeholder="Ask a question about your code..."
+                          className="flex-1 p-2 rounded-l border-none bg-gray-600 text-white"
+                        />
+                        <button className="p-2 bg-blue-500 text-white border-none rounded-r cursor-pointer">
+                          Send
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
-
-              {loading && <p className="text-white">Generating report...</p>}
-
-              {showChat && (
-                <div className="mt-5 bg-gray-800 p-4 rounded-lg text-white">
-                  <h3>Chat</h3>
-                  <div className="bg-gray-700 rounded p-2.5 min-h-50">
-                    <p>Chat with your codebase using the selected files.</p>
-                  </div>
-                  <div className="flex mt-2.5">
-                    <input
-                      type="text"
-                      placeholder="Ask a question about your code..."
-                      className="flex-1 p-2 rounded-l border-none bg-gray-600 text-white"
-                    />
-                    <button className="p-2 bg-blue-500 text-white border-none rounded-r cursor-pointer">
-                      Send
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+            </div>
+          </Panel>
+        </PanelGroup>
       </div>
     </div>
   );
