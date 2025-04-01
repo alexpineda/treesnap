@@ -659,100 +659,177 @@ ${fileData}`;
                     </div>
                   </div>
                   <div className="flex-1 overflow-y-auto px-4">
-                    <div className="bg-gray-800 text-white rounded-lg p-4 shadow-lg">
-                      <div className="flex justify-between items-center mb-2.5">
-                        <div className="flex items-center">
-                          <h3 className="m-0">Selected Files</h3>
-                          <button
-                            onClick={handleSort}
-                            className="ml-2 bg-transparent border-none text-white flex items-center cursor-pointer"
-                          >
-                            <span className="mr-0.5">
-                              {sortDirection === "asc" ? "↑" : "↓"}
-                            </span>{" "}
-                            Sort
-                          </button>
+                    <div className="flex gap-4 h-full">
+                      {/* Folder Summary - Left Side */}
+                      <div className="w-1/3 bg-gray-800 text-white rounded-lg p-4 shadow-lg">
+                        <div className="flex justify-between items-center mb-2.5">
+                          <h3 className="m-0">Folder Summary</h3>
+                          <span className="text-sm">
+                            {(totalTokens / 1000).toFixed(2)}k Tokens
+                          </span>
                         </div>
-                        <div className="flex items-center">
-                          <span className="mr-2.5">
-                            {selectedFiles.length} files
-                          </span>
-                          <span>
-                            {totalTokens < 0 ? "" : "-"}
-                            {Math.abs(totalTokens / 1000).toFixed(2)}k Tokens
-                          </span>
+                        <div className="mb-5">
+                          {Object.entries(
+                            selectedFiles
+                              .filter((f) => !f.is_directory)
+                              .reduce((acc, file) => {
+                                // Get directory path
+                                const dirPath = file.path.substring(
+                                  0,
+                                  file.path.lastIndexOf("/")
+                                );
+                                const relativePath = dirPath
+                                  .replace(dir, "")
+                                  .replace(/^\//, "");
+                                const groupKey = relativePath || "root";
+
+                                // Initialize or update directory token count
+                                if (!acc[groupKey]) {
+                                  acc[groupKey] = {
+                                    tokens: 0,
+                                    fileCount: 0,
+                                  };
+                                }
+
+                                acc[groupKey].tokens += file.tokenCount || 0;
+                                acc[groupKey].fileCount += 1;
+
+                                return acc;
+                              }, {} as Record<string, { tokens: number; fileCount: number }>)
+                          )
+                            .sort((a, b) => b[1].tokens - a[1].tokens) // Sort by token count descending
+                            .map(([dirName, { tokens, fileCount }]) => {
+                              const percentage =
+                                totalTokens > 0
+                                  ? Math.round((tokens / totalTokens) * 100)
+                                  : 0;
+
+                              return (
+                                <div
+                                  key={dirName}
+                                  className="flex justify-between p-2.5 my-0.5 bg-gray-700 rounded border-l-4 border-blue-500"
+                                >
+                                  <div className="flex items-center text-sm">
+                                    <span className="mr-2 text-blue-500">
+                                      📁
+                                    </span>
+                                    <span>{dirName}/</span>
+                                  </div>
+                                  <div className="text-sm">
+                                    <span className="text-blue-500">
+                                      {(tokens / 1000).toFixed(2)}k (
+                                      {percentage}%)
+                                    </span>
+                                    <span className="text-gray-400 ml-2">
+                                      {fileCount} files
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
                         </div>
                       </div>
 
-                      <div className="mb-5">
-                        {getGroupedFiles().map((file, index, files) => {
-                          const isDirectoryHeader =
-                            file.is_directory &&
-                            file.dirPercentage !== undefined;
-                          const isFirstFileInGroup =
-                            isDirectoryHeader &&
-                            index < files.length - 1 &&
-                            !files[index + 1].is_directory;
+                      {/* File Summary - Right Side */}
+                      <div className="w-2/3 bg-gray-800 text-white rounded-lg p-4 shadow-lg">
+                        <div className="flex justify-between items-center mb-2.5">
+                          <div className="flex items-center">
+                            <h3 className="m-0">Selected Files</h3>
+                            <button
+                              onClick={handleSort}
+                              className="ml-2 bg-transparent border-none text-white flex items-center cursor-pointer"
+                            >
+                              <span className="mr-0.5">
+                                {sortDirection === "asc" ? "↑" : "↓"}
+                              </span>{" "}
+                              Sort
+                            </button>
+                          </div>
+                          <div className="flex items-center">
+                            <span className="mr-2.5">
+                              {selectedFiles.length} files
+                            </span>
+                            <span>
+                              {totalTokens < 0 ? "" : "-"}
+                              {Math.abs(totalTokens / 1000).toFixed(2)}k Tokens
+                            </span>
+                          </div>
+                        </div>
 
-                          return (
-                            <div key={file.path}>
-                              <div
-                                className={`flex justify-between p-2.5 ${
-                                  isDirectoryHeader ? "mt-2.5" : "my-0.5"
-                                } ${
-                                  isDirectoryHeader
-                                    ? "bg-gray-800"
-                                    : "bg-gray-700"
-                                } rounded ${
-                                  isDirectoryHeader
-                                    ? "border-l-4 border-blue-500"
-                                    : ""
-                                }`}
-                              >
-                                <div className="flex items-center text-sm">
-                                  <span
-                                    className={`mr-2 ${
-                                      isDirectoryHeader
-                                        ? "text-blue-500"
-                                        : "text-gray-300"
-                                    }`}
-                                  >
-                                    {isDirectoryHeader ? "📁" : "📄"}
-                                  </span>
-                                  <span>
-                                    {isDirectoryHeader
-                                      ? `${file.name}/`
-                                      : file.name}
-                                  </span>
-                                </div>
-                                <div>
-                                  {file.tokenCount !== undefined && (
+                        <div
+                          className="mb-5 overflow-y-auto"
+                          style={{ maxHeight: "calc(100vh - 250px)" }}
+                        >
+                          {getGroupedFiles().map((file, index, files) => {
+                            const isDirectoryHeader =
+                              file.is_directory &&
+                              file.dirPercentage !== undefined;
+                            const isFirstFileInGroup =
+                              isDirectoryHeader &&
+                              index < files.length - 1 &&
+                              !files[index + 1].is_directory;
+
+                            return (
+                              <div key={file.path}>
+                                <div
+                                  className={`flex justify-between p-2.5 ${
+                                    isDirectoryHeader ? "mt-2.5" : "my-0.5"
+                                  } ${
+                                    isDirectoryHeader
+                                      ? "bg-gray-800"
+                                      : "bg-gray-700"
+                                  } rounded ${
+                                    isDirectoryHeader
+                                      ? "border-l-4 border-blue-500"
+                                      : ""
+                                  }`}
+                                >
+                                  <div className="flex items-center text-sm">
                                     <span
-                                      className={`${
+                                      className={`mr-2 ${
                                         isDirectoryHeader
                                           ? "text-blue-500"
                                           : "text-gray-300"
                                       }`}
                                     >
-                                      -{(file.tokenCount / 1000).toFixed(2)}k
-                                      {isDirectoryHeader &&
-                                        file.dirPercentage !== undefined &&
-                                        ` (${file.dirPercentage}%)`}
-                                      {!isDirectoryHeader &&
-                                        totalTokens > 0 &&
-                                        ` (${Math.round(
-                                          (file.tokenCount / totalTokens) * 100
-                                        )}%)`}
+                                      {isDirectoryHeader ? "📁" : "📄"}
                                     </span>
-                                  )}
+                                    <span>
+                                      {isDirectoryHeader
+                                        ? `${file.name}/`
+                                        : file.name}
+                                    </span>
+                                  </div>
+                                  <div>
+                                    {file.tokenCount !== undefined && (
+                                      <span
+                                        className={`${
+                                          isDirectoryHeader
+                                            ? "text-blue-500"
+                                            : "text-gray-300"
+                                        }`}
+                                      >
+                                        -{(file.tokenCount / 1000).toFixed(2)}k
+                                        {isDirectoryHeader &&
+                                          file.dirPercentage !== undefined &&
+                                          ` (${file.dirPercentage}%)`}
+                                        {!isDirectoryHeader &&
+                                          totalTokens > 0 &&
+                                          ` (${Math.round(
+                                            (file.tokenCount / totalTokens) *
+                                              100
+                                          )}%)`}
+                                      </span>
+                                    )}
+                                  </div>
                                 </div>
+                                {isFirstFileInGroup && (
+                                  <div className="h-px bg-gray-700 ml-5"></div>
+                                )}
                               </div>
-                              {isFirstFileInGroup && (
-                                <div className="h-px bg-gray-700 ml-5"></div>
-                              )}
-                            </div>
-                          );
-                        })}
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
 
