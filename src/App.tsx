@@ -1,7 +1,15 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Folder, FolderOpen, FileText, ChevronRight, X } from "lucide-react";
+import {
+  Folder,
+  FolderOpen,
+  FileText,
+  ChevronRight,
+  X,
+  Copy,
+  Download,
+} from "lucide-react";
 import { load, Store } from "@tauri-apps/plugin-store";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import "./resizable.css";
@@ -39,7 +47,6 @@ function App() {
   const [totalTokens, setTotalTokens] = useState(0);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [groupByDirectory, setGroupByDirectory] = useState(true);
-  const [showChat, setShowChat] = useState(false);
   const [processingTokens, setProcessingTokens] = useState(false);
   const [isPathExpanded, setIsPathExpanded] = useState(false);
 
@@ -396,8 +403,7 @@ function App() {
     setFileTree([]);
     setTotalTokens(0);
     setError(null);
-    setShowChat(false);
-    setProcessingTokens(false);
+    setDir("");
   };
 
   const handleChooseDirectory = async () => {
@@ -492,10 +498,6 @@ ${fileData}`;
 
       return [dirNode, ...files];
     });
-  };
-
-  const handleChatToggle = () => {
-    setShowChat(!showChat);
   };
 
   const handleExport = async () => {
@@ -649,7 +651,7 @@ ${fileData}`;
                       <TruncatedPath path={dir} />
                       <button
                         onClick={handleClose}
-                        className="p-1 hover:bg-gray-700 rounded cursor-pointer"
+                        className="p-1 rounded cursor-pointer bg-gray-700 hover:bg-gray-600"
                         title="Close directory"
                       >
                         <X size={16} />
@@ -763,59 +765,26 @@ ${fileData}`;
                     {loading && (
                       <p className="text-white">Generating report...</p>
                     )}
-
-                    {showChat && (
-                      <div className="mt-5 bg-gray-800 p-4 rounded-lg text-white">
-                        <h3>Chat</h3>
-                        <div className="bg-gray-700 rounded p-2.5 min-h-50">
-                          <p>
-                            Chat with your codebase using the selected files.
-                          </p>
-                        </div>
-                        <div className="flex mt-2.5">
-                          <input
-                            type="text"
-                            placeholder="Ask a question about your code..."
-                            className="flex-1 p-2 rounded-l border-none bg-gray-600 text-white"
-                          />
-                          <button className="p-2 bg-blue-500 text-white border-none rounded-r cursor-pointer">
-                            Send
-                          </button>
-                        </div>
-                      </div>
-                    )}
                   </div>
 
-                  <div className="p-5 border-t border-gray-700">
-                    <div className="bg-gray-800 text-white rounded-lg p-2.5 shadow-lg">
-                      <div className="flex justify-between items-center">
+                  <div className="p-2.5 border-t border-gray-600 text-sm">
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={handleCopySelectedFiles}
+                        className="flex items-center bg-transparent border border-gray-600 rounded text-white p-1.5 cursor-pointer gap-2"
+                      >
+                        <Copy size={16} />
+                        Copy to clipboard
+                      </button>
+                      <div className="flex gap-2">
                         <button
-                          onClick={handleCopySelectedFiles}
-                          className="flex items-center bg-transparent border border-gray-600 rounded text-white p-1.5 cursor-pointer"
+                          onClick={handleExport}
+                          disabled={loading}
+                          className="flex items-center bg-transparent border border-gray-600 rounded text-white p-1.5 cursor-pointer gap-2"
                         >
-                          <span className="mr-1">📋</span> Copy
+                          <Download size={16} />
+                          Export
                         </button>
-                        <div>
-                          Approx. Token Total: -
-                          {(totalTokens / 1000).toFixed(2)}k
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={handleExport}
-                            disabled={loading}
-                            className="flex items-center bg-transparent border border-gray-600 rounded text-white p-1.5 cursor-pointer"
-                          >
-                            <span className="mr-1">📥</span> Export
-                          </button>
-                          <button
-                            onClick={handleChatToggle}
-                            className={`flex items-center ${
-                              showChat ? "bg-blue-500" : "bg-transparent"
-                            } border border-gray-600 rounded text-white p-1.5 cursor-pointer`}
-                          >
-                            <span className="mr-1">💬</span> Chat
-                          </button>
-                        </div>
                       </div>
                     </div>
                   </div>
