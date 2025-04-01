@@ -19,6 +19,13 @@ import { TruncatedPath } from "./components/truncated-path";
 
 let store: Store;
 
+// Utility function to format token counts consistently
+const formatTokens = (tokens: number, includeK = true): string => {
+  const absTokens = Math.abs(tokens);
+  const formatted = (absTokens / 1000).toFixed(2);
+  return `~${formatted}${includeK ? "k" : ""}`;
+};
+
 interface FileTreeNode {
   name: string;
   path: string;
@@ -59,6 +66,9 @@ function App() {
   const [recentWorkspaces, setRecentWorkspaces] = useState<
     { name: string; path: string }[]
   >([]);
+
+  const [copying, setCopying] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
 
   // Initialize store and load recent workspaces on mount
   useEffect(() => {
@@ -333,11 +343,11 @@ function App() {
 
       return (
         <div key={node.path} style={{ marginLeft: `${level * 16}px` }}>
-          <div className="flex items-center py-1 pl-2 cursor-pointer text-sm gap-2">
+          <div className="flex items-center py-1 pl-2 cursor-pointer text-sm gap-2 overflow-hidden">
             {isFolder && (
               <div
                 onClick={() => toggleFolder(node.path)}
-                className="cursor-pointer"
+                className="cursor-pointer flex-shrink-0"
               >
                 <ChevronRight
                   size={16}
@@ -347,7 +357,7 @@ function App() {
                 />
               </div>
             )}
-            {!isFolder && <div className="w-4" />}
+            {!isFolder && <div className="w-4 flex-shrink-0" />}
             <input
               type="checkbox"
               checked={isFolder ? selectionState === "all" : isSelected}
@@ -358,9 +368,11 @@ function App() {
               }}
               onChange={() => handleFileSelect(node)}
               onClick={(e) => e.stopPropagation()}
-              className={`w-4 h-4 border border-gray-600 rounded bg-${
-                isSelected || selectionState === "all" ? "blue-500" : "gray-700"
-              } inline-block align-middle relative cursor-pointer`}
+              className={`w-4 h-4 inline-block align-middle relative cursor-pointer flex-shrink-0 ${
+                isSelected || selectionState === "all"
+                  ? "bg-blue-500"
+                  : "bg-gray-800"
+              }`}
             />
             <div
               onClick={() => {
@@ -368,9 +380,9 @@ function App() {
               }}
               className={`flex items-center ${
                 isFolder ? "cursor-pointer" : "cursor-default"
-              }`}
+              } min-w-0 flex-shrink overflow-hidden`}
             >
-              <span className="mr-1 w-4 inline-block text-center">
+              <span className="mr-1 w-4 inline-block text-center flex-shrink-0">
                 {isFolder ? (
                   isExpanded ? (
                     <FolderOpen size={16} />
@@ -381,19 +393,10 @@ function App() {
                   <FileText size={16} />
                 )}
               </span>
-              <span
-                style={{
-                  wordBreak: "break-word",
-                  overflowWrap: "break-word",
-                  whiteSpace: "normal",
-                }}
-                className="text-gray-300"
-              >
-                {node.name}
-              </span>
+              <span className="text-gray-300 truncate">{node.name}</span>
             </div>
             {!isFolder && (
-              <span className="ml-2 text-sm text-gray-400">
+              <span className="ml-2 text-sm text-gray-400 flex-shrink-0">
                 {isLoading ? (
                   <span className="animate-pulse">Calculating...</span>
                 ) : node.tokenCount !== undefined ? (
@@ -430,30 +433,6 @@ function App() {
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
-    }
-  };
-
-  const handleCopySelectedFiles = async () => {
-    try {
-      const fileData = selectedFiles
-        .map(
-          (file) =>
-            `${file.path}: ${
-              file.tokenCount !== undefined
-                ? (file.tokenCount / 1000).toFixed(2) + "k"
-                : "unknown"
-            } tokens`
-        )
-        .join("\n");
-
-      const data = `Selected Files (${selectedFiles.length})
-Total Tokens: ${(totalTokens / 1000).toFixed(2)}k
-${fileData}`;
-
-      await navigator.clipboard.writeText(data);
-    } catch (err) {
-      console.error("Failed to copy:", err);
-      setError("Failed to copy to clipboard");
     }
   };
 
@@ -550,6 +529,7 @@ ${fileData}`;
   // New function to handle the copy to clipboard with tree structure
   const handleCopyWithTree = async () => {
     setLoading(true);
+    setCopying(true);
     setError(null);
     try {
       if (!dir) {
@@ -571,16 +551,19 @@ ${fileData}`;
         selectedFilePaths: selectedFilePaths,
       });
 
-      // Optional: show a temporary success message
+      // Show success feedback
+      setCopySuccess(true);
       const originalError = error;
       setError("Copied to clipboard!");
       setTimeout(() => {
+        setCopySuccess(false);
         setError(originalError);
-      }, 2000);
+      }, 1000);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
+      setCopying(false);
     }
   };
 
@@ -647,7 +630,7 @@ ${fileData}`;
             maxSize={50}
             className="overflow-hidden"
           >
-            <div className="h-full border-r border-gray-600 overflow-y-auto bg-gray-800 text-white">
+            <div className="h-full overflow-y-auto bg-gray-800 text-white">
               {!dir ? (
                 renderWorkspaceSelector()
               ) : (
@@ -661,9 +644,8 @@ ${fileData}`;
                           {selectedFiles.filter((f) => !f.is_directory).length}{" "}
                           files selected
                         </span>
-                        <span className="text-sm text-gray-400">
-                          {totalTokens < 0 ? "" : "-"}
-                          {Math.abs(totalTokens / 1000).toFixed(2)}k Tokens
+                        <span className="text-sm text-orange-300">
+                          {formatTokens(totalTokens)} Tokens
                         </span>
                       </div>
                     </div>
@@ -683,7 +665,7 @@ ${fileData}`;
                   </div>
 
                   {/* Scrollable Content */}
-                  <div className="flex-1 overflow-y-auto p-2.5">
+                  <div className="flex-1 overflow-y-auto overflow-x-hidden pl-1 mt-1">
                     {fileTree.length > 0 ? (
                       <div>{renderFileTree(fileTree)}</div>
                     ) : (
@@ -697,7 +679,7 @@ ${fileData}`;
             </div>
           </Panel>
 
-          <PanelResizeHandle className="w-1 bg-gray-700 hover:bg-gray-600 transition-colors" />
+          <PanelResizeHandle className="w-1 bg-gray-900 hover:bg-gray-700 transition-colors" />
 
           {/* Main Content */}
           <Panel
@@ -710,8 +692,8 @@ ${fileData}`;
               {dir && (
                 <>
                   {/* Git-like top bar */}
-                  <div className="flex relative border-b border-gray-700 bg-gray-800 text-xs text-gray-300">
-                    <div className="absolute left-0 flex items-center h-full">
+                  <div className="flex relative border-b border-gray-700 bg-gray-800 text-xs text-gray-300 justify-between">
+                    <div className="flex items-center h-full">
                       <div className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700">
                         <span className="mb-1">
                           <FolderOpen size={16} />
@@ -720,18 +702,20 @@ ${fileData}`;
                       </div>
                       <div
                         className={`flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700 ${
-                          loading ? "bg-gray-600" : ""
+                          copying ? "bg-gray-600" : ""
                         }`}
                         onClick={handleCopyWithTree}
                       >
                         <span className="mb-1">
                           {loading ? (
                             <span className="animate-spin block w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full" />
+                          ) : copySuccess ? (
+                            <div className="text-green-500">✓</div>
                           ) : (
                             <Copy size={16} />
                           )}
                         </span>
-                        <span>{loading ? "Copying..." : "Copy"}</span>
+                        <span>Copy</span>
                       </div>
                       <div className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700">
                         <span className="mb-1">
@@ -741,7 +725,7 @@ ${fileData}`;
                       </div>
                     </div>
 
-                    <div className="flex-1 flex items-center justify-center py-2">
+                    <div className="flex-1 flex items-center justify-center py-2 absolute left-1/2 -translate-x-1/2">
                       <div className="flex items-center gap-2 text-gray-400">
                         <p>{basename(dir)}</p>
                         <button
@@ -754,7 +738,7 @@ ${fileData}`;
                       </div>
                     </div>
 
-                    <div className="absolute right-0 h-full">
+                    <div className="h-full">
                       <div className="flex items-center h-full px-4 py-2 border2-l border-gray-700 cursor-pointer hover:bg-gray-700">
                         <span className="mr-1">Workspace</span>
                         <ChevronRight
@@ -787,8 +771,7 @@ ${fileData}`;
                               {selectedFiles.length} files
                             </span>
                             <span className="text-gray-400 text-sm">
-                              {totalTokens < 0 ? "" : "-"}
-                              {Math.abs(totalTokens / 1000).toFixed(2)}k Tokens
+                              {formatTokens(totalTokens)} Tokens
                             </span>
                           </div>
                         </div>
@@ -853,7 +836,7 @@ ${fileData}`;
                                             : "text-gray-400"
                                         }`}
                                       >
-                                        -{(file.tokenCount / 1000).toFixed(2)}k
+                                        -{formatTokens(file.tokenCount)}
                                         {isDirectoryHeader &&
                                           file.dirPercentage !== undefined &&
                                           ` (${file.dirPercentage}%)`}
@@ -940,7 +923,7 @@ ${fileData}`;
                                   <div className="flex justify-between text-sm pl-6 mt-1">
                                     <div className="space-x-2">
                                       <span className="text-blue-400">
-                                        {(tokens / 1000).toFixed(2)}k
+                                        {formatTokens(tokens)}
                                       </span>
                                       <span className="text-gray-400">
                                         {percentage}%
