@@ -33,6 +33,10 @@ interface FileTreeNode {
   selectionState?: "none" | "partial" | "all";
 }
 
+const basename = (path: string) => {
+  return path.split(/[/\\]/).pop();
+};
+
 function App() {
   const [dir, setDir] = useState("");
   const [disableLineNumbers, setDisableLineNumbers] = useState(false);
@@ -613,7 +617,7 @@ ${fileData}`;
                 <div className="flex flex-col h-full space-y-2">
                   {/* Fixed Header */}
                   <div className="p-2.5 border-b border-gray-600 pl-6 space-y-1">
-                    <h3>{dir.split(/[/\\]/).pop()}</h3>
+                    <h3>{basename(dir)}</h3>
                     <div className="pl-2">
                       <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-400">
@@ -668,18 +672,59 @@ ${fileData}`;
             <div className="h-full flex flex-col bg-gray-900">
               {dir && (
                 <>
-                  <div className="flex items-center justify-center gap-2 text-gray-400 py-2">
-                    <div className="flex items-center gap-2">
-                      <TruncatedPath path={dir} />
-                      <button
-                        onClick={handleClose}
-                        className="p-1 rounded cursor-pointer bg-gray-700 hover:bg-gray-600"
-                        title="Close directory"
-                      >
-                        <X size={16} />
-                      </button>
+                  {/* Git-like top bar */}
+                  <div className="flex border-b border-gray-700 bg-gray-800 text-xs text-gray-300">
+                    <div className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700">
+                      <span className="mb-1">
+                        <FolderOpen size={16} />
+                      </span>
+                      <span>Quick Open</span>
+                    </div>
+                    <div className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700">
+                      <span className="mb-1">
+                        <Copy size={16} />
+                      </span>
+                      <span>Copy</span>
+                    </div>
+                    <div className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700">
+                      <span className="mb-1">
+                        <Download size={16} />
+                      </span>
+                      <span>Export</span>
+                    </div>
+                    <div className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700">
+                      <span className="mb-1">
+                        <ChevronRight
+                          size={16}
+                          className="transform rotate-90"
+                        />
+                      </span>
+                      <span>Push</span>
+                    </div>
+                    <div className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700">
+                      <span className="mb-1"></span>
+                      <span>Stash</span>
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-center gap-2 text-gray-400 py-2">
+                        <div className="flex items-center gap-2">
+                          <p>{basename(dir)}</p>
+                          <button
+                            onClick={handleClose}
+                            className="p-1 rounded cursor-pointer bg-gray-700 hover:bg-gray-600"
+                            title="Close directory"
+                          >
+                            <X size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center px-4 py-2 border-l border-gray-700 cursor-pointer hover:bg-gray-700">
+                      <span className="mr-1">Workspace</span>
+                      <ChevronRight size={12} className="transform rotate-90" />
                     </div>
                   </div>
+
                   <div className="flex-1 overflow-y-auto px-4">
                     <div className="flex gap-4 h-full">
                       {/* File Summary - Right Side */}
@@ -882,28 +927,6 @@ ${fileData}`;
                     {loading && (
                       <p className="text-white">Generating report...</p>
                     )}
-                  </div>
-
-                  <div className="p-2.5 border-t border-gray-600 text-xs bg-gray-800 h-12">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={handleCopySelectedFiles}
-                        className="flex items-center bg-transparent border border-gray-600 rounded text-white p-1.5 cursor-pointer gap-2"
-                      >
-                        <Copy size={16} />
-                        Copy to clipboard
-                      </button>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={handleExport}
-                          disabled={loading}
-                          className="flex items-center bg-transparent border border-gray-600 rounded text-white p-1.5 cursor-pointer gap-2"
-                        >
-                          <Download size={16} />
-                          Export
-                        </button>
-                      </div>
-                    </div>
                   </div>
                 </>
               )}
