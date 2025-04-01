@@ -547,6 +547,43 @@ ${fileData}`;
     }
   };
 
+  // New function to handle the copy to clipboard with tree structure
+  const handleCopyWithTree = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      if (!dir) {
+        throw new Error("Directory path cannot be empty.");
+      }
+
+      // Get the paths of all selected files
+      const selectedFilePaths = selectedFiles
+        .filter((file) => !file.is_directory)
+        .map((file) => file.path);
+
+      if (selectedFilePaths.length === 0) {
+        throw new Error("No files selected to copy.");
+      }
+
+      // Call the Rust command to directly copy to clipboard
+      await invoke("copy_files_with_tree_to_clipboard", {
+        dirPath: dir,
+        selectedFilePaths: selectedFilePaths,
+      });
+
+      // Optional: show a temporary success message
+      const originalError = error;
+      setError("Copied to clipboard!");
+      setTimeout(() => {
+        setError(originalError);
+      }, 2000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleClose = () => {
     setDir("");
     setSelectedFiles([]);
@@ -681,11 +718,20 @@ ${fileData}`;
                         </span>
                         <span>Quick Open</span>
                       </div>
-                      <div className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700">
+                      <div
+                        className={`flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700 ${
+                          loading ? "bg-gray-600" : ""
+                        }`}
+                        onClick={handleCopyWithTree}
+                      >
                         <span className="mb-1">
-                          <Copy size={16} />
+                          {loading ? (
+                            <span className="animate-spin block w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full" />
+                          ) : (
+                            <Copy size={16} />
+                          )}
                         </span>
-                        <span>Copy</span>
+                        <span>{loading ? "Copying..." : "Copy"}</span>
                       </div>
                       <div className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700">
                         <span className="mb-1">
@@ -709,7 +755,7 @@ ${fileData}`;
                     </div>
 
                     <div className="absolute right-0 h-full">
-                      <div className="flex items-center h-full px-4 py-2 border-l border-gray-700 cursor-pointer hover:bg-gray-700">
+                      <div className="flex items-center h-full px-4 py-2 border2-l border-gray-700 cursor-pointer hover:bg-gray-700">
                         <span className="mr-1">Workspace</span>
                         <ChevronRight
                           size={12}
