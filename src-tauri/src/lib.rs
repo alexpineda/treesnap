@@ -234,18 +234,17 @@ async fn fill_tokens_in_tree(nodes: &mut [FileTreeNode], bpe: Arc<CoreBPE>) -> R
     Ok(())
 }
 
+// Keep the original function that calculates tokens
 #[tauri::command]
 async fn get_file_tree_with_tokens(dir_path: String) -> Result<Vec<FileTreeNode>, String> {
     let dir = PathBuf::from(&dir_path);
     if !dir.exists() || !dir.is_dir() {
-        // Check if it's a directory too
         return Err(format!(
             "Directory does not exist or is not a directory: {:?}",
             dir
         ));
     }
 
-    // Build ignore list (sync) - same as before
     let mut ignore_builder = ignore::gitignore::GitignoreBuilder::new(dir.clone());
     let gitignore = dir.join(".gitignore");
     if gitignore.exists() {
@@ -266,19 +265,51 @@ async fn get_file_tree_with_tokens(dir_path: String) -> Result<Vec<FileTreeNode>
     }
     let ig = ignore_builder.build().map_err(|e| e.to_string())?;
 
-    // 1) Build the tree synchronously using the new function.
     let mut tree = build_tree_sync(&dir, &dir, &ig)?;
 
-    // 2) Initialize tokenizer (Arc for sharing)
     let bpe = Arc::new(
         tiktoken_rs::get_bpe_from_model("gpt-4o")
             .map_err(|e| format!("Failed to initialize tokenizer: {}", e))?,
     );
 
-    // 3) Fill in token counts asynchronously using the new function.
     fill_tokens_in_tree(&mut tree, bpe).await?;
 
-    // The old inner async fn `build_tree_with_tokens` is no longer needed and is removed implicitly by this edit.
+    Ok(tree)
+}
+
+// Add a new command that only gets the tree structure
+#[tauri::command]
+async fn get_file_tree(dir_path: String) -> Result<Vec<FileTreeNode>, String> {
+    let dir = PathBuf::from(&dir_path);
+    if !dir.exists() || !dir.is_dir() {
+        return Err(format!(
+            "Directory does not exist or is not a directory: {:?}",
+            dir
+        ));
+    }
+
+    let mut ignore_builder = ignore::gitignore::GitignoreBuilder::new(dir.clone());
+    let gitignore = dir.join(".gitignore");
+    if gitignore.exists() {
+        if let Some(e) = ignore_builder.add(&gitignore) {
+            eprintln!("Warning: Failed to parse .gitignore: {}", e);
+        }
+    }
+    let codefetchignore = dir.join(".codefetchignore");
+    if codefetchignore.exists() {
+        if let Some(e) = ignore_builder.add(&codefetchignore) {
+            eprintln!("Warning: Failed to parse .codefetchignore: {}", e);
+        }
+    }
+    for line in DEFAULT_IGNORE_PATTERNS.lines() {
+        ignore_builder
+            .add_line(None, line.trim())
+            .map_err(|e| e.to_string())?;
+    }
+    let ig = ignore_builder.build().map_err(|e| e.to_string())?;
+
+    // Build the tree structure only
+    let tree = build_tree_sync(&dir, &dir, &ig)?;
 
     Ok(tree)
 }
@@ -290,7 +321,8 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             calculate_file_tokens,
-            get_file_tree_with_tokens
+            get_file_tree_with_tokens,
+            get_file_tree
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

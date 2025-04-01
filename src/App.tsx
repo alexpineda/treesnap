@@ -92,15 +92,11 @@ function App() {
   const loadFileTree = async (dirPath: string) => {
     try {
       setLoading(true);
-      const tree = await invoke<FileTreeNode[]>("get_file_tree_with_tokens", {
+      // Use the function without tokens for the initial load
+      const tree = await invoke<FileTreeNode[]>("get_file_tree", {
         dirPath,
       });
-      // Map the token_count from Rust to tokenCount for the frontend
-      const mappedTree = tree.map((node) => ({
-        ...node,
-        tokenCount: node.token_count,
-      }));
-      setFileTree(mappedTree);
+      setFileTree(tree); // Use the tree directly, no mapping needed
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -108,50 +104,107 @@ function App() {
     }
   };
 
-  const handleFileSelect = async (node: FileTreeNode) => {
-    const prevSelected = [...selectedFiles];
-    const isCurrentlySelected = prevSelected.some((f) => f.path === node.path);
+  // Helper function to get all descendant files and directories from a node
+  const getAllDescendants = (node: FileTreeNode): FileTreeNode[] => {
+    let items: FileTreeNode[] = [node];
+    if (node.children) {
+      node.children.forEach((child) => {
+        items = items.concat(getAllDescendants(child));
+      });
+    }
+    return items;
+  };
 
-    // Helper function to get all descendant files and directories
-    const getAllDescendants = (node: FileTreeNode): FileTreeNode[] => {
-      let items: FileTreeNode[] = [node];
+  // Helper function to find a node by path in the tree
+  const findNodeByPath = (
+    nodes: FileTreeNode[],
+    path: string
+  ): FileTreeNode | null => {
+    for (const node of nodes) {
+      if (node.path === path) {
+        return node;
+      }
       if (node.children) {
-        node.children.forEach((child) => {
-          items = items.concat(getAllDescendants(child));
-        });
+        const found = findNodeByPath(node.children, path);
+        if (found) return found;
       }
-      return items;
-    };
+    }
+    return null;
+  };
 
-    let newSelection: FileTreeNode[];
+  const handleFileSelect = async (node: FileTreeNode) => {
+    setProcessingTokens(true); // Indicate loading
+    try {
+      if (node.is_directory) {
+        // --- Directory Selection Logic ---
 
-    // If directory is being selected/deselected
-    if (node.is_directory) {
-      const allDescendants = getAllDescendants(node);
-      if (isCurrentlySelected) {
-        // Remove self and all descendants
-        newSelection = prevSelected.filter(
-          (f) => !allDescendants.some((d) => d.path === f.path)
+        // Find the corresponding node in the main fileTree to get its current children for path checking
+        const displayNode = findNodeByPath(fileTree, node.path);
+        if (!displayNode) {
+          console.error(
+            "Could not find directory node in display tree:",
+            node.path
+          );
+          return;
+        }
+
+        const allDescendantPaths = getAllDescendants(displayNode).map(
+          (d) => d.path
         );
-        setSelectedFiles(newSelection);
-        return;
-      } else {
-        // Add self and all descendants that aren't already selected
-        const newItems = allDescendants.filter(
-          (f) => !prevSelected.some((p) => p.path === f.path)
+
+        // Determine if we are selecting or deselecting based on current selection state
+        const isSelecting = !selectedFiles.some(
+          (sf) => allDescendantPaths.includes(sf.path) && !sf.is_directory
         );
-        setSelectedFiles([...prevSelected, ...newItems]);
-        return;
-      }
-    } else {
-      // Handle single file selection/deselection
-      if (isCurrentlySelected) {
-        newSelection = prevSelected.filter((f) => f.path !== node.path);
-        setSelectedFiles(newSelection);
-        return;
+
+        if (isSelecting) {
+          // Fetch the subtree with tokens
+          const subtreeWithTokens = await invoke<FileTreeNode[]>(
+            "get_file_tree_with_tokens",
+            { dirPath: node.path }
+          );
+
+          // Need to reconstruct the root node for getAllDescendants to work correctly on the result
+          const rootSubtreeNode: FileTreeNode = {
+            ...node,
+            children: subtreeWithTokens,
+          };
+          const filesToAdd = getAllDescendants(rootSubtreeNode)
+            .filter((n) => !n.is_directory)
+            .map((n) => ({ ...n, tokenCount: n.token_count })); // Map token_count
+
+          // Add new files, avoiding duplicates
+          setSelectedFiles((prev) => {
+            const existingPaths = new Set(prev.map((f) => f.path));
+            const uniqueNewFiles = filesToAdd.filter(
+              (f) => !existingPaths.has(f.path)
+            );
+            return [...prev, ...uniqueNewFiles];
+          });
+        } else {
+          // Deselecting: remove all descendants found in the display tree
+          setSelectedFiles((prev) =>
+            prev.filter((sf) => !allDescendantPaths.includes(sf.path))
+          );
+        }
       } else {
-        setSelectedFiles([...prevSelected, node]);
+        // --- File Selection Logic ---
+        const isCurrentlySelected = selectedFiles.some(
+          (f) => f.path === node.path
+        );
+
+        if (isCurrentlySelected) {
+          // Remove file
+          setSelectedFiles((prev) => prev.filter((f) => f.path !== node.path));
+        } else {
+          // Add file (calculateTotalTokens useEffect will handle fetching tokens if needed)
+          setSelectedFiles((prev) => [...prev, node]);
+        }
       }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setProcessingTokens(false);
     }
   };
 
