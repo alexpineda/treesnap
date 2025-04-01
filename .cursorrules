@@ -1,0 +1,22 @@
+This is a Tauri app using bun and typescript/react on the front end.
+
+It's meant to analyse a directory, get token counts for files of interset, and compile a file tree and file contents.
+
+# ** UI **
+
+## Project / directory select - left panel
+
+User should be able to select a directory or see recent directories selected.
+
+## File tree - left panel
+
+Once a directory is selected, the left panel is replaced with a file tree.
+User is shown a tree view of the directory with files.
+Directory should not show files under .gitignore
+User can select files and directories.
+
+## Main area
+
+Token counts are calculated for each file and a sum is provided.
+Files are shown by token counts.
+Users can deselect from this view as well.
