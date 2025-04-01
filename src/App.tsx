@@ -534,21 +534,17 @@ ${fileData}`;
   const renderWorkspaceSelector = () => {
     return (
       <div className="flex flex-col items-center justify-center h-full bg-gray-800 text-white p-5 text-center">
-        <h2>Workspaces</h2>
+        <h2>Codebases</h2>
         <p className="text-sm my-2.5 mb-5">
-          Open or drag a folder to create a new workspace.
+          Open a folder to start analyzing your codebase.
         </p>
 
-        <div className="flex gap-2.5">
+        <div className="flex flex-wrap gap-2.5">
           <button
             onClick={handleChooseDirectory}
             className="flex items-center gap-2 bg-gray-700 text-white border border-gray-600 p-2 rounded cursor-pointer"
           >
             <span>📁</span> Open Folder
-          </button>
-
-          <button className="bg-gray-700 text-white border border-gray-600 p-2 rounded cursor-pointer">
-            <span>🔄</span>
           </button>
         </div>
 
