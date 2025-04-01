@@ -15,7 +15,10 @@ import {
 import { load, Store } from "@tauri-apps/plugin-store";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import "./resizable.css";
-import { TruncatedPath } from "./components/truncated-path";
+import { FolderSummary } from "./components/FolderSummary";
+import { SelectedFiles } from "./components/SelectedFiles";
+import { FileTreeNode } from "./types";
+import { TreeMap } from "./components/TreeMap";
 
 let store: Store;
 
@@ -25,20 +28,6 @@ const formatTokens = (tokens: number, includeK = true): string => {
   const formatted = (absTokens / 1000).toFixed(2);
   return `~${formatted}${includeK ? "k" : ""}`;
 };
-
-interface FileTreeNode {
-  name: string;
-  path: string;
-  children?: FileTreeNode[];
-  is_directory: boolean;
-  selected?: boolean;
-  tokenCount?: number;
-  token_count?: number;
-  parent?: string;
-  dirPercentage?: number;
-  isLoading?: boolean;
-  selectionState?: "none" | "partial" | "all";
-}
 
 const basename = (path: string) => {
   return path.split(/[/\\]/).pop();
@@ -69,6 +58,8 @@ function App() {
 
   const [copying, setCopying] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
+
+  const [activeView, setActiveView] = useState("file");
 
   // Initialize store and load recent workspaces on mount
   useEffect(() => {
@@ -450,50 +441,6 @@ function App() {
     });
   };
 
-  // Group files by directory for display
-  const getGroupedFiles = () => {
-    if (!groupByDirectory) return selectedFiles.filter((f) => !f.is_directory);
-
-    const groups: Record<string, FileTreeNode[]> = {};
-
-    selectedFiles
-      .filter((f) => !f.is_directory)
-      .forEach((file) => {
-        // Get the full directory path relative to the root
-        const dirPath = file.path.substring(0, file.path.lastIndexOf("/"));
-        const relativePath = dirPath.replace(dir, "").replace(/^\//, "");
-        const groupKey = relativePath || "/";
-
-        if (!groups[groupKey]) {
-          groups[groupKey] = [];
-        }
-
-        groups[groupKey].push(file);
-      });
-
-    return Object.entries(groups).flatMap(([dirPath, files]) => {
-      // Total tokens for this directory
-      const dirTokens = files.reduce(
-        (sum, file) => sum + (file.tokenCount || 0),
-        0
-      );
-      const dirPercentage =
-        totalTokens > 0 ? Math.round((dirTokens / totalTokens) * 100) : 0;
-
-      // Create a "directory header" node
-      const dirNode: FileTreeNode = {
-        name: dirPath === "/" ? "root" : dirPath.split("/").join(" / "),
-        path: `${dirPath}_header`,
-        is_directory: true,
-        tokenCount: dirTokens,
-        dirPercentage,
-        children: files,
-      };
-
-      return [dirNode, ...files];
-    });
-  };
-
   const handleExport = async () => {
     setLoading(true);
     setError(null);
@@ -725,7 +672,7 @@ function App() {
                       </div>
                     </div>
 
-                    <div className="flex-1 flex items-center justify-center py-2 absolute left-1/2 -translate-x-1/2">
+                    <div className="flex-1 flex items-center justify-center py-2 absolute left-1/2 -translate-x-1/2 h-full">
                       <div className="flex items-center gap-2 text-gray-400">
                         <p>{basename(dir)}</p>
                         <button
@@ -738,207 +685,67 @@ function App() {
                       </div>
                     </div>
 
-                    <div className="h-full">
-                      <div className="flex items-center h-full px-4 py-2 border2-l border-gray-700 cursor-pointer hover:bg-gray-700">
-                        <span className="mr-1">Workspace</span>
-                        <ChevronRight
-                          size={12}
-                          className="transform rotate-90"
-                        />
+                    <div className="flex items-center h-full">
+                      <div className="flex rounded overflow-hidden border border-gray-600 mx-2">
+                        <button
+                          className={`px-3 py-1 text-xs ${
+                            activeView === "file"
+                              ? "bg-gray-600 text-white"
+                              : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                          }`}
+                          onClick={() => setActiveView("file")}
+                        >
+                          File View
+                        </button>
+                        <button
+                          className={`px-3 py-1 text-xs border-l border-gray-600 ${
+                            activeView === "directory"
+                              ? "bg-gray-600 text-white"
+                              : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                          }`}
+                          onClick={() => setActiveView("directory")}
+                        >
+                          Directory View
+                        </button>
+                        <button
+                          className={`px-3 py-1 text-xs border-l border-gray-600 ${
+                            activeView === "tree"
+                              ? "bg-gray-600 text-white"
+                              : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                          }`}
+                          onClick={() => setActiveView("tree")}
+                        >
+                          Tree View
+                        </button>
                       </div>
                     </div>
                   </div>
 
                   <div className="flex-1 overflow-y-auto px-4">
                     <div className="flex gap-4 h-full">
-                      {/* File Summary - Right Side */}
-                      <div className="w-2/3 bg-gray-800 text-white rounded-lg p-4 shadow-lg">
-                        <div className="flex justify-between items-center mb-2.5">
-                          <div className="flex items-center">
-                            <h3 className="m-0">Selected Files</h3>
-                            <button
-                              onClick={handleSort}
-                              className="ml-2 bg-transparent border-none text-white flex items-center cursor-pointer"
-                            >
-                              <span className="mr-0.5">
-                                {sortDirection === "asc" ? "↑" : "↓"}
-                              </span>{" "}
-                              Sort
-                            </button>
-                          </div>
-                          <div className="flex items-center">
-                            <span className="mr-2.5 text-gray-400 text-sm">
-                              {selectedFiles.length} files
-                            </span>
-                            <span className="text-gray-400 text-sm">
-                              {formatTokens(totalTokens)} Tokens
-                            </span>
-                          </div>
-                        </div>
-
-                        <div
-                          className="mb-5 overflow-y-auto"
-                          style={{ maxHeight: "calc(100vh - 250px)" }}
-                        >
-                          {getGroupedFiles().map((file, index, files) => {
-                            const isDirectoryHeader =
-                              file.is_directory &&
-                              file.dirPercentage !== undefined;
-                            const isFirstFileInGroup =
-                              isDirectoryHeader &&
-                              index < files.length - 1 &&
-                              !files[index + 1].is_directory;
-
-                            return (
-                              <div key={file.path}>
-                                <div
-                                  className={`flex justify-between p-2.5 ${
-                                    isDirectoryHeader ? "mt-2.5" : "my-0.5"
-                                  } ${
-                                    isDirectoryHeader
-                                      ? "bg-gray-800"
-                                      : "bg-gray-700"
-                                  } rounded ${
-                                    isDirectoryHeader
-                                      ? "border-l-4 border-blue-500"
-                                      : ""
-                                  }`}
-                                >
-                                  <div className="flex items-center text-sm">
-                                    <span
-                                      className={`mr-2 ${
-                                        isDirectoryHeader
-                                          ? "text-blue-400"
-                                          : "text-gray-300"
-                                      }`}
-                                    >
-                                      {isDirectoryHeader ? "📁" : "📄"}
-                                    </span>
-                                    <span
-                                      style={{
-                                        wordBreak: "break-word",
-                                        overflowWrap: "break-word",
-                                        whiteSpace: "normal",
-                                      }}
-                                      className="text-gray-300"
-                                    >
-                                      {isDirectoryHeader
-                                        ? `${file.name}/`
-                                        : file.name}
-                                    </span>
-                                  </div>
-                                  <div>
-                                    {file.tokenCount !== undefined && (
-                                      <span
-                                        className={`${
-                                          isDirectoryHeader
-                                            ? "text-blue-400"
-                                            : "text-gray-400"
-                                        }`}
-                                      >
-                                        -{formatTokens(file.tokenCount)}
-                                        {isDirectoryHeader &&
-                                          file.dirPercentage !== undefined &&
-                                          ` (${file.dirPercentage}%)`}
-                                        {!isDirectoryHeader &&
-                                          totalTokens > 0 &&
-                                          ` (${Math.round(
-                                            (file.tokenCount / totalTokens) *
-                                              100
-                                          )}%)`}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                                {isFirstFileInGroup && (
-                                  <div className="h-px bg-gray-700 ml-5"></div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      {/* Folder Summary - Left Side */}
-                      <div className="w-1/3 bg-gray-800 text-white rounded-lg p-4 shadow-lg">
-                        <div className="flex justify-between items-center mb-2.5">
-                          <h3 className="m-0">Folder Summary</h3>
-                        </div>
-                        <div className="mb-5">
-                          {Object.entries(
-                            selectedFiles
-                              .filter((f) => !f.is_directory)
-                              .reduce((acc, file) => {
-                                // Get directory path
-                                const dirPath = file.path.substring(
-                                  0,
-                                  file.path.lastIndexOf("/")
-                                );
-                                const relativePath = dirPath
-                                  .replace(dir, "")
-                                  .replace(/^\//, "");
-                                const groupKey = relativePath || "root";
-
-                                // Initialize or update directory token count
-                                if (!acc[groupKey]) {
-                                  acc[groupKey] = {
-                                    tokens: 0,
-                                    fileCount: 0,
-                                  };
-                                }
-
-                                acc[groupKey].tokens += file.tokenCount || 0;
-                                acc[groupKey].fileCount += 1;
-
-                                return acc;
-                              }, {} as Record<string, { tokens: number; fileCount: number }>)
-                          )
-                            .sort((a, b) => b[1].tokens - a[1].tokens) // Sort by token count descending
-                            .map(([dirName, { tokens, fileCount }]) => {
-                              const percentage =
-                                totalTokens > 0
-                                  ? Math.round((tokens / totalTokens) * 100)
-                                  : 0;
-
-                              return (
-                                <div
-                                  key={dirName}
-                                  className="flex flex-col p-2.5 my-0.5 bg-gray-700 rounded border-l-4 border-blue-500"
-                                >
-                                  <div className="flex items-center text-sm">
-                                    <span className="mr-2 text-blue-400">
-                                      📁
-                                    </span>
-                                    <span
-                                      style={{
-                                        wordBreak: "break-word",
-                                        overflowWrap: "break-word",
-                                        whiteSpace: "normal",
-                                      }}
-                                      className="text-gray-300"
-                                    >
-                                      {dirName}/
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between text-sm pl-6 mt-1">
-                                    <div className="space-x-2">
-                                      <span className="text-blue-400">
-                                        {formatTokens(tokens)}
-                                      </span>
-                                      <span className="text-gray-400">
-                                        {percentage}%
-                                      </span>
-                                    </div>
-                                    <span className="text-gray-400">
-                                      {fileCount}{" "}
-                                      {fileCount === 1 ? "file" : "files"}
-                                    </span>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                        </div>
-                      </div>
+                      {activeView === "file" && (
+                        <SelectedFiles
+                          selectedFiles={selectedFiles}
+                          dir={dir}
+                          totalTokens={totalTokens}
+                          handleSort={handleSort}
+                          sortDirection={sortDirection}
+                          groupByDirectory={groupByDirectory}
+                        />
+                      )}
+                      {activeView === "directory" && (
+                        <FolderSummary
+                          selectedFiles={selectedFiles}
+                          dir={dir}
+                          totalTokens={totalTokens}
+                        />
+                      )}
+                      {activeView === "tree" && (
+                        <TreeMap
+                          selectedFiles={selectedFiles}
+                          totalTokens={totalTokens}
+                        />
+                      )}
                     </div>
 
                     {error && (
