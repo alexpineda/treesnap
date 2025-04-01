@@ -320,7 +320,21 @@ function App() {
 
       return (
         <div key={node.path} style={{ marginLeft: `${level * 16}px` }}>
-          <div className="flex items-center py-1 cursor-pointer">
+          <div className="flex items-center py-1 pl-2 cursor-pointer text-sm gap-2">
+            {isFolder && (
+              <div
+                onClick={() => toggleFolder(node.path)}
+                className="cursor-pointer"
+              >
+                <ChevronRight
+                  size={16}
+                  className={`transition-transform duration-200 ${
+                    isExpanded ? "transform rotate-90" : ""
+                  }`}
+                />
+              </div>
+            )}
+            {!isFolder && <div className="w-4" />}
             <input
               type="checkbox"
               checked={isFolder ? selectionState === "all" : isSelected}
@@ -331,7 +345,7 @@ function App() {
               }}
               onChange={() => handleFileSelect(node)}
               onClick={(e) => e.stopPropagation()}
-              className={`mr-1 w-4 h-4 border border-gray-600 rounded bg-${
+              className={`w-4 h-4 border border-gray-600 rounded bg-${
                 isSelected || selectionState === "all" ? "blue-500" : "gray-700"
               } inline-block align-middle relative cursor-pointer`}
             />
@@ -343,14 +357,6 @@ function App() {
                 isFolder ? "cursor-pointer" : "cursor-default"
               }`}
             >
-              {isFolder && (
-                <ChevronRight
-                  size={16}
-                  className={`mr-1 transition-transform duration-200 ${
-                    isExpanded ? "transform rotate-90" : ""
-                  }`}
-                />
-              )}
               <span className="mr-1 w-4 inline-block text-center">
                 {isFolder ? (
                   isExpanded ? (
@@ -453,9 +459,10 @@ ${fileData}`;
     selectedFiles
       .filter((f) => !f.is_directory)
       .forEach((file) => {
+        // Get the full directory path relative to the root
         const dirPath = file.path.substring(0, file.path.lastIndexOf("/"));
-        const parentDir = dirPath.split("/").pop() || "";
-        const groupKey = parentDir;
+        const relativePath = dirPath.replace(dir, "").replace(/^\//, "");
+        const groupKey = relativePath || "/";
 
         if (!groups[groupKey]) {
           groups[groupKey] = [];
@@ -464,7 +471,7 @@ ${fileData}`;
         groups[groupKey].push(file);
       });
 
-    return Object.entries(groups).flatMap(([dir, files]) => {
+    return Object.entries(groups).flatMap(([dirPath, files]) => {
       // Total tokens for this directory
       const dirTokens = files.reduce(
         (sum, file) => sum + (file.tokenCount || 0),
@@ -475,8 +482,8 @@ ${fileData}`;
 
       // Create a "directory header" node
       const dirNode: FileTreeNode = {
-        name: dir,
-        path: `${dir}_header`,
+        name: dirPath === "/" ? "root" : dirPath.split("/").join(" / "),
+        path: `${dirPath}_header`,
         is_directory: true,
         tokenCount: dirTokens,
         dirPercentage,
@@ -700,7 +707,7 @@ ${fileData}`;
                                     : ""
                                 }`}
                               >
-                                <div className="flex items-center">
+                                <div className="flex items-center text-sm">
                                   <span
                                     className={`mr-2 ${
                                       isDirectoryHeader
