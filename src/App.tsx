@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Folder, FolderOpen, FileText, ChevronRight } from "lucide-react";
+import { Folder, FolderOpen, FileText, ChevronRight, X } from "lucide-react";
 import { load, Store } from "@tauri-apps/plugin-store";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import "./resizable.css";
+import { TruncatedPath } from "./components/truncated-path";
 
 let store: Store;
 
@@ -40,6 +41,7 @@ function App() {
   const [groupByDirectory, setGroupByDirectory] = useState(true);
   const [showChat, setShowChat] = useState(false);
   const [processingTokens, setProcessingTokens] = useState(false);
+  const [isPathExpanded, setIsPathExpanded] = useState(false);
 
   const [recentWorkspaces, setRecentWorkspaces] = useState<
     { name: string; path: string }[]
@@ -592,30 +594,14 @@ ${fileData}`;
                   {/* Fixed Header */}
                   <div className="p-2.5 border-b border-gray-600">
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={handleChooseDirectory}
-                        disabled={loading}
-                        className="bg-gray-700 text-white border border-gray-600 p-2 rounded cursor-pointer"
-                      >
-                        Choose Directory
-                      </button>
-                      <button
-                        onClick={handleClose}
-                        className="bg-red-600 hover:bg-red-700 text-white border border-red-700 p-2 rounded cursor-pointer"
-                      >
-                        Close
-                      </button>
+                      <h3>Files</h3>
                     </div>
-                    {dir && <p className="text-sm break-all mt-2">{dir}</p>}
                   </div>
 
                   {/* Scrollable Content */}
                   <div className="flex-1 overflow-y-auto p-2.5">
                     {fileTree.length > 0 ? (
-                      <div>
-                        <h3>Files</h3>
-                        {renderFileTree(fileTree)}
-                      </div>
+                      <div>{renderFileTree(fileTree)}</div>
                     ) : (
                       <p>Loading files...</p>
                     )}
@@ -648,162 +634,184 @@ ${fileData}`;
             maxSize={85}
             className="overflow-hidden"
           >
-            <div className="h-full p-5 overflow-y-auto bg-gray-900">
+            <div className="h-full flex flex-col bg-gray-900">
               {dir && (
                 <>
-                  <div className="bg-gray-800 text-white rounded-lg p-2.5 shadow-lg">
-                    <div className="flex justify-between items-center mb-2.5">
-                      <div className="flex items-center">
-                        <h3 className="m-0">Selected Files</h3>
-                        <button
-                          onClick={handleSort}
-                          className="ml-2 bg-transparent border-none text-white flex items-center cursor-pointer"
-                        >
-                          <span className="mr-0.5">
-                            {sortDirection === "asc" ? "↑" : "↓"}
-                          </span>{" "}
-                          Sort
-                        </button>
-                      </div>
-                      <div className="flex items-center">
-                        <span className="mr-2.5">
-                          {selectedFiles.length} files
-                        </span>
-                        <span>
-                          {totalTokens < 0 ? "" : "-"}
-                          {Math.abs(totalTokens / 1000).toFixed(2)}k Tokens
-                        </span>
-                      </div>
+                  <div className="flex items-center justify-center gap-2 text-gray-400 py-2">
+                    <div className="flex items-center gap-2">
+                      <TruncatedPath path={dir} />
+                      <button
+                        onClick={handleClose}
+                        className="p-1 hover:bg-gray-700 rounded cursor-pointer"
+                        title="Close directory"
+                      >
+                        <X size={16} />
+                      </button>
                     </div>
+                  </div>
+                  <div className="flex-1 overflow-y-auto px-4">
+                    <div className="bg-gray-800 text-white rounded-lg p-4 shadow-lg">
+                      <div className="flex justify-between items-center mb-2.5">
+                        <div className="flex items-center">
+                          <h3 className="m-0">Selected Files</h3>
+                          <button
+                            onClick={handleSort}
+                            className="ml-2 bg-transparent border-none text-white flex items-center cursor-pointer"
+                          >
+                            <span className="mr-0.5">
+                              {sortDirection === "asc" ? "↑" : "↓"}
+                            </span>{" "}
+                            Sort
+                          </button>
+                        </div>
+                        <div className="flex items-center">
+                          <span className="mr-2.5">
+                            {selectedFiles.length} files
+                          </span>
+                          <span>
+                            {totalTokens < 0 ? "" : "-"}
+                            {Math.abs(totalTokens / 1000).toFixed(2)}k Tokens
+                          </span>
+                        </div>
+                      </div>
 
-                    <div className="mb-5">
-                      {getGroupedFiles().map((file, index, files) => {
-                        const isDirectoryHeader =
-                          file.is_directory && file.dirPercentage !== undefined;
-                        const isFirstFileInGroup =
-                          isDirectoryHeader &&
-                          index < files.length - 1 &&
-                          !files[index + 1].is_directory;
+                      <div className="mb-5">
+                        {getGroupedFiles().map((file, index, files) => {
+                          const isDirectoryHeader =
+                            file.is_directory &&
+                            file.dirPercentage !== undefined;
+                          const isFirstFileInGroup =
+                            isDirectoryHeader &&
+                            index < files.length - 1 &&
+                            !files[index + 1].is_directory;
 
-                        return (
-                          <div key={file.path}>
-                            <div
-                              className={`flex justify-between p-2.5 ${
-                                isDirectoryHeader ? "mt-2.5" : "my-0.5"
-                              } ${
-                                isDirectoryHeader
-                                  ? "bg-gray-800"
-                                  : "bg-gray-700"
-                              } rounded ${
-                                isDirectoryHeader
-                                  ? "border-l-4 border-blue-500"
-                                  : ""
-                              }`}
-                            >
-                              <div className="flex items-center">
-                                <span
-                                  className={`mr-2 ${
-                                    isDirectoryHeader
-                                      ? "text-blue-500"
-                                      : "text-gray-300"
-                                  }`}
-                                >
-                                  {isDirectoryHeader ? "📁" : "📄"}
-                                </span>
-                                <span>
-                                  {isDirectoryHeader
-                                    ? `${file.name}/`
-                                    : file.name}
-                                </span>
-                              </div>
-                              <div>
-                                {file.tokenCount !== undefined && (
+                          return (
+                            <div key={file.path}>
+                              <div
+                                className={`flex justify-between p-2.5 ${
+                                  isDirectoryHeader ? "mt-2.5" : "my-0.5"
+                                } ${
+                                  isDirectoryHeader
+                                    ? "bg-gray-800"
+                                    : "bg-gray-700"
+                                } rounded ${
+                                  isDirectoryHeader
+                                    ? "border-l-4 border-blue-500"
+                                    : ""
+                                }`}
+                              >
+                                <div className="flex items-center">
                                   <span
-                                    className={`${
+                                    className={`mr-2 ${
                                       isDirectoryHeader
                                         ? "text-blue-500"
                                         : "text-gray-300"
                                     }`}
                                   >
-                                    -{(file.tokenCount / 1000).toFixed(2)}k
-                                    {isDirectoryHeader &&
-                                      file.dirPercentage !== undefined &&
-                                      ` (${file.dirPercentage}%)`}
-                                    {!isDirectoryHeader &&
-                                      totalTokens > 0 &&
-                                      ` (${Math.round(
-                                        (file.tokenCount / totalTokens) * 100
-                                      )}%)`}
+                                    {isDirectoryHeader ? "📁" : "📄"}
                                   </span>
-                                )}
+                                  <span>
+                                    {isDirectoryHeader
+                                      ? `${file.name}/`
+                                      : file.name}
+                                  </span>
+                                </div>
+                                <div>
+                                  {file.tokenCount !== undefined && (
+                                    <span
+                                      className={`${
+                                        isDirectoryHeader
+                                          ? "text-blue-500"
+                                          : "text-gray-300"
+                                      }`}
+                                    >
+                                      -{(file.tokenCount / 1000).toFixed(2)}k
+                                      {isDirectoryHeader &&
+                                        file.dirPercentage !== undefined &&
+                                        ` (${file.dirPercentage}%)`}
+                                      {!isDirectoryHeader &&
+                                        totalTokens > 0 &&
+                                        ` (${Math.round(
+                                          (file.tokenCount / totalTokens) * 100
+                                        )}%)`}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
+                              {isFirstFileInGroup && (
+                                <div className="h-px bg-gray-700 ml-5"></div>
+                              )}
                             </div>
-                            {isFirstFileInGroup && (
-                              <div className="h-px bg-gray-700 ml-5"></div>
-                            )}
-                          </div>
-                        );
-                      })}
+                          );
+                        })}
+                      </div>
                     </div>
 
-                    <div className="flex justify-between items-center border-t border-gray-600 pt-2.5">
-                      <button
-                        onClick={handleCopySelectedFiles}
-                        className="flex items-center bg-transparent border border-gray-600 rounded text-white p-1.5 cursor-pointer"
-                      >
-                        <span className="mr-1">📋</span> Copy
-                      </button>
-                      <div>
-                        Approx. Token Total: -{(totalTokens / 1000).toFixed(2)}k
+                    {error && (
+                      <div className="text-red-500 mt-2.5">
+                        <strong>Error:</strong> {error}
                       </div>
-                      <div className="flex gap-2">
+                    )}
+
+                    {loading && (
+                      <p className="text-white">Generating report...</p>
+                    )}
+
+                    {showChat && (
+                      <div className="mt-5 bg-gray-800 p-4 rounded-lg text-white">
+                        <h3>Chat</h3>
+                        <div className="bg-gray-700 rounded p-2.5 min-h-50">
+                          <p>
+                            Chat with your codebase using the selected files.
+                          </p>
+                        </div>
+                        <div className="flex mt-2.5">
+                          <input
+                            type="text"
+                            placeholder="Ask a question about your code..."
+                            className="flex-1 p-2 rounded-l border-none bg-gray-600 text-white"
+                          />
+                          <button className="p-2 bg-blue-500 text-white border-none rounded-r cursor-pointer">
+                            Send
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-5 border-t border-gray-700">
+                    <div className="bg-gray-800 text-white rounded-lg p-2.5 shadow-lg">
+                      <div className="flex justify-between items-center">
                         <button
-                          onClick={handleExport}
-                          disabled={loading}
+                          onClick={handleCopySelectedFiles}
                           className="flex items-center bg-transparent border border-gray-600 rounded text-white p-1.5 cursor-pointer"
                         >
-                          <span className="mr-1">📥</span> Export
+                          <span className="mr-1">📋</span> Copy
                         </button>
-                        <button
-                          onClick={handleChatToggle}
-                          className={`flex items-center ${
-                            showChat ? "bg-blue-500" : "bg-transparent"
-                          } border border-gray-600 rounded text-white p-1.5 cursor-pointer`}
-                        >
-                          <span className="mr-1">💬</span> Chat
-                        </button>
+                        <div>
+                          Approx. Token Total: -
+                          {(totalTokens / 1000).toFixed(2)}k
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={handleExport}
+                            disabled={loading}
+                            className="flex items-center bg-transparent border border-gray-600 rounded text-white p-1.5 cursor-pointer"
+                          >
+                            <span className="mr-1">📥</span> Export
+                          </button>
+                          <button
+                            onClick={handleChatToggle}
+                            className={`flex items-center ${
+                              showChat ? "bg-blue-500" : "bg-transparent"
+                            } border border-gray-600 rounded text-white p-1.5 cursor-pointer`}
+                          >
+                            <span className="mr-1">💬</span> Chat
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
-
-                  {error && (
-                    <div className="text-red-500 mt-2.5">
-                      <strong>Error:</strong> {error}
-                    </div>
-                  )}
-
-                  {loading && (
-                    <p className="text-white">Generating report...</p>
-                  )}
-
-                  {showChat && (
-                    <div className="mt-5 bg-gray-800 p-4 rounded-lg text-white">
-                      <h3>Chat</h3>
-                      <div className="bg-gray-700 rounded p-2.5 min-h-50">
-                        <p>Chat with your codebase using the selected files.</p>
-                      </div>
-                      <div className="flex mt-2.5">
-                        <input
-                          type="text"
-                          placeholder="Ask a question about your code..."
-                          className="flex-1 p-2 rounded-l border-none bg-gray-600 text-white"
-                        />
-                        <button className="p-2 bg-blue-500 text-white border-none rounded-r cursor-pointer">
-                          Send
-                        </button>
-                      </div>
-                    </div>
-                  )}
                 </>
               )}
             </div>
