@@ -15,6 +15,7 @@ interface FileTreeNode {
   is_directory: boolean;
   selected?: boolean;
   tokenCount?: number;
+  token_count?: number;
   parent?: string;
   dirPercentage?: number;
   isLoading?: boolean;
@@ -91,8 +92,15 @@ function App() {
   const loadFileTree = async (dirPath: string) => {
     try {
       setLoading(true);
-      const tree = await invoke<FileTreeNode[]>("get_file_tree", { dirPath });
-      setFileTree(tree);
+      const tree = await invoke<FileTreeNode[]>("get_file_tree_with_tokens", {
+        dirPath,
+      });
+      // Map the token_count from Rust to tokenCount for the frontend
+      const mappedTree = tree.map((node) => ({
+        ...node,
+        tokenCount: node.token_count,
+      }));
+      setFileTree(mappedTree);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -115,31 +123,6 @@ function App() {
       return items;
     };
 
-    // Helper function to calculate tokens for a file
-    const calculateTokensForFile = async (file: FileTreeNode) => {
-      if (!file.is_directory && !file.tokenCount && !file.isLoading) {
-        try {
-          // Mark file as loading
-          setSelectedFiles((prev) =>
-            prev.map((f) =>
-              f.path === file.path ? { ...f, isLoading: true } : f
-            )
-          );
-
-          const count = await invoke<number>("calculate_file_tokens", {
-            filePath: file.path,
-          });
-
-          // Update file with token count and remove loading state
-          return { ...file, tokenCount: count, isLoading: false };
-        } catch (err) {
-          console.error(`Error calculating tokens for ${file.path}:`, err);
-          return { ...file, isLoading: false };
-        }
-      }
-      return file;
-    };
-
     let newSelection: FileTreeNode[];
 
     // If directory is being selected/deselected
@@ -157,27 +140,7 @@ function App() {
         const newItems = allDescendants.filter(
           (f) => !prevSelected.some((p) => p.path === f.path)
         );
-
-        // First update UI with files without token counts
-        newSelection = [...prevSelected, ...newItems];
-        setSelectedFiles(newSelection);
-
-        // Then calculate tokens in batches of 5 to avoid overwhelming
-        const batchSize = 5;
-        for (let i = 0; i < newItems.length; i += batchSize) {
-          const batch = newItems.slice(i, i + batchSize);
-          const itemsWithTokens = await Promise.all(
-            batch.map((item) => calculateTokensForFile(item))
-          );
-
-          // Update the selection with calculated tokens
-          setSelectedFiles((prev) => {
-            const withoutNewItems = prev.filter(
-              (f) => !batch.some((n) => n.path === f.path)
-            );
-            return [...withoutNewItems, ...itemsWithTokens];
-          });
-        }
+        setSelectedFiles([...prevSelected, ...newItems]);
         return;
       }
     } else {
@@ -187,15 +150,7 @@ function App() {
         setSelectedFiles(newSelection);
         return;
       } else {
-        // Add file immediately with loading state
-        const nodeWithLoading = { ...node, isLoading: true };
-        setSelectedFiles([...prevSelected, nodeWithLoading]);
-
-        // Calculate tokens in background
-        const nodeWithTokens = await calculateTokensForFile(node);
-        setSelectedFiles((prev) =>
-          prev.map((f) => (f.path === node.path ? nodeWithTokens : f))
-        );
+        setSelectedFiles([...prevSelected, node]);
       }
     }
   };

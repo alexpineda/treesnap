@@ -26,8 +26,9 @@ anyhow = "1.0"
 regex = "1.9"
 ignore = "0.4"
 walkdir = "2.3"
-tokio = { version = "1", features = ["macros"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tiktoken-rs = "0.6"    # For GPT-like token counting
+futures = "0.3" # Add futures crate
 # For reading files
 tokio-stream = "0.1"
 tauri-plugin-dialog = "2"
