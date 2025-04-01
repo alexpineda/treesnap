@@ -14,7 +14,12 @@
       {
         "title": "repofreak",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "decorations": true,
+        "devtools": true,
+        "fullscreen": false,
+        "resizable": true,
+        "visible": true
       }
     ],
     "security": {

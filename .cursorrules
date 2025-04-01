@@ -4,6 +4,8 @@ It's meant to analyse a directory, get token counts for files of interset, and c
 
 # ** UI **
 
+The UI should be kept as simple and streamlined as possible. All heavy processing should be delegated to the rust back end.
+
 ## Project / directory select - left panel
 
 User should be able to select a directory or see recent directories selected.
@@ -20,3 +22,11 @@ User can select files and directories.
 Token counts are calculated for each file and a sum is provided.
 Files are shown by token counts.
 Users can deselect from this view as well.
+
+** Rust backend **
+
+Responsible for file handling and processing and messaging for the UI.
+
+## Other
+
+Reference markdown documents for tauri can be found under /reference

@@ -2,12 +2,15 @@ import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Folder, FolderOpen, FileText } from "lucide-react";
+import { load, Store } from "@tauri-apps/plugin-store";
+
+let store: Store;
 
 interface FileTreeNode {
   name: string;
   path: string;
   children?: FileTreeNode[];
-  isDirectory: boolean;
+  is_directory: boolean;
   selected?: boolean;
   tokenCount?: number;
   parent?: string;
@@ -35,6 +38,24 @@ function App() {
     { name: string; path: string }[]
   >([]);
 
+  // Initialize store and load recent workspaces on mount
+  useEffect(() => {
+    const initStore = async () => {
+      store = await load("recent-workspaces.json");
+      try {
+        const saved = await store.get<{ name: string; path: string }[]>(
+          "recent"
+        );
+        if (saved) {
+          setRecentWorkspaces(saved);
+        }
+      } catch (err) {
+        console.error("Error loading recent workspaces:", err);
+      }
+    };
+    initStore();
+  }, []);
+
   useEffect(() => {
     if (dir) {
       loadFileTree(dir);
@@ -42,7 +63,15 @@ function App() {
       setRecentWorkspaces((prev) => {
         const workspaceName = dir.split("/").pop() || dir;
         if (!prev.some((workspace) => workspace.path === dir)) {
-          return [{ name: workspaceName, path: dir }, ...prev].slice(0, 5); // Keep only last 5
+          const newWorkspaces = [
+            { name: workspaceName, path: dir },
+            ...prev,
+          ].slice(0, 5); // Keep only last 5
+          // Save to store if it's initialized
+          if (store) {
+            store.set("recent", newWorkspaces);
+          }
+          return newWorkspaces;
         }
         return prev;
       });
@@ -97,7 +126,7 @@ function App() {
     try {
       let total = 0;
       for (const file of selectedFiles) {
-        if (!file.isDirectory) {
+        if (!file.is_directory) {
           // Only calculate for files that don't have a token count yet
           if (!file.tokenCount) {
             const count = await invoke<number>("calculate_file_tokens", {
@@ -116,57 +145,31 @@ function App() {
 
   const renderFileTree = (nodes: FileTreeNode[], level = 0) => {
     return nodes.map((node) => {
-      const isFolder = node.isDirectory;
+      const isFolder = node.is_directory;
       const isExpanded = expandedFolders.has(node.path);
       const isSelected = selectedFiles.some((f) => f.path === node.path);
 
       return (
-        <div key={node.path} style={{ marginLeft: `${level * 20}px` }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              padding: "4px 0",
-              cursor: "pointer",
-            }}
-          >
+        <div key={node.path} className={`ml-${level * 5}`}>
+          <div className="flex items-center py-1 cursor-pointer">
             <input
               type="checkbox"
               checked={isSelected}
               onChange={() => handleFileSelect(node)}
               onClick={(e) => e.stopPropagation()}
-              style={{
-                marginRight: "5px",
-                appearance: "none",
-                width: "16px",
-                height: "16px",
-                border: "1px solid #555",
-                borderRadius: "3px",
-                backgroundColor: isSelected ? "#4a9eff" : "#333",
-                display: "inline-block",
-                verticalAlign: "middle",
-                position: "relative",
-                cursor: "pointer",
-              }}
+              className={`mr-1 w-4 h-4 border border-gray-600 rounded bg-${
+                isSelected ? "blue-500" : "gray-700"
+              } inline-block align-middle relative cursor-pointer`}
             />
             <div
               onClick={() => {
                 if (isFolder) toggleFolder(node.path);
               }}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                cursor: isFolder ? "pointer" : "default",
-              }}
+              className={`flex items-center ${
+                isFolder ? "cursor-pointer" : "cursor-default"
+              }`}
             >
-              <span
-                style={{
-                  marginRight: "5px",
-                  width: "1em",
-                  display: "inline-block",
-                  textAlign: "center",
-                }}
-              >
+              <span className="mr-1 w-4 inline-block text-center">
                 {isFolder ? (
                   isExpanded ? (
                     <FolderOpen size={16} />
@@ -180,9 +183,7 @@ function App() {
               <span>{node.name}</span>
             </div>
             {!isFolder && node.tokenCount !== undefined && (
-              <span
-                style={{ marginLeft: "10px", fontSize: "0.8em", color: "#666" }}
-              >
+              <span className="ml-2 text-sm text-gray-500">
                 {node.tokenCount} tokens
               </span>
             )}
@@ -303,7 +304,7 @@ ${fileData}`;
       const dirNode: FileTreeNode = {
         name: dir,
         path: `${dir}_header`,
-        isDirectory: true,
+        is_directory: true,
         tokenCount: dirTokens,
         dirPercentage,
         children: files,
@@ -317,74 +318,70 @@ ${fileData}`;
     setShowChat(!showChat);
   };
 
+  const handleExport = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const config = {
+        dir,
+        max_tokens: maxTokens ? Number(maxTokens) : null,
+        disable_line_numbers: disableLineNumbers,
+        verbose,
+      };
+      if (!dir) {
+        throw new Error("Directory path cannot be empty.");
+      }
+      const result = await invoke<string>("run_codefetch", { cfg: config });
+
+      // Create and download the markdown file
+      const blob = new Blob([result], { type: "text/markdown" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "codebase-report.md";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Render workspace selector view when no directory is selected
   const renderWorkspaceSelector = () => {
     return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          height: "100%",
-          backgroundColor: "#222",
-          color: "white",
-          padding: "20px",
-          textAlign: "center",
-        }}
-      >
+      <div className="flex flex-col items-center justify-center h-full bg-gray-800 text-white p-5 text-center">
         <h2>Workspaces</h2>
-        <p style={{ fontSize: "14px", margin: "10px 0 20px" }}>
+        <p className="text-sm my-2.5 mb-5">
           Open or drag a folder to create a new workspace.
         </p>
 
-        <div style={{ display: "flex", gap: "10px" }}>
+        <div className="flex gap-2.5">
           <button
             onClick={handleChooseDirectory}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "8px",
-              backgroundColor: "#333",
-              color: "white",
-              border: "1px solid #555",
-              padding: "8px 16px",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
+            className="flex items-center gap-2 bg-gray-700 text-white border border-gray-600 p-2 rounded cursor-pointer"
           >
             <span>📁</span> Open Folder
           </button>
 
-          <button
-            style={{
-              backgroundColor: "#333",
-              color: "white",
-              border: "1px solid #555",
-              padding: "8px",
-              borderRadius: "4px",
-              cursor: "pointer",
-            }}
-          >
+          <button className="bg-gray-700 text-white border border-gray-600 p-2 rounded cursor-pointer">
             <span>🔄</span>
           </button>
         </div>
 
         {recentWorkspaces.length > 0 && (
-          <div style={{ marginTop: "40px", width: "100%" }}>
-            <h3 style={{ fontSize: "14px", color: "#999", textAlign: "left" }}>
+          <div className="mt-10 w-full">
+            <h3 className="text-sm text-gray-400 text-left">
               Recent workspaces
             </h3>
-            <div style={{ marginTop: "10px" }}>
+            <div className="mt-2.5">
               {recentWorkspaces.map((workspace, index) => (
                 <div
                   key={index}
-                  style={{
-                    padding: "8px 0",
-                    color: "#4a9eff",
-                    cursor: "pointer",
-                    textAlign: "left",
-                  }}
+                  className="py-2 text-blue-500 cursor-pointer text-left"
                   onClick={() => setDir(workspace.path)}
                 >
                   {workspace.name}
@@ -398,42 +395,23 @@ ${fileData}`;
   };
 
   return (
-    <div style={{ display: "flex", height: "100vh", flexDirection: "column" }}>
-      <div style={{ display: "flex", flex: 1, overflow: "hidden" }}>
+    <div className="flex h-screen flex-col bg-gray-900">
+      <div className="flex flex-1 overflow-hidden">
         {/* File Navigation Sidebar */}
-        <div
-          style={{
-            width: "300px",
-            borderRight: "1px solid #444",
-            overflowY: "auto",
-            backgroundColor: "#222",
-            color: "white",
-          }}
-        >
+        <div className="w-75 border-r border-gray-600 overflow-y-auto bg-gray-800 text-white h-full">
           {!dir ? (
             renderWorkspaceSelector()
           ) : (
-            <div style={{ padding: "10px" }}>
-              <div style={{ marginBottom: "10px" }}>
+            <div className="p-2.5 h-full">
+              <div className="mb-2.5">
                 <button
                   onClick={handleChooseDirectory}
                   disabled={loading}
-                  style={{
-                    backgroundColor: "#333",
-                    color: "white",
-                    border: "1px solid #555",
-                    padding: "8px",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                  }}
+                  className="bg-gray-700 text-white border border-gray-600 p-2 rounded cursor-pointer"
                 >
                   Choose Directory
                 </button>
-                {dir && (
-                  <p style={{ fontSize: "0.8em", wordBreak: "break-all" }}>
-                    {dir}
-                  </p>
-                )}
+                {dir && <p className="text-sm break-all">{dir}</p>}
               </div>
 
               {fileTree.length > 0 ? (
@@ -446,18 +424,12 @@ ${fileData}`;
               )}
 
               {selectedFiles.length > 0 && (
-                <div style={{ marginTop: "20px" }}>
+                <div className="mt-5">
                   <h3>Selected Files ({selectedFiles.length})</h3>
                   <p>Total Tokens: {totalTokens}</p>
-                  <div style={{ maxHeight: "200px", overflowY: "auto" }}>
+                  <div className="max-h-50 overflow-y-auto">
                     {selectedFiles.map((file) => (
-                      <div
-                        key={file.path}
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                        }}
-                      >
+                      <div key={file.path} className="flex justify-between">
                         <span>{file.name}</span>
                         <span>{file.tokenCount || "..."}</span>
                       </div>
@@ -470,57 +442,25 @@ ${fileData}`;
         </div>
 
         {/* Main Content */}
-        <div
-          style={{
-            flex: 1,
-            padding: 20,
-            overflowY: "auto",
-            backgroundColor: "#1e1e1e",
-          }}
-        >
+        <div className="flex-1 p-5 overflow-y-auto bg-gray-900 h-full">
           {dir && (
             <>
-              <div
-                style={{
-                  backgroundColor: "#222",
-                  color: "white",
-                  borderRadius: "8px",
-                  padding: "10px 20px",
-                  boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginBottom: "10px",
-                  }}
-                >
-                  <div style={{ display: "flex", alignItems: "center" }}>
-                    <h3 style={{ margin: 0 }}>Selected Files</h3>
+              <div className="bg-gray-800 text-white rounded-lg p-2.5 shadow-lg">
+                <div className="flex justify-between items-center mb-2.5">
+                  <div className="flex items-center">
+                    <h3 className="m-0">Selected Files</h3>
                     <button
                       onClick={handleSort}
-                      style={{
-                        marginLeft: "8px",
-                        background: "transparent",
-                        border: "none",
-                        color: "white",
-                        display: "flex",
-                        alignItems: "center",
-                        cursor: "pointer",
-                      }}
+                      className="ml-2 bg-transparent border-none text-white flex items-center cursor-pointer"
                     >
-                      <span style={{ marginRight: "2px" }}>
+                      <span className="mr-0.5">
                         {sortDirection === "asc" ? "↑" : "↓"}
                       </span>{" "}
                       Sort
                     </button>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center" }}>
-                    <span style={{ marginRight: "10px" }}>
-                      {selectedFiles.length} files
-                    </span>
+                  <div className="flex items-center">
+                    <span className="mr-2.5">{selectedFiles.length} files</span>
                     <span>
                       {totalTokens < 0 ? "" : "-"}
                       {Math.abs(totalTokens / 1000).toFixed(2)}k Tokens
@@ -528,40 +468,35 @@ ${fileData}`;
                   </div>
                 </div>
 
-                <div style={{ marginBottom: "20px" }}>
+                <div className="mb-5">
                   {getGroupedFiles().map((file, index, files) => {
                     const isDirectoryHeader =
-                      file.isDirectory && file.dirPercentage !== undefined;
+                      file.is_directory && file.dirPercentage !== undefined;
                     const isFirstFileInGroup =
                       isDirectoryHeader &&
                       index < files.length - 1 &&
-                      !files[index + 1].isDirectory;
+                      !files[index + 1].is_directory;
 
                     return (
                       <div key={file.path}>
                         <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            padding: "10px",
-                            margin: isDirectoryHeader ? "10px 0 0 0" : "2px 0",
-                            backgroundColor: isDirectoryHeader
-                              ? "#222"
-                              : "#333",
-                            borderRadius: "4px",
-                            borderLeft: isDirectoryHeader
-                              ? "4px solid #4a9eff"
-                              : "none",
-                          }}
+                          className={`flex justify-between p-2.5 ${
+                            isDirectoryHeader ? "mt-2.5" : "my-0.5"
+                          } ${
+                            isDirectoryHeader ? "bg-gray-800" : "bg-gray-700"
+                          } rounded ${
+                            isDirectoryHeader
+                              ? "border-l-4 border-blue-500"
+                              : ""
+                          }`}
                         >
-                          <div
-                            style={{ display: "flex", alignItems: "center" }}
-                          >
+                          <div className="flex items-center">
                             <span
-                              style={{
-                                marginRight: "8px",
-                                color: isDirectoryHeader ? "#4a9eff" : "#ccc",
-                              }}
+                              className={`mr-2 ${
+                                isDirectoryHeader
+                                  ? "text-blue-500"
+                                  : "text-gray-300"
+                              }`}
                             >
                               {isDirectoryHeader ? "📁" : "📄"}
                             </span>
@@ -572,9 +507,11 @@ ${fileData}`;
                           <div>
                             {file.tokenCount !== undefined && (
                               <span
-                                style={{
-                                  color: isDirectoryHeader ? "#4a9eff" : "#ccc",
-                                }}
+                                className={`${
+                                  isDirectoryHeader
+                                    ? "text-blue-500"
+                                    : "text-gray-300"
+                                }`}
                               >
                                 -{(file.tokenCount / 1000).toFixed(2)}k
                                 {isDirectoryHeader &&
@@ -589,127 +526,64 @@ ${fileData}`;
                           </div>
                         </div>
                         {isFirstFileInGroup && (
-                          <div
-                            style={{
-                              height: "1px",
-                              backgroundColor: "#333",
-                              margin: "0 0 0 20px",
-                            }}
-                          ></div>
+                          <div className="h-px bg-gray-700 ml-5"></div>
                         )}
                       </div>
                     );
                   })}
                 </div>
 
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    borderTop: "1px solid #444",
-                    paddingTop: "10px",
-                  }}
-                >
+                <div className="flex justify-between items-center border-t border-gray-600 pt-2.5">
                   <button
                     onClick={handleCopySelectedFiles}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      background: "transparent",
-                      border: "1px solid #555",
-                      borderRadius: "4px",
-                      color: "white",
-                      padding: "5px 10px",
-                      cursor: "pointer",
-                    }}
+                    className="flex items-center bg-transparent border border-gray-600 rounded text-white p-1.5 cursor-pointer"
                   >
-                    <span style={{ marginRight: "5px" }}>📋</span> Copy
+                    <span className="mr-1">📋</span> Copy
                   </button>
                   <div>
                     Approx. Token Total: -{(totalTokens / 1000).toFixed(2)}k
                   </div>
-                  <button
-                    onClick={handleChatToggle}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      background: showChat ? "#4a9eff" : "transparent",
-                      border: "1px solid #555",
-                      borderRadius: "4px",
-                      color: "white",
-                      padding: "5px 10px",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <span style={{ marginRight: "5px" }}>💬</span> Chat
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleExport}
+                      disabled={loading}
+                      className="flex items-center bg-transparent border border-gray-600 rounded text-white p-1.5 cursor-pointer"
+                    >
+                      <span className="mr-1">📥</span> Export
+                    </button>
+                    <button
+                      onClick={handleChatToggle}
+                      className={`flex items-center ${
+                        showChat ? "bg-blue-500" : "bg-transparent"
+                      } border border-gray-600 rounded text-white p-1.5 cursor-pointer`}
+                    >
+                      <span className="mr-1">💬</span> Chat
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <button onClick={handleRun} disabled={loading}>
-                {loading ? "Running..." : "Run Codefetch"}
-              </button>
-
               {error && (
-                <div style={{ color: "red", marginTop: 10 }}>
+                <div className="text-red-500 mt-2.5">
                   <strong>Error:</strong> {error}
                 </div>
               )}
 
-              {loading && (
-                <p style={{ color: "white" }}>Processing directory...</p>
-              )}
+              {loading && <p className="text-white">Generating report...</p>}
 
               {showChat && (
-                <div
-                  style={{
-                    marginTop: "20px",
-                    backgroundColor: "#222",
-                    padding: "15px",
-                    borderRadius: "8px",
-                    color: "white",
-                  }}
-                >
+                <div className="mt-5 bg-gray-800 p-4 rounded-lg text-white">
                   <h3>Chat</h3>
-                  <div
-                    style={{
-                      backgroundColor: "#333",
-                      borderRadius: "4px",
-                      padding: "10px",
-                      minHeight: "200px",
-                    }}
-                  >
+                  <div className="bg-gray-700 rounded p-2.5 min-h-50">
                     <p>Chat with your codebase using the selected files.</p>
                   </div>
-                  <div
-                    style={{
-                      display: "flex",
-                      marginTop: "10px",
-                    }}
-                  >
+                  <div className="flex mt-2.5">
                     <input
                       type="text"
                       placeholder="Ask a question about your code..."
-                      style={{
-                        flex: 1,
-                        padding: "8px",
-                        borderRadius: "4px 0 0 4px",
-                        border: "none",
-                        backgroundColor: "#444",
-                        color: "white",
-                      }}
+                      className="flex-1 p-2 rounded-l border-none bg-gray-600 text-white"
                     />
-                    <button
-                      style={{
-                        padding: "8px 12px",
-                        backgroundColor: "#4a9eff",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "0 4px 4px 0",
-                        cursor: "pointer",
-                      }}
-                    >
+                    <button className="p-2 bg-blue-500 text-white border-none rounded-r cursor-pointer">
                       Send
                     </button>
                   </div>
