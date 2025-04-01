@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { Folder, FolderOpen, FileText } from "lucide-react";
+import { Folder, FolderOpen, FileText, ChevronRight } from "lucide-react";
 import { load, Store } from "@tauri-apps/plugin-store";
 
 let store: Store;
@@ -34,6 +34,8 @@ function App() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [groupByDirectory, setGroupByDirectory] = useState(true);
   const [showChat, setShowChat] = useState(false);
+  const [processingTokens, setProcessingTokens] = useState(false);
+
   const [recentWorkspaces, setRecentWorkspaces] = useState<
     { name: string; path: string }[]
   >([]);
@@ -94,15 +96,91 @@ function App() {
     }
   };
 
-  const handleFileSelect = (node: FileTreeNode) => {
-    setSelectedFiles((prevSelected) => {
-      // If already selected, remove from selection
-      if (prevSelected.some((f) => f.path === node.path)) {
-        return prevSelected.filter((f) => f.path !== node.path);
+  const handleFileSelect = async (node: FileTreeNode) => {
+    const prevSelected = [...selectedFiles];
+    const isCurrentlySelected = prevSelected.some((f) => f.path === node.path);
+
+    // Helper function to get all descendant files and directories
+    const getAllDescendants = (node: FileTreeNode): FileTreeNode[] => {
+      let items: FileTreeNode[] = [node];
+      if (node.children) {
+        node.children.forEach((child) => {
+          items = items.concat(getAllDescendants(child));
+        });
       }
-      // Add to selection regardless of file type
-      return [...prevSelected, node];
-    });
+      return items;
+    };
+
+    // Helper function to calculate tokens for a file
+    const calculateTokensForFile = async (file: FileTreeNode) => {
+      if (!file.is_directory && !file.tokenCount) {
+        try {
+          const count = await invoke<number>("calculate_file_tokens", {
+            filePath: file.path,
+          });
+          return { ...file, tokenCount: count };
+        } catch (err) {
+          console.error(`Error calculating tokens for ${file.path}:`, err);
+          return file;
+        }
+      }
+      return file;
+    };
+
+    let newSelection: FileTreeNode[];
+
+    // If directory is being selected/deselected
+    if (node.is_directory) {
+      const allDescendants = getAllDescendants(node);
+      if (isCurrentlySelected) {
+        // Remove self and all descendants
+        newSelection = prevSelected.filter(
+          (f) => !allDescendants.some((d) => d.path === f.path)
+        );
+      } else {
+        // Add self and all descendants that aren't already selected
+        const newItems = allDescendants.filter(
+          (f) => !prevSelected.some((p) => p.path === f.path)
+        );
+
+        // First update UI with files without token counts
+        newSelection = [...prevSelected, ...newItems];
+        setSelectedFiles(newSelection);
+
+        // Then calculate tokens in the background
+        setProcessingTokens(true);
+        try {
+          const itemsWithTokens = await Promise.all(
+            newItems.map((item) => calculateTokensForFile(item))
+          );
+          // Update the selection with calculated tokens
+          setSelectedFiles((prev) => {
+            const withoutNewItems = prev.filter(
+              (f) => !newItems.some((n) => n.path === f.path)
+            );
+            return [...withoutNewItems, ...itemsWithTokens];
+          });
+        } finally {
+          setProcessingTokens(false);
+        }
+        return; // Early return since we're handling updates separately
+      }
+    } else {
+      // Handle single file selection/deselection
+      if (isCurrentlySelected) {
+        newSelection = prevSelected.filter((f) => f.path !== node.path);
+      } else {
+        setProcessingTokens(true);
+        try {
+          const nodeWithTokens = await calculateTokensForFile(node);
+          newSelection = [...prevSelected, nodeWithTokens];
+        } finally {
+          setProcessingTokens(false);
+        }
+      }
+    }
+
+    setSelectedFiles(newSelection);
   };
 
   const toggleFolder = (path: string) => {
@@ -150,7 +228,7 @@ function App() {
       const isSelected = selectedFiles.some((f) => f.path === node.path);
 
       return (
-        <div key={node.path} className={`ml-${level * 5}`}>
+        <div key={node.path} style={{ marginLeft: `${level * 16}px` }}>
           <div className="flex items-center py-1 cursor-pointer">
             <input
               type="checkbox"
@@ -169,6 +247,14 @@ function App() {
                 isFolder ? "cursor-pointer" : "cursor-default"
               }`}
             >
+              {isFolder && (
+                <ChevronRight
+                  size={16}
+                  className={`mr-1 transition-transform duration-200 ${
+                    isExpanded ? "transform rotate-90" : ""
+                  }`}
+                />
+              )}
               <span className="mr-1 w-4 inline-block text-center">
                 {isFolder ? (
                   isExpanded ? (
@@ -196,29 +282,6 @@ function App() {
         </div>
       );
     });
-  };
-
-  const handleRun = async () => {
-    setLoading(true);
-    setError(null);
-    setOutput("");
-    try {
-      const config = {
-        dir,
-        max_tokens: maxTokens ? Number(maxTokens) : null,
-        disable_line_numbers: disableLineNumbers,
-        verbose,
-      };
-      if (!dir) {
-        throw new Error("Directory path cannot be empty.");
-      }
-      const result = await invoke<string>("run_codefetch", { cfg: config });
-      setOutput(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleChooseDirectory = async () => {
@@ -274,21 +337,23 @@ ${fileData}`;
 
   // Group files by directory for display
   const getGroupedFiles = () => {
-    if (!groupByDirectory) return selectedFiles;
+    if (!groupByDirectory) return selectedFiles.filter((f) => !f.is_directory);
 
     const groups: Record<string, FileTreeNode[]> = {};
 
-    selectedFiles.forEach((file) => {
-      const dirPath = file.path.substring(0, file.path.lastIndexOf("/"));
-      const parentDir = dirPath.split("/").pop() || "";
-      const groupKey = parentDir;
+    selectedFiles
+      .filter((f) => !f.is_directory)
+      .forEach((file) => {
+        const dirPath = file.path.substring(0, file.path.lastIndexOf("/"));
+        const parentDir = dirPath.split("/").pop() || "";
+        const groupKey = parentDir;
 
-      if (!groups[groupKey]) {
-        groups[groupKey] = [];
-      }
+        if (!groups[groupKey]) {
+          groups[groupKey] = [];
+        }
 
-      groups[groupKey].push(file);
-    });
+        groups[groupKey].push(file);
+      });
 
     return Object.entries(groups).flatMap(([dir, files]) => {
       // Total tokens for this directory
@@ -296,9 +361,8 @@ ${fileData}`;
         (sum, file) => sum + (file.tokenCount || 0),
         0
       );
-      const dirPercentage = totalTokens
-        ? Math.round((dirTokens / totalTokens) * 100)
-        : 0;
+      const dirPercentage =
+        totalTokens > 0 ? Math.round((dirTokens / totalTokens) * 100) : 0;
 
       // Create a "directory header" node
       const dirNode: FileTreeNode = {
@@ -348,6 +412,15 @@ ${fileData}`;
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleClose = () => {
+    setDir("");
+    setSelectedFiles([]);
+    setExpandedFolders(new Set());
+    setFileTree([]);
+    setTotalTokens(0);
+    setError(null);
   };
 
   // Render workspace selector view when no directory is selected
@@ -403,7 +476,7 @@ ${fileData}`;
             renderWorkspaceSelector()
           ) : (
             <div className="p-2.5 h-full">
-              <div className="mb-2.5">
+              <div className="mb-2.5 flex items-center gap-2">
                 <button
                   onClick={handleChooseDirectory}
                   disabled={loading}
@@ -411,7 +484,13 @@ ${fileData}`;
                 >
                   Choose Directory
                 </button>
-                {dir && <p className="text-sm break-all">{dir}</p>}
+                <button
+                  onClick={handleClose}
+                  className="bg-red-600 hover:bg-red-700 text-white border border-red-700 p-2 rounded cursor-pointer"
+                >
+                  Close
+                </button>
+                {dir && <p className="text-sm break-all mt-2">{dir}</p>}
               </div>
 
               {fileTree.length > 0 ? (
@@ -426,7 +505,18 @@ ${fileData}`;
               {selectedFiles.length > 0 && (
                 <div className="mt-5">
                   <h3>Selected Files ({selectedFiles.length})</h3>
-                  <p>Total Tokens: {totalTokens}</p>
+                  <div className="flex items-center">
+                    <span className="mr-2.5">{selectedFiles.length} files</span>
+                    <span>
+                      {totalTokens < 0 ? "" : "-"}
+                      {Math.abs(totalTokens / 1000).toFixed(2)}k Tokens
+                    </span>
+                    {processingTokens && (
+                      <span className="ml-2 text-blue-500 text-sm animate-pulse">
+                        Calculating...
+                      </span>
+                    )}
+                  </div>
                   <div className="max-h-50 overflow-y-auto">
                     {selectedFiles.map((file) => (
                       <div key={file.path} className="flex justify-between">
@@ -518,6 +608,7 @@ ${fileData}`;
                                   file.dirPercentage !== undefined &&
                                   ` (${file.dirPercentage}%)`}
                                 {!isDirectoryHeader &&
+                                  totalTokens > 0 &&
                                   ` (${Math.round(
                                     (file.tokenCount / totalTokens) * 100
                                   )}%)`}
