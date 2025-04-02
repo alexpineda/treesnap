@@ -748,6 +748,27 @@ function App() {
                     </div>
                   </div>
 
+                  <div className="flex border-b border-gray-700 text-xs">
+                    <div className="flex items-center px-3 py-1 bg-gray-700 text-gray-400 border-r border-gray-600">
+                      <span>Tab 1</span>
+                      <button className="p-1 hover:bg-gray-600 rounded">
+                        <X size={12} />
+                      </button>
+                    </div>
+                    <div className="flex items-center px-3 bg-gray-800 text-gray-400 border-r border-gray-600">
+                      <span>Tab 2</span>
+                      <button className="p-1 hover:bg-gray-700 rounded">
+                        <X size={12} />
+                      </button>
+                    </div>
+                    <div className="flex items-center px-3 bg-gray-800 text-gray-400 border-r border-gray-600">
+                      <span>Tab 3</span>
+                      <button className="p-1 hover:bg-gray-700 rounded">
+                        <X size={12} />
+                      </button>
+                    </div>
+                  </div>
+
                   <div className="flex-1 overflow-y-auto px-4">
                     <div className="flex flex-col gap-4 h-full">
                       <PanelGroup direction="vertical" className="flex-1">
