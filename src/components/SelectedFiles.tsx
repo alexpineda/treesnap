@@ -1,5 +1,7 @@
 import React from "react";
 import { FileTreeNode } from "../types";
+import { Folder, FileText } from "lucide-react";
+import classNames from "classnames";
 
 interface SelectedFilesProps {
   selectedFiles: FileTreeNode[];
@@ -70,7 +72,7 @@ export const SelectedFiles: React.FC<SelectedFilesProps> = ({
   };
 
   return (
-    <div className="w-full bg-gray-800 text-white rounded-lg p-4 shadow-lg">
+    <div className="w-full mt-2 text-white p-4 shadow-lg">
       <div className="flex justify-between items-center mb-2.5">
         <div className="flex items-center">
           <h3 className="m-0">Selected Files</h3>
@@ -94,28 +96,24 @@ export const SelectedFiles: React.FC<SelectedFilesProps> = ({
         </div>
       </div>
 
-      <div
-        className="mb-5 overflow-y-auto"
-        style={{ maxHeight: "calc(100vh - 250px)" }}
-      >
+      <div className="mb-5 overflow-y-auto" style={{ maxHeight: "100vh" }}>
         {getGroupedFiles().map((file, index, files) => {
           const isDirectoryHeader =
             file.is_directory && file.dirPercentage !== undefined;
-          const isFirstFileInGroup =
-            isDirectoryHeader &&
-            index < files.length - 1 &&
-            !files[index + 1].is_directory;
 
           return (
             <div key={file.path}>
               <div
-                className={`flex justify-between p-2.5 ${
-                  isDirectoryHeader ? "mt-2.5" : "my-0.5"
-                } ${
-                  isDirectoryHeader ? "bg-gray-800" : "bg-gray-700"
-                } rounded ${
-                  isDirectoryHeader ? "border-l-4 border-blue-500" : ""
-                }`}
+                className={classNames("flex justify-between p-2.5", {
+                  // "mt-2.5": isDirectoryHeader,
+                  // "my-0.5": !isDirectoryHeader,
+                  // "bg-gray-200": isDirectoryHeader,
+                  // "bg-gray-700": !isDirectoryHeader,
+                  rounded: true,
+                  "border-t-1 border-l-1 border-r-1 border-gray-500":
+                    isDirectoryHeader,
+                  "border-l-1 border-r-1 border-gray-500": !isDirectoryHeader,
+                })}
               >
                 <div className="flex items-center text-sm">
                   <span
@@ -123,7 +121,11 @@ export const SelectedFiles: React.FC<SelectedFilesProps> = ({
                       isDirectoryHeader ? "text-blue-400" : "text-gray-300"
                     }`}
                   >
-                    {isDirectoryHeader ? "📁" : "📄"}
+                    {isDirectoryHeader ? (
+                      <Folder size={16} />
+                    ) : (
+                      <FileText size={16} />
+                    )}
                   </span>
                   <span
                     style={{
@@ -156,9 +158,6 @@ export const SelectedFiles: React.FC<SelectedFilesProps> = ({
                   )}
                 </div>
               </div>
-              {isFirstFileInGroup && (
-                <div className="h-px bg-gray-700 ml-5"></div>
-              )}
             </div>
           );
         })}
