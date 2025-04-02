@@ -58,19 +58,6 @@ pub struct CodefetchConfig {
     pub verbose: bool,
 }
 
-/// Count tokens for a given string using the GPT BPE.  If `bpe` is None, we do a naive "split on whitespace" as fallback.
-fn count_tokens(text: &str, bpe: Option<&CoreBPE>) -> Result<usize> {
-    if let Some(bpe) = bpe {
-        let encoded = bpe.encode_with_special_tokens(text);
-        Ok(encoded.len())
-    } else {
-        // fallback "simple" approach
-        let re = Regex::new(r"\s+").unwrap();
-        let tokens: Vec<&str> = re.split(text.trim()).filter(|s| !s.is_empty()).collect();
-        Ok(tokens.len())
-    }
-}
-
 /// Calculate tokens for a specific file.
 #[tauri::command]
 async fn calculate_file_tokens(file_path: String) -> Result<usize, String> {

@@ -44,29 +44,29 @@ export const TreeMap = ({
   const getColorForFile = (fileName: string): string => {
     const ext = fileName.split(".").pop()?.toLowerCase() || "";
     const colorMap: Record<string, string> = {
-      js: "bg-yellow-400", // JavaScript - yellow
-      jsx: "bg-cyan-400", // React - light blue
-      ts: "bg-blue-600", // TypeScript - blue
-      tsx: "bg-cyan-500", // React TypeScript - light blue
-      css: "bg-blue-700", // CSS - blue
-      scss: "bg-pink-500", // SCSS - pink
-      html: "bg-orange-600", // HTML - orange
-      json: "bg-gray-800", // JSON - dark gray
-      md: "bg-blue-800", // Markdown - dark blue
-      py: "bg-blue-600", // Python - blue
-      rs: "bg-orange-400", // Rust - orange
-      go: "bg-blue-500", // Go - blue
-      java: "bg-amber-700", // Java - brown
-      rb: "bg-red-600", // Ruby - red
-      php: "bg-purple-600", // PHP - purple
-      c: "bg-gray-600", // C - gray
-      cpp: "bg-pink-600", // C++ - pink
-      h: "bg-gray-600", // Header - gray
-      swift: "bg-orange-400", // Swift - orange
-      kt: "bg-purple-400", // Kotlin - purple
+      js: "bg-gradient-to-br from-yellow-300 to-yellow-500", // JavaScript - yellow gradient
+      jsx: "bg-gradient-to-br from-cyan-300 to-cyan-500", // React - light blue gradient
+      ts: "bg-gradient-to-br from-blue-500 to-blue-700", // TypeScript - blue gradient
+      tsx: "bg-gradient-to-br from-cyan-400 to-cyan-600", // React TypeScript - light blue gradient
+      css: "bg-gradient-to-br from-blue-600 to-blue-800", // CSS - blue gradient
+      scss: "bg-gradient-to-br from-pink-400 to-pink-600", // SCSS - pink gradient
+      html: "bg-gradient-to-br from-orange-500 to-orange-700", // HTML - orange gradient
+      json: "bg-gradient-to-br from-gray-700 to-gray-900", // JSON - dark gray gradient
+      md: "bg-gradient-to-br from-blue-700 to-blue-900", // Markdown - dark blue gradient
+      py: "bg-gradient-to-br from-blue-500 to-blue-700", // Python - blue gradient
+      rs: "bg-gradient-to-br from-orange-300 to-orange-500", // Rust - orange gradient
+      go: "bg-gradient-to-br from-blue-400 to-blue-600", // Go - blue gradient
+      java: "bg-gradient-to-br from-amber-600 to-amber-800", // Java - brown gradient
+      rb: "bg-gradient-to-br from-red-500 to-red-700", // Ruby - red gradient
+      php: "bg-gradient-to-br from-purple-500 to-purple-700", // PHP - purple gradient
+      c: "bg-gradient-to-br from-gray-500 to-gray-700", // C - gray gradient
+      cpp: "bg-gradient-to-br from-pink-500 to-pink-700", // C++ - pink gradient
+      h: "bg-gradient-to-br from-gray-500 to-gray-700", // Header - gray gradient
+      swift: "bg-gradient-to-br from-orange-300 to-orange-500", // Swift - orange gradient
+      kt: "bg-gradient-to-br from-purple-300 to-purple-500", // Kotlin - purple gradient
     };
 
-    return colorMap[ext] || "bg-gray-500"; // Default gray for unknown extensions
+    return colorMap[ext] || "bg-gradient-to-br from-gray-400 to-gray-600"; // Default gray gradient for unknown extensions
   };
 
   // Format tokens
@@ -227,14 +227,14 @@ export const TreeMap = ({
             {layout.map(({ item, x, y, width, height }) => (
               <div
                 key={item.path}
-                className={`absolute overflow-hidden rounded-sm cursor-pointer hover:opacity-90 ${item.color}`}
+                className={`absolute overflow-hidden rounded-xs cursor-pointer hover:opacity-90 ${item.color}`}
                 style={{
                   left: `${x}%`,
                   top: `${y}%`,
                   width: `${width}%`,
                   height: `${height}%`,
                   transition: "all 0.2s",
-                  border: "1px solid rgba(0,0,0,0.1)",
+                  border: "2px solid rgba(0,0,0,0.1)",
                 }}
                 onMouseOver={(e) => handleMouseOver(item, e)}
                 onMouseOut={handleMouseOut}

@@ -11,6 +11,8 @@ import {
   Download,
   Search,
   Settings,
+  ChevronsDownUp,
+  ChevronsUpDown,
 } from "lucide-react";
 import { load, Store } from "@tauri-apps/plugin-store";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
@@ -19,7 +21,8 @@ import { FolderSummary } from "./components/FolderSummary";
 import { SelectedFiles } from "./components/SelectedFiles";
 import { FileTreeNode } from "./types";
 import { TreeMap } from "./components/TreeMap";
-
+import { Tooltip } from "react-tooltip";
+import "react-tooltip/dist/react-tooltip.css";
 let store: Store;
 
 // Utility function to format token counts consistently
@@ -61,21 +64,27 @@ function App() {
 
   const [activeView, setActiveView] = useState("file");
 
+  const initStore = async () => {
+    try {
+      store = await load("recent-workspaces.json");
+      const saved = await store.get<{ name: string; path: string }[]>("recent");
+      if (saved) {
+        setRecentWorkspaces(saved);
+      }
+    } catch (err) {
+      console.error("Error loading recent workspaces:", err);
+      // Try to create a new store if loading failed
+      try {
+        store = await load("recent-workspaces.json");
+        await store.set("recent", []);
+      } catch (e) {
+        console.error("Failed to create new store:", e);
+      }
+    }
+  };
+
   // Initialize store and load recent workspaces on mount
   useEffect(() => {
-    const initStore = async () => {
-      store = await load("recent-workspaces.json");
-      try {
-        const saved = await store.get<{ name: string; path: string }[]>(
-          "recent"
-        );
-        if (saved) {
-          setRecentWorkspaces(saved);
-        }
-      } catch (err) {
-        console.error("Error loading recent workspaces:", err);
-      }
-    };
     initStore();
   }, []);
 
@@ -92,7 +101,11 @@ function App() {
           ].slice(0, 5); // Keep only last 5
           // Save to store if it's initialized
           if (store) {
-            store.set("recent", newWorkspaces);
+            store.set("recent", newWorkspaces).catch((err) => {
+              console.error("Failed to save recent workspaces:", err);
+              // Try to reinitialize store on error
+              initStore();
+            });
           }
           return newWorkspaces;
         }
@@ -321,6 +334,19 @@ function App() {
     return "partial";
   };
 
+  const getAllFolderPaths = (nodes: FileTreeNode[]): string[] => {
+    let paths: string[] = [];
+    nodes.forEach((node) => {
+      if (node.is_directory) {
+        paths.push(node.path);
+        if (node.children) {
+          paths = paths.concat(getAllFolderPaths(node.children));
+        }
+      }
+    });
+    return paths;
+  };
+
   const renderFileTree = (nodes: FileTreeNode[], level = 0) => {
     return nodes.map((node) => {
       const isFolder = node.is_directory;
@@ -445,16 +471,24 @@ function App() {
     setLoading(true);
     setError(null);
     try {
-      const config = {
-        dir,
-        max_tokens: maxTokens ? Number(maxTokens) : null,
-        disable_line_numbers: disableLineNumbers,
-        verbose,
-      };
       if (!dir) {
         throw new Error("Directory path cannot be empty.");
       }
-      const result = await invoke<string>("run_codefetch", { cfg: config });
+
+      // Get the paths of all selected files
+      const selectedFilePaths = selectedFiles
+        .filter((file) => !file.is_directory)
+        .map((file) => file.path);
+
+      if (selectedFilePaths.length === 0) {
+        throw new Error("No files selected to export.");
+      }
+
+      // Call the Rust command to get the formatted content
+      const result = await invoke<string>("copy_files_with_tree_to_clipboard", {
+        dirPath: dir,
+        selectedFilePaths: selectedFilePaths,
+      });
 
       // Create and download the markdown file
       const blob = new Blob([result], { type: "text/markdown" });
@@ -609,6 +643,30 @@ function App() {
                         className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400"
                       />
                     </div>
+                    <div className="flex justify-end mt-2">
+                      <button
+                        onClick={() => {
+                          if (expandedFolders.size === 0) {
+                            const allPaths = getAllFolderPaths(fileTree);
+                            setExpandedFolders(new Set(allPaths));
+                          } else {
+                            setExpandedFolders(new Set());
+                          }
+                        }}
+                        className="p-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-400 hover:text-white"
+                        title={
+                          expandedFolders.size === 0
+                            ? "Expand All"
+                            : "Collapse All"
+                        }
+                      >
+                        {expandedFolders.size === 0 ? (
+                          <ChevronsUpDown size={14} />
+                        ) : (
+                          <ChevronsDownUp size={14} />
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   {/* Scrollable Content */}
@@ -652,8 +710,10 @@ function App() {
                           copying ? "bg-gray-600" : ""
                         }`}
                         onClick={handleCopyWithTree}
+                        data-tooltip-id="copy"
+                        data-tooltip-content="Copy to clipboard with tree structure"
                       >
-                        <span className="mb-1">
+                        <span className="mb-1 h-full">
                           {loading ? (
                             <span className="animate-spin block w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full" />
                           ) : copySuccess ? (
@@ -662,6 +722,7 @@ function App() {
                             <Copy size={16} />
                           )}
                         </span>
+                        <Tooltip id="copy" delayShow={500} />
                         <span>Copy</span>
                       </div>
                       <div className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700">
