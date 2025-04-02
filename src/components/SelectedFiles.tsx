@@ -10,6 +10,7 @@ interface SelectedFilesProps {
   handleSort: () => void;
   sortDirection: "asc" | "desc";
   groupByDirectory?: boolean;
+  onDeselect: (file: FileTreeNode) => void;
 }
 
 // Utility function to format token counts consistently
@@ -26,6 +27,7 @@ export const SelectedFiles: React.FC<SelectedFilesProps> = ({
   handleSort,
   sortDirection,
   groupByDirectory = true,
+  onDeselect,
 }) => {
   // Group files by directory for display
   const getGroupedFiles = () => {
@@ -72,16 +74,27 @@ export const SelectedFiles: React.FC<SelectedFilesProps> = ({
   };
 
   return (
-    <div className="w-full text-white p-4 shadow-lg">
+    <div className="w-full text-white p-4 shadow-lg h-full flex flex-col">
       <div className="flex justify-between items-center mb-2.5">
-        <div className="flex items-center">
+        <div className="flex items-center gap-4">
           <h3 className="m-0">Selection Summary</h3>
-          <div className="flex items-center">
-            <span className="mr-2.5 text-gray-400 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-gray-400 text-sm">
               {selectedFiles.filter((f) => !f.is_directory).length} files
             </span>
             <span className="text-gray-400 text-sm">
               {formatTokens(totalTokens)} Tokens
+            </span>
+            <span className="text-gray-400 text-sm ml-6">
+              {(() => {
+                const extensions = new Set(
+                  selectedFiles
+                    .filter((f) => !f.is_directory)
+                    .map((f) => `.${f.name.split(".").pop()?.toLowerCase()}`)
+                    .filter(Boolean)
+                );
+                return `${Array.from(extensions).join(", ")}`;
+              })()}
             </span>
           </div>
         </div>
@@ -95,7 +108,7 @@ export const SelectedFiles: React.FC<SelectedFilesProps> = ({
         </button>
       </div>
 
-      <div className="mb-5 overflow-y-auto" style={{ maxHeight: "100vh" }}>
+      <div className="flex-1 overflow-y-auto">
         {getGroupedFiles().map((file, index, files) => {
           const isDirectoryHeader =
             file.is_directory && file.dirPercentage !== undefined;
@@ -156,7 +169,10 @@ export const SelectedFiles: React.FC<SelectedFilesProps> = ({
                     </span>
                   )}
                   <span className="text-gray-300 text-sm">
-                    <button className="bg-transparent border-none flex items-center cursor-pointer">
+                    <button
+                      className="bg-transparent border-none flex items-center cursor-pointer"
+                      onClick={() => onDeselect(file)}
+                    >
                       <SquareX size={16} />
                     </button>
                   </span>

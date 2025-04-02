@@ -36,10 +36,6 @@ const basename = (path: string) => {
 
 function App() {
   const [dir, setDir] = useState("");
-  const [disableLineNumbers, setDisableLineNumbers] = useState(false);
-  const [maxTokens, setMaxTokens] = useState("10000");
-  const [verbose, setVerbose] = useState(true);
-  const [output, setOutput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fileTree, setFileTree] = useState<FileTreeNode[]>([]);
@@ -51,7 +47,6 @@ function App() {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [groupByDirectory, setGroupByDirectory] = useState(true);
   const [processingTokens, setProcessingTokens] = useState(false);
-  const [isPathExpanded, setIsPathExpanded] = useState(false);
 
   const [recentWorkspaces, setRecentWorkspaces] = useState<
     { name: string; path: string }[]
@@ -621,7 +616,7 @@ function App() {
                     {/* Filter */}
                     <div className="relative">
                       <input
-                        placeholder="Filter"
+                        placeholder="Ignore Filter"
                         className="w-full px-2 py-1 pr-8 rounded bg-gray-700 border border-gray-600 text-xs"
                       />
                       <Settings
@@ -755,19 +750,59 @@ function App() {
 
                   <div className="flex-1 overflow-y-auto px-4">
                     <div className="flex flex-col gap-4 h-full">
-                      <SelectedFiles
-                        selectedFiles={selectedFiles}
-                        dir={dir}
-                        totalTokens={totalTokens}
-                        handleSort={handleSort}
-                        sortDirection={sortDirection}
-                        groupByDirectory={groupByDirectory}
-                      />
-                      <TreeMap
-                        selectedFiles={selectedFiles}
-                        totalTokens={totalTokens}
-                        className="flex-1"
-                      />
+                      <PanelGroup direction="vertical" className="flex-1">
+                        <Panel defaultSize={25} className="overflow-y-auto">
+                          <SelectedFiles
+                            selectedFiles={selectedFiles}
+                            dir={dir}
+                            totalTokens={totalTokens}
+                            handleSort={handleSort}
+                            sortDirection={sortDirection}
+                            groupByDirectory={groupByDirectory}
+                            onDeselect={(file) => {
+                              if (file.is_directory) {
+                                // If it's a directory header, deselect all files in that directory
+                                const dirPath = file.path.replace(
+                                  "_header",
+                                  ""
+                                );
+                                const normalizedDirPath = dirPath.startsWith(
+                                  "/"
+                                )
+                                  ? dirPath
+                                  : `/${dirPath}`;
+                                setSelectedFiles((prev) =>
+                                  prev.filter((f) => {
+                                    // Skip directory headers
+                                    if (f.is_directory) return true;
+                                    // Check if file is in the directory
+                                    const fileDir = f.path.substring(
+                                      0,
+                                      f.path.lastIndexOf("/")
+                                    );
+                                    return !fileDir.startsWith(
+                                      normalizedDirPath
+                                    );
+                                  })
+                                );
+                              } else {
+                                // If it's a file, just deselect that file
+                                setSelectedFiles((prev) =>
+                                  prev.filter((f) => f.path !== file.path)
+                                );
+                              }
+                            }}
+                          />
+                        </Panel>
+                        <PanelResizeHandle className="h-1 bg-gray-700 hover:bg-gray-700 transition-colors" />
+                        <Panel defaultSize={75}>
+                          <TreeMap
+                            selectedFiles={selectedFiles}
+                            totalTokens={totalTokens}
+                            className="flex-1"
+                          />
+                        </Panel>
+                      </PanelGroup>
                     </div>
 
                     {error && (
