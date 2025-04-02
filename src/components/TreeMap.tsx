@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { FileTreeNode } from "../types";
+import classNames from "classnames";
 
 interface TreeMapProps {
   selectedFiles: FileTreeNode[];
   totalTokens: number;
   onFileClick?: (file: FileTreeNode) => void;
   maxDepth?: number;
+  className?: string;
 }
 
 type TreeMapItem = {
@@ -31,6 +33,7 @@ export const TreeMap = ({
   totalTokens,
   onFileClick,
   maxDepth = 1,
+  className,
 }: TreeMapProps) => {
   const [items, setItems] = useState<TreeMapItem[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -212,14 +215,19 @@ export const TreeMap = ({
   const layout = createTreemapLayout();
 
   return (
-    <div className="w-full h-full flex flex-col" style={containerStyle}>
-      <div className="text-sm font-medium mb-2 text-white">TreeMap View</div>
+    <div
+      className={classNames("w-full flex flex-col p-4", className)}
+      style={containerStyle}
+    >
+      <div className="text-sm font-medium mb-2 text-white">
+        Token Size Treemap
+      </div>
       <div
         ref={containerRef}
         className="bg-gray-800 rounded-md p-1 relative flex-grow flex items-center justify-center overflow-hidden"
       >
         {items.length === 0 ? (
-          <div className="w-full h-full flex items-center justify-center text-gray-400">
+          <div className="w-full flex items-center justify-center text-gray-400">
             No files selected or token data available
           </div>
         ) : (
@@ -247,7 +255,7 @@ export const TreeMap = ({
         {/* Tooltip */}
         {tooltipInfo && (
           <div
-            className="absolute z-10 bg-gray-900 text-white p-2 rounded-md shadow-lg text-xs border border-gray-700"
+            className="absolute z-100 bg-gray-900 text-white p-2 rounded-md shadow-lg text-xs border border-gray-700"
             style={{
               top: containerRef.current
                 ? tooltipInfo.y -

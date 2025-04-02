@@ -9,7 +9,6 @@ import {
   X,
   Copy,
   Download,
-  Search,
   Settings,
   ChevronsDownUp,
   ChevronsUpDown,
@@ -17,7 +16,6 @@ import {
 import { load, Store } from "@tauri-apps/plugin-store";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import "./resizable.css";
-import { FolderSummary } from "./components/FolderSummary";
 import { SelectedFiles } from "./components/SelectedFiles";
 import { FileTreeNode } from "./types";
 import { TreeMap } from "./components/TreeMap";
@@ -61,8 +59,6 @@ function App() {
 
   const [copying, setCopying] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
-
-  const [activeView, setActiveView] = useState("file");
 
   const initStore = async () => {
     try {
@@ -617,22 +613,12 @@ function App() {
               ) : (
                 <div className="flex flex-col h-full space-y-2">
                   {/* Fixed Header */}
-                  <div className="p-2.5 border-b border-gray-600 pl-6 space-y-1">
+                  <div className="py-4 border-b border-gray-600 pl-6 pr-4 space-y-1">
                     <h3>{basename(dir)}</h3>
-                    <div className="pl-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-gray-400">
-                          {selectedFiles.filter((f) => !f.is_directory).length}{" "}
-                          files selected
-                        </span>
-                        <span className="text-sm text-orange-300">
-                          {formatTokens(totalTokens)} Tokens
-                        </span>
-                      </div>
-                    </div>
                   </div>
 
-                  <div className="px-2">
+                  <div className="px-2 pb-2 border-b border-gray-600">
+                    {/* Filter */}
                     <div className="relative">
                       <input
                         placeholder="Filter"
@@ -643,7 +629,23 @@ function App() {
                         className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400"
                       />
                     </div>
-                    <div className="flex justify-end mt-2">
+
+                    {/* Short Summary and Collapse/Expand All */}
+                    <div className="flex justify-between mt-3">
+                      <div className="pl-2">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm text-gray-300">
+                            {
+                              selectedFiles.filter((f) => !f.is_directory)
+                                .length
+                            }{" "}
+                            files selected
+                          </span>
+                          <span className="text-sm text-blue-400">
+                            {formatTokens(totalTokens)} Tokens
+                          </span>
+                        </div>
+                      </div>
                       <button
                         onClick={() => {
                           if (expandedFolders.size === 0) {
@@ -654,10 +656,11 @@ function App() {
                           }
                         }}
                         className="p-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-400 hover:text-white"
-                        title={
+                        data-tooltip-id="expand-collapse"
+                        data-tooltip-content={
                           expandedFolders.size === 0
-                            ? "Expand All"
-                            : "Collapse All"
+                            ? "Expand All Folders"
+                            : "Collapse All Folders"
                         }
                       >
                         {expandedFolders.size === 0 ? (
@@ -666,6 +669,7 @@ function App() {
                           <ChevronsDownUp size={14} />
                         )}
                       </button>
+                      <Tooltip id="expand-collapse" delayShow={500} />
                     </div>
                   </div>
 
@@ -697,7 +701,7 @@ function App() {
               {dir && (
                 <>
                   {/* Git-like top bar */}
-                  <div className="flex relative border-b border-gray-700 bg-gray-800 text-xs text-gray-300 justify-between">
+                  <div className="flex relative border-b border-gray-700 bg-gray-800 text-xs text-gray-400 justify-between">
                     <div className="flex items-center h-full">
                       <div className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700">
                         <span className="mb-1">
@@ -705,6 +709,21 @@ function App() {
                         </span>
                         <span>Quick Open</span>
                       </div>
+                    </div>
+
+                    <div className="flex-1 flex items-center justify-center py-2 absolute left-1/2 -translate-x-1/2 h-full">
+                      <div className="flex items-center gap-2 text-gray-100">
+                        <p>{basename(dir)}</p>
+                        <button
+                          onClick={handleClose}
+                          className="p-1 rounded cursor-pointer bg-gray-700 hover:bg-gray-600"
+                          title="Close directory"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="flex items-center h-full">
                       <div
                         className={`flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700 ${
                           copying ? "bg-gray-600" : ""
@@ -732,81 +751,23 @@ function App() {
                         <span>Export</span>
                       </div>
                     </div>
-
-                    <div className="flex-1 flex items-center justify-center py-2 absolute left-1/2 -translate-x-1/2 h-full">
-                      <div className="flex items-center gap-2 text-gray-400">
-                        <p>{basename(dir)}</p>
-                        <button
-                          onClick={handleClose}
-                          className="p-1 rounded cursor-pointer bg-gray-700 hover:bg-gray-600"
-                          title="Close directory"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center h-full">
-                      <div className="flex rounded overflow-hidden border border-gray-600 mx-2">
-                        <button
-                          className={`px-3 py-1 text-xs ${
-                            activeView === "file"
-                              ? "bg-gray-600 text-white"
-                              : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-                          }`}
-                          onClick={() => setActiveView("file")}
-                        >
-                          File View
-                        </button>
-                        <button
-                          className={`px-3 py-1 text-xs border-l border-gray-600 ${
-                            activeView === "directory"
-                              ? "bg-gray-600 text-white"
-                              : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-                          }`}
-                          onClick={() => setActiveView("directory")}
-                        >
-                          Directory View
-                        </button>
-                        <button
-                          className={`px-3 py-1 text-xs border-l border-gray-600 ${
-                            activeView === "tree"
-                              ? "bg-gray-600 text-white"
-                              : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-                          }`}
-                          onClick={() => setActiveView("tree")}
-                        >
-                          Tree View
-                        </button>
-                      </div>
-                    </div>
                   </div>
 
                   <div className="flex-1 overflow-y-auto px-4">
-                    <div className="flex gap-4 h-full">
-                      {activeView === "file" && (
-                        <SelectedFiles
-                          selectedFiles={selectedFiles}
-                          dir={dir}
-                          totalTokens={totalTokens}
-                          handleSort={handleSort}
-                          sortDirection={sortDirection}
-                          groupByDirectory={groupByDirectory}
-                        />
-                      )}
-                      {activeView === "directory" && (
-                        <FolderSummary
-                          selectedFiles={selectedFiles}
-                          dir={dir}
-                          totalTokens={totalTokens}
-                        />
-                      )}
-                      {activeView === "tree" && (
-                        <TreeMap
-                          selectedFiles={selectedFiles}
-                          totalTokens={totalTokens}
-                        />
-                      )}
+                    <div className="flex flex-col gap-4 h-full">
+                      <SelectedFiles
+                        selectedFiles={selectedFiles}
+                        dir={dir}
+                        totalTokens={totalTokens}
+                        handleSort={handleSort}
+                        sortDirection={sortDirection}
+                        groupByDirectory={groupByDirectory}
+                      />
+                      <TreeMap
+                        selectedFiles={selectedFiles}
+                        totalTokens={totalTokens}
+                        className="flex-1"
+                      />
                     </div>
 
                     {error && (

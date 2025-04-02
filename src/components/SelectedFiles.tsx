@@ -1,6 +1,6 @@
 import React from "react";
 import { FileTreeNode } from "../types";
-import { Folder, FileText } from "lucide-react";
+import { Folder, FileText, ChevronDown, SquareX } from "lucide-react";
 import classNames from "classnames";
 
 interface SelectedFilesProps {
@@ -72,28 +72,27 @@ export const SelectedFiles: React.FC<SelectedFilesProps> = ({
   };
 
   return (
-    <div className="w-full mt-2 text-white p-4 shadow-lg">
+    <div className="w-full text-white p-4 shadow-lg">
       <div className="flex justify-between items-center mb-2.5">
         <div className="flex items-center">
-          <h3 className="m-0">Selected Files</h3>
-          <button
-            onClick={handleSort}
-            className="ml-2 bg-transparent border-none text-white flex items-center cursor-pointer"
-          >
-            <span className="mr-0.5">
-              {sortDirection === "asc" ? "↑" : "↓"}
-            </span>{" "}
-            Sort
-          </button>
+          <h3 className="m-0">Selection Summary</h3>
+          <div className="flex items-center">
+            <span className="mr-2.5 text-gray-400 text-sm">
+              {selectedFiles.filter((f) => !f.is_directory).length} files
+            </span>
+            <span className="text-gray-400 text-sm">
+              {formatTokens(totalTokens)} Tokens
+            </span>
+          </div>
         </div>
-        <div className="flex items-center">
-          <span className="mr-2.5 text-gray-400 text-sm">
-            {selectedFiles.filter((f) => !f.is_directory).length} files
-          </span>
-          <span className="text-gray-400 text-sm">
-            {formatTokens(totalTokens)} Tokens
-          </span>
-        </div>
+
+        <button
+          onClick={handleSort}
+          className="ml-2 bg-transparent border-none text-white flex items-center cursor-pointer"
+        >
+          <span className="mr-0.5">{sortDirection === "asc" ? "↑" : "↓"}</span>{" "}
+          Sort
+        </button>
       </div>
 
       <div className="mb-5 overflow-y-auto" style={{ maxHeight: "100vh" }}>
@@ -104,15 +103,15 @@ export const SelectedFiles: React.FC<SelectedFilesProps> = ({
           return (
             <div key={file.path}>
               <div
-                className={classNames("flex justify-between p-2.5", {
-                  // "mt-2.5": isDirectoryHeader,
-                  // "my-0.5": !isDirectoryHeader,
-                  // "bg-gray-200": isDirectoryHeader,
-                  // "bg-gray-700": !isDirectoryHeader,
+                className={classNames("flex justify-between p-1", {
                   rounded: true,
-                  "border-t-1 border-l-1 border-r-1 border-gray-500":
+                  "border-t-1 border-l-1 border-r-1 border-gray-600 bg-gray-800":
                     isDirectoryHeader,
-                  "border-l-1 border-r-1 border-gray-500": !isDirectoryHeader,
+                  "border-l-1 border-r-1 border-gray-600 bg-gray-800":
+                    !isDirectoryHeader,
+                  "border-b-1 border-gray-600 bg-gray-800":
+                    !isDirectoryHeader && index === files.length - 1,
+                  "mt-2": isDirectoryHeader,
                 })}
               >
                 <div className="flex items-center text-sm">
@@ -138,7 +137,7 @@ export const SelectedFiles: React.FC<SelectedFilesProps> = ({
                     {isDirectoryHeader ? `${file.name}/` : file.name}
                   </span>
                 </div>
-                <div>
+                <div className="flex items-center gap-2">
                   {file.tokenCount !== undefined && (
                     <span
                       className={`${
@@ -156,6 +155,11 @@ export const SelectedFiles: React.FC<SelectedFilesProps> = ({
                         )}%)`}
                     </span>
                   )}
+                  <span className="text-gray-300 text-sm">
+                    <button className="bg-transparent border-none flex items-center cursor-pointer">
+                      <SquareX size={16} />
+                    </button>
+                  </span>
                 </div>
               </div>
             </div>
