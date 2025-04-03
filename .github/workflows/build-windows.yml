@@ -13,21 +13,21 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "lts/*"
+      - name: Install Bun
+        run: powershell -Command "irm bun.sh/install.ps1 | iex"
+      - name: Add Bun to PATH
+        run: echo "$env:USERPROFILE\.bun\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Install frontend dependencies
-        run: npm install
+        run: bun install
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: v__VERSION__
-          releaseName: "My App v__VERSION__ (Windows)"
+          releaseName: "RepoSnap v__VERSION__ (Windows)"
           releaseBody: "Unsigned Windows build (.msi)."
           releaseDraft: true
           args: "--bundles msi"
