@@ -22,7 +22,8 @@ use tauri::Runtime;
 use tauri_plugin_dialog;
 use tauri_plugin_fs;
 use tauri_plugin_store;
-use tiktoken_rs::CoreBPE; // For GPT-like token counting // Add this import
+use tauri_plugin_updater::UpdaterExt;
+use tiktoken_rs::CoreBPE; // For GPT-like token counting // Add this import // Add this line
 
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
@@ -575,6 +576,7 @@ fn filter_tree_to_selected(tree: &mut Vec<FileTreeNode>, selected_paths: &[Strin
 
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             if !check_beta_status() {
                 let ans = app
@@ -585,6 +587,44 @@ pub fn run() {
                     .blocking_show();
                 std::process::exit(0);
             }
+         let handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                match handle.updater()?.check().await {
+                    Ok(Some(update)) => {
+                        // The check found an update
+                        println!(
+                            "Update available: version {}, released on {:?}",
+                            update.version,
+                            update.date
+                        );
+                        // Download and install the update
+                        update
+                            .download_and_install(|_chunk_len, _content_len| {
+                                // You can add download progress feedback here
+                            }, || {
+                                // Callback when download is finished
+                                println!("Download finished");
+                            })
+                            .await
+                            .unwrap_or_else(|e| {
+                                eprintln!("Failed to download/install update: {}", e);
+                            });
+                        // Restart the app after update
+                        println!("Restarting app...");
+                        handle.restart(); // Use handle to restart
+                    }
+                    Ok(None) => {
+                        // No update available
+                        println!("No update available.");
+                    }
+                    Err(e) => {
+                        // Error during check
+                        eprintln!("Failed to check updates: {}", e);
+                    }
+                }
+                // Add a type annotation here if the compiler complains about the future's return type
+                Ok::<(), tauri_plugin_updater::Error>(())
+            });
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())

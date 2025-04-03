@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install Bun
-        run: curl -fsSL https://bun.sh/install | bash -s -- "bun-v1.2.6" # Pin a version for consistency
+        run: curl -fsSL https://bun.sh/install | bash -s -- "bun-v1.1.13"
       - name: Add Bun to PATH
         run: echo "$HOME/.bun/bin" >> $GITHUB_PATH
       - name: Install Rust
@@ -25,13 +25,14 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - name: Install frontend dependencies
         run: bun install
-      - name: Build Tauri app
+      - name: Build and publish Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }} # Add to GitHub Secrets
         with:
           tagName: v__VERSION__
           releaseName: "RepoSnap v__VERSION__ (Linux)"
-          releaseBody: "Unsigned Linux build (AppImage)."
-          releaseDraft: true
-          args: "--bundles appimage"
+          releaseBody: "Linux build (AppImage)."
+          releaseDraft: false # Publish instead of draft
+          args: "--bundles appimage --verbose"

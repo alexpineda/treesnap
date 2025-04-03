@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - release
-  workflow_dispatch: # Manual trigger
+  workflow_dispatch:
 
 jobs:
   build-windows:
@@ -21,13 +21,14 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
       - name: Install frontend dependencies
         run: bun install
-      - name: Build Tauri app
+      - name: Build and publish Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
           tagName: v__VERSION__
           releaseName: "RepoSnap v__VERSION__ (Windows)"
-          releaseBody: "Unsigned Windows build (.msi)."
-          releaseDraft: true
-          args: "--bundles msi"
+          releaseBody: "Windows build (.msi)."
+          releaseDraft: false
+          args: "--bundles msi --verbose"
