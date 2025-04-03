@@ -5,10 +5,12 @@
 
 use anyhow::{Context, Result};
 use arboard::Clipboard;
+use chrono::{DateTime, Utc};
 use futures::future::join_all;
 use futures::future::FutureExt;
 use ignore::{DirEntry, WalkBuilder};
 use regex::Regex;
+use reqwest::blocking::get;
 use serde::Deserialize;
 use serde::Serialize;
 use std::{
@@ -21,6 +23,8 @@ use tauri_plugin_dialog;
 use tauri_plugin_fs;
 use tauri_plugin_store;
 use tiktoken_rs::CoreBPE; // For GPT-like token counting // Add this import
+
+use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
 /// Hard-coded default ignore patterns (akin to your Node code's default-ignore.ts).
 const DEFAULT_IGNORE_PATTERNS: &str = r#"
@@ -56,6 +60,17 @@ pub struct CodefetchConfig {
     pub max_tokens: Option<usize>,
     pub disable_line_numbers: bool,
     pub verbose: bool,
+}
+
+fn check_beta_status() -> bool {
+    if let Ok(response) = get("https://www.reposnap.io/api/beta-active") {
+        if response.status().is_success() {
+            let json: serde_json::Value = response.json().unwrap_or_default();
+            return json["active"].as_bool().unwrap_or(false);
+        }
+    }
+    // Fallback to hardcoded date
+    Utc::now() < chrono::DateTime::parse_from_rfc3339("2025-06-01T00:00:00Z").unwrap()
 }
 
 /// Calculate tokens for a specific file.
@@ -560,6 +575,18 @@ fn filter_tree_to_selected(tree: &mut Vec<FileTreeNode>, selected_paths: &[Strin
 
 pub fn run() {
     tauri::Builder::default()
+        .setup(|app| {
+            if !check_beta_status() {
+                let ans = app
+                    .dialog()
+                    .message("The beta testing period has ended. Thanks for you testing! Visit www.reposnap.io for more information.")
+                    .kind(MessageDialogKind::Info)
+                    .title("Beta Ended")
+                    .blocking_show();
+                std::process::exit(0);
+            }
+            Ok(())
+        })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::new().build())
