@@ -1,0 +1,94 @@
+name: Build Tauri App (All Platforms)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build-macos:
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        target: ["aarch64-apple-darwin", "x86_64-apple-darwin"]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Bun
+        run: curl -fsSL https://bun.sh/install | bash -s -- "bun-v1.1.13"
+      - name: Add Bun to PATH
+        run: echo "$HOME/.bun/bin" >> $GITHUB_PATH
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Install frontend dependencies
+        run: bun install
+      - name: Build and publish Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        with:
+          tagName: v__VERSION__
+          releaseName: "RepoSnap v__VERSION__"
+          releaseBody: "Multi-platform release"
+          releaseDraft: true
+          args: "--target ${{ matrix.target }} --bundles dmg --verbose"
+
+  build-windows:
+    needs: build-macos
+    permissions:
+      contents: write
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Bun
+        run: powershell -Command "irm bun.sh/install.ps1 | iex"
+      - name: Add Bun to PATH
+        run: echo "$env:USERPROFILE\.bun\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install frontend dependencies
+        run: bun install
+      - name: Build and publish Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        with:
+          tagName: v__VERSION__
+          releaseName: "RepoSnap v__VERSION__"
+          releaseBody: "Multi-platform release"
+          releaseDraft: true
+          args: "--bundles msi --verbose"
+
+  build-linux:
+    needs: build-windows
+    permissions:
+      contents: write
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Bun
+        run: curl -fsSL https://bun.sh/install | bash -s -- "bun-v1.1.13"
+      - name: Add Bun to PATH
+        run: echo "$HOME/.bun/bin" >> $GITHUB_PATH
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - name: Install frontend dependencies
+        run: bun install
+      - name: Build and publish Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        with:
+          tagName: v__VERSION__
+          releaseName: "RepoSnap v__VERSION__"
+          releaseBody: "Multi-platform release"
+          releaseDraft: true
+          args: "--bundles appimage --verbose"
