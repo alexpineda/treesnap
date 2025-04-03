@@ -1,4 +1,5 @@
 import { Workspace } from "../types";
+import { basename } from "../utils";
 
 // Render workspace selector view when no directory is selected
 export const WorkspaceSelector = ({
@@ -41,7 +42,7 @@ export const WorkspaceSelector = ({
                   setDir(workspace.path);
                 }}
               >
-                {workspace.name}
+                {basename(workspace.path)}
               </div>
             ))}
           </div>

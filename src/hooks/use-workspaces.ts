@@ -1,0 +1,56 @@
+import { load, Store } from "@tauri-apps/plugin-store";
+import { useState, useEffect, useRef } from "react";
+import { Workspace } from "../types";
+
+export const useRecentWorkspaces = () => {
+  const [recentWorkspaces, setRecentWorkspaces] = useState<Workspace[]>([]);
+  const storeRef = useRef<Store | null>(null);
+
+  const addToRecentWorkspaces = (dir: string) => {
+    if (recentWorkspaces.some((workspace) => workspace.path === dir)) {
+      return;
+    }
+    const newWorkspaces: Workspace[] = [
+      { name: dir, path: dir },
+      ...recentWorkspaces,
+    ].slice(0, 5); // Keep only last 5
+
+    setRecentWorkspaces(newWorkspaces);
+
+    // Save to store if it's initialized
+    if (storeRef.current) {
+      storeRef.current.set("recent", newWorkspaces).catch((err) => {
+        console.error("Failed to save recent workspaces:", err);
+        // Try to reinitialize store on error
+        initStore();
+      });
+    }
+  };
+
+  const initStore = async () => {
+    try {
+      const store = await load("recent-workspaces.json");
+      storeRef.current = store;
+      const saved = await store.get<Workspace[]>("recent");
+      if (saved) {
+        setRecentWorkspaces(saved);
+      }
+    } catch (err) {
+      console.error("Error loading recent workspaces:", err);
+      // Try to create a new store if loading failed
+      try {
+        const store = await load("recent-workspaces.json");
+        await store.set("recent", []);
+      } catch (e) {
+        console.error("Failed to create new store:", e);
+      }
+    }
+  };
+
+  // Initialize store and load recent workspaces on mount
+  useEffect(() => {
+    initStore();
+  }, []);
+
+  return { recentWorkspaces, addToRecentWorkspaces };
+};

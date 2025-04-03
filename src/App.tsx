@@ -12,6 +12,7 @@ import { basename, findNodeByPath, getAllDescendants } from "./utils";
 import { WorkspaceSelector } from "./components/workspace-selector";
 import { SidebarSummary, FileTree, SidebarFilter } from "./components/sidebar";
 import { TopBar } from "./components/top-bar";
+import { useRecentWorkspaces } from "./hooks/use-workspaces";
 let store: Store;
 
 function App() {
@@ -28,58 +29,15 @@ function App() {
   const [groupByDirectory, setGroupByDirectory] = useState(true);
   const [processingTokens, setProcessingTokens] = useState(false);
 
-  const [recentWorkspaces, setRecentWorkspaces] = useState<Workspace[]>([]);
-
   const [copying, setCopying] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
-
-  const initStore = async () => {
-    try {
-      store = await load("recent-workspaces.json");
-      const saved = await store.get<{ name: string; path: string }[]>("recent");
-      if (saved) {
-        setRecentWorkspaces(saved);
-      }
-    } catch (err) {
-      console.error("Error loading recent workspaces:", err);
-      // Try to create a new store if loading failed
-      try {
-        store = await load("recent-workspaces.json");
-        await store.set("recent", []);
-      } catch (e) {
-        console.error("Failed to create new store:", e);
-      }
-    }
-  };
-
-  // Initialize store and load recent workspaces on mount
-  useEffect(() => {
-    initStore();
-  }, []);
+  const { recentWorkspaces, addToRecentWorkspaces } = useRecentWorkspaces();
 
   useEffect(() => {
     if (dir) {
       loadFileTree(dir);
       // Add to recent workspaces if not already there
-      setRecentWorkspaces((prev) => {
-        const workspaceName = dir.split("/").pop() || dir;
-        if (!prev.some((workspace) => workspace.path === dir)) {
-          const newWorkspaces = [
-            { name: workspaceName, path: dir },
-            ...prev,
-          ].slice(0, 5); // Keep only last 5
-          // Save to store if it's initialized
-          if (store) {
-            store.set("recent", newWorkspaces).catch((err) => {
-              console.error("Failed to save recent workspaces:", err);
-              // Try to reinitialize store on error
-              initStore();
-            });
-          }
-          return newWorkspaces;
-        }
-        return prev;
-      });
+      addToRecentWorkspaces(dir);
     }
   }, [dir]);
 

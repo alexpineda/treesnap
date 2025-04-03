@@ -13,6 +13,5 @@ export interface FileTreeNode {
 }
 
 export interface Workspace {
-  name: string;
   path: string;
 }
