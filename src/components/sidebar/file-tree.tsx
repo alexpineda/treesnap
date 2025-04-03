@@ -25,6 +25,55 @@ const calculateDirectorySelectionState = (
   return "partial";
 };
 
+const FolderToggle = ({
+  isExpanded,
+  onClick,
+}: {
+  isExpanded: boolean;
+  onClick: () => void;
+}) => (
+  <div onClick={onClick} className="cursor-pointer flex-shrink-0">
+    <ChevronRight
+      size={16}
+      className={`transition-transform duration-200 ${
+        isExpanded ? "transform rotate-90" : ""
+      }`}
+    />
+  </div>
+);
+
+const FileIconAndLabel = ({
+  onClick,
+  isFolder,
+  isExpanded,
+  node,
+}: {
+  onClick: () => void;
+  isFolder: boolean;
+  isExpanded: boolean;
+  node: FileTreeNode;
+}) => {
+  return (
+    <div
+      onClick={onClick}
+      className={`flex items-center cursor-pointer min-w-0 flex-shrink overflow-hidden w-full`}
+    >
+      <span className="mr-1 w-4 inline-block text-center flex-shrink-0">
+        {isFolder ? (
+          isExpanded ? (
+            <FolderOpen size={16} />
+          ) : (
+            <Folder size={16} />
+          )
+        ) : (
+          <FileText size={16} />
+        )}
+      </span>
+      <span className="text-gray-300 truncate flex-1">{node.name}</span>
+    </div>
+  );
+};
+
 export const FileTree = ({
   nodes,
   level = 0,
@@ -63,24 +112,17 @@ export const FileTree = ({
     return (
       <div
         key={node.path}
-        style={{ marginLeft: `${level * 16}px` }}
+        style={{ marginLeft: `${level * 12}px` }}
         data-level={level}
       >
         <div className="flex items-center py-1 pl-2 cursor-pointer text-sm gap-1 overflow-hidden">
           {isFolder && (
-            <div
+            <FolderToggle
+              isExpanded={isExpanded}
               onClick={() => toggleFolder(node.path)}
-              className="cursor-pointer flex-shrink-0"
-            >
-              <ChevronRight
-                size={16}
-                className={`transition-transform duration-200 ${
-                  isExpanded ? "transform rotate-90" : ""
-                }`}
-              />
-            </div>
+            />
           )}
-          {!isFolder && <div className="w-4 flex-shrink-0" />}
+          {!isFolder && <div className="w-4 " />}
           <input
             type="checkbox"
             checked={isFolder ? selectionState === "all" : isSelected}
@@ -91,33 +133,23 @@ export const FileTree = ({
             }}
             onChange={() => handleFileSelect(node)}
             onClick={(e) => e.stopPropagation()}
-            className={`w-4 h-4 inline-block align-middle relative cursor-pointer flex-shrink-0 ${
+            className={`w-4 h-4 inline-block align-middle relative cursor-pointer flex-shrink-0 border-none ${
               isSelected || selectionState === "all"
                 ? "bg-blue-500"
                 : "bg-gray-800"
             }`}
           />
-          <div
-            onClick={() => {
-              if (isFolder) toggleFolder(node.path);
-            }}
-            className={`flex items-center ${
-              isFolder ? "cursor-pointer" : "cursor-default"
-            } min-w-0 flex-shrink overflow-hidden`}
-          >
-            <span className="mr-1 w-4 inline-block text-center flex-shrink-0">
-              {isFolder ? (
-                isExpanded ? (
-                  <FolderOpen size={16} />
-                ) : (
-                  <Folder size={16} />
-                )
-              ) : (
-                <FileText size={16} />
-              )}
-            </span>
-            <span className="text-gray-300 truncate">{node.name}</span>
-          </div>
+
+          <FileIconAndLabel
+            onClick={() =>
+              node.is_directory
+                ? toggleFolder(node.path)
+                : handleFileSelect(node)
+            }
+            isFolder={isFolder}
+            isExpanded={isExpanded}
+            node={node}
+          />
           {!isFolder && (
             <span className="ml-2 text-sm text-gray-400 flex-shrink-0">
               {isLoading ? (
