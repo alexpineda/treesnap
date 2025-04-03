@@ -31,15 +31,25 @@ export const FileTree = ({
   expandedFolders,
   selectedFiles,
   handleFileSelect,
-  toggleFolder,
+  onFoldersExpandedOrCollapsed,
 }: {
   nodes: FileTreeNode[];
   level: number;
   expandedFolders: Set<string>;
   selectedFiles: FileTreeNode[];
   handleFileSelect: (node: FileTreeNode) => void;
-  toggleFolder: (path: string) => void;
+  onFoldersExpandedOrCollapsed: (folders: Set<string>) => void;
 }) => {
+  const toggleFolder = (path: string) => {
+    const newSet = new Set(expandedFolders);
+    if (newSet.has(path)) {
+      newSet.delete(path);
+    } else {
+      newSet.add(path);
+    }
+    onFoldersExpandedOrCollapsed(newSet);
+  };
+
   return nodes.map((node) => {
     const isFolder = node.is_directory;
     const isExpanded = expandedFolders.has(node.path);
@@ -51,8 +61,12 @@ export const FileTree = ({
       : undefined;
 
     return (
-      <div key={node.path} style={{ marginLeft: `${level * 16}px` }}>
-        <div className="flex items-center py-1 pl-2 cursor-pointer text-sm gap-2 overflow-hidden">
+      <div
+        key={node.path}
+        style={{ marginLeft: `${level * 16}px` }}
+        data-level={level}
+      >
+        <div className="flex items-center py-1 pl-2 cursor-pointer text-sm gap-1 overflow-hidden">
           {isFolder && (
             <div
               onClick={() => toggleFolder(node.path)}
@@ -122,7 +136,7 @@ export const FileTree = ({
             expandedFolders={expandedFolders}
             selectedFiles={selectedFiles}
             handleFileSelect={handleFileSelect}
-            toggleFolder={toggleFolder}
+            onFoldersExpandedOrCollapsed={onFoldersExpandedOrCollapsed}
           />
         )}
       </div>

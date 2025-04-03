@@ -15,7 +15,3 @@ export interface FileTreeNode {
 export interface RecentWorkspace {
   path: string;
 }
-
-export interface Workspace {
-  path: string;
-}

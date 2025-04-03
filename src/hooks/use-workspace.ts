@@ -54,3 +54,5 @@ export const useWorkspace = (
     close,
   };
 };
+
+export type Workspace = ReturnType<typeof useWorkspace>;

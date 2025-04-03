@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { FileTreeNode } from "../types";
 import { Folder, FileText, SquareX } from "lucide-react";
 import classNames from "classnames";
@@ -7,10 +7,9 @@ interface SelectedFilesProps {
   selectedFiles: FileTreeNode[];
   dir: string;
   totalTokens: number;
-  handleSort: () => void;
-  sortDirection: "asc" | "desc";
   groupByDirectory?: boolean;
   onDeselect: (file: FileTreeNode) => void;
+  onSorted: (files: FileTreeNode[]) => void;
 }
 
 // Utility function to format token counts consistently
@@ -24,11 +23,26 @@ export const SelectionSummary: React.FC<SelectedFilesProps> = ({
   selectedFiles,
   dir,
   totalTokens,
-  handleSort,
-  sortDirection,
   groupByDirectory = true,
   onDeselect,
+  onSorted,
 }) => {
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+
+  const handleSort = () => {
+    const newDirection = sortDirection === "asc" ? "desc" : "asc";
+    setSortDirection(newDirection);
+
+    const sortedFiles = selectedFiles.sort((a, b) => {
+      const tokenA = a.tokenCount || 0;
+      const tokenB = b.tokenCount || 0;
+
+      return newDirection === "asc" ? tokenA - tokenB : tokenB - tokenA;
+    });
+
+    onSorted(sortedFiles);
+  };
+
   // Group files by directory for display
   const getGroupedFiles = () => {
     if (!groupByDirectory) return selectedFiles.filter((f) => !f.is_directory);
@@ -84,17 +98,6 @@ export const SelectionSummary: React.FC<SelectedFilesProps> = ({
             </span>
             <span className="text-gray-400 text-sm">
               {formatTokens(totalTokens)} Tokens
-            </span>
-            <span className="text-gray-400 text-sm ml-6">
-              {(() => {
-                const extensions = new Set(
-                  selectedFiles
-                    .filter((f) => !f.is_directory)
-                    .map((f) => `.${f.name.split(".").pop()?.toLowerCase()}`)
-                    .filter(Boolean)
-                );
-                return `${Array.from(extensions).join(", ")}`;
-              })()}
             </span>
           </div>
         </div>

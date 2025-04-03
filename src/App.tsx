@@ -15,11 +15,8 @@ import { useRecentWorkspaces } from "./hooks/use-recent-workspaces";
 import { useWorkspace } from "./hooks/use-workspace";
 
 function App() {
-  const [loading, setLoading] = useState(false);
   const [totalTokens, setTotalTokens] = useState(0);
-  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
-  const [copying, setCopying] = useState(false);
-  const [copySuccess, setCopySuccess] = useState(false);
+
   const { recentWorkspaces, addToRecentWorkspaces } = useRecentWorkspaces();
   const workspace = useWorkspace(addToRecentWorkspaces);
 
@@ -40,18 +37,6 @@ function App() {
     } catch (err) {
       //TODO toast error
     }
-  };
-
-  const toggleFolder = (path: string) => {
-    workspace.setExpandedFolders((prev) => {
-      const newSet = new Set(prev);
-      if (newSet.has(path)) {
-        newSet.delete(path);
-      } else {
-        newSet.add(path);
-      }
-      return newSet;
-    });
   };
 
   const calculateTotalTokens = async () => {
@@ -127,22 +112,7 @@ function App() {
     }
   };
 
-  const handleSort = () => {
-    workspace.setSelectedFiles((prev) => {
-      const newDirection = sortDirection === "asc" ? "desc" : "asc";
-      setSortDirection(newDirection);
-
-      return [...prev].sort((a, b) => {
-        const tokenA = a.tokenCount || 0;
-        const tokenB = b.tokenCount || 0;
-
-        return newDirection === "asc" ? tokenA - tokenB : tokenB - tokenA;
-      });
-    });
-  };
-
   const handleExport = async () => {
-    setLoading(true);
     try {
       // Get the paths of all selected files
       const selectedFilePaths = workspace.selectedFiles
@@ -171,41 +141,6 @@ function App() {
       URL.revokeObjectURL(url);
     } catch (err) {
       //TODO toast error
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // New function to handle the copy to clipboard with tree structure
-  const handleCopyWithTree = async () => {
-    setLoading(true);
-    setCopying(true);
-    try {
-      // Get the paths of all selected files
-      const selectedFilePaths = workspace.selectedFiles
-        .filter((file) => !file.is_directory)
-        .map((file) => file.path);
-
-      if (selectedFilePaths.length === 0) {
-        throw new Error("No files selected to copy.");
-      }
-
-      // Call the Rust command to directly copy to clipboard
-      await invoke("copy_files_with_tree_to_clipboard", {
-        dirPath: workspace.workspacePath,
-        selectedFilePaths: selectedFilePaths,
-      });
-
-      // Show success feedback
-      setCopySuccess(true);
-      setTimeout(() => {
-        setCopySuccess(false);
-      }, 1000);
-    } catch (err) {
-      //TODO toast error
-    } finally {
-      setLoading(false);
-      setCopying(false);
     }
   };
 
@@ -263,7 +198,9 @@ function App() {
                         expandedFolders={workspace.expandedFolders}
                         selectedFiles={workspace.selectedFiles}
                         handleFileSelect={handleFileSelect}
-                        toggleFolder={toggleFolder}
+                        onFoldersExpandedOrCollapsed={
+                          workspace.setExpandedFolders
+                        }
                       />
                     ) : (
                       <p>Loading files...</p>
@@ -290,12 +227,9 @@ function App() {
                 <>
                   {/* Git-like top bar */}
                   <TopBar
-                    dir={workspace.workspacePath}
+                    selectedFiles={workspace.selectedFiles}
+                    workspacePath={workspace.workspacePath}
                     handleClose={handleClose}
-                    handleCopyWithTree={handleCopyWithTree}
-                    loading={loading}
-                    copySuccess={copySuccess}
-                    copying={copying}
                   />
                   {/* <div className="flex border-b border-gray-700 text-xs">
                     <div className="flex items-center px-3 py-1 bg-gray-700 text-gray-400 border-r border-gray-600">
@@ -326,9 +260,10 @@ function App() {
                             selectedFiles={workspace.selectedFiles}
                             dir={workspace.workspacePath}
                             totalTokens={totalTokens}
-                            handleSort={handleSort}
-                            sortDirection={sortDirection}
                             groupByDirectory={true}
+                            onSorted={(files) => {
+                              workspace.setSelectedFiles(files);
+                            }}
                             onDeselect={(file) => {
                               if (file.is_directory) {
                                 // If it's a directory header, deselect all files in that directory
