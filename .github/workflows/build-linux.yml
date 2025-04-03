@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - release
-  workflow_dispatch: # Manual trigger
+  workflow_dispatch:
 
 jobs:
   build-linux:
@@ -13,10 +13,10 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "lts/*"
+      - name: Install Bun
+        run: curl -fsSL https://bun.sh/install | bash -s -- "bun-v1.2.6" # Pin a version for consistency
+      - name: Add Bun to PATH
+        run: echo "$HOME/.bun/bin" >> $GITHUB_PATH
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
       - name: Install Linux dependencies
@@ -24,14 +24,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
       - name: Install frontend dependencies
-        run: npm install
+        run: bun install
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: v__VERSION__
-          releaseName: "My App v__VERSION__ (Linux)"
+          releaseName: "RepoSnap v__VERSION__ (Linux)"
           releaseBody: "Unsigned Linux build (AppImage)."
           releaseDraft: true
           args: "--bundles appimage"
