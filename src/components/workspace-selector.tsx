@@ -1,4 +1,4 @@
-import { Workspace } from "../types";
+import { RecentWorkspace } from "../types";
 import { basename } from "../utils";
 
 // Render workspace selector view when no directory is selected
@@ -9,7 +9,7 @@ export const WorkspaceSelector = ({
   setDir,
 }: {
   handleChooseDirectory: () => void;
-  recentWorkspaces: Workspace[];
+  recentWorkspaces: RecentWorkspace[];
   resetStates: () => void;
   setDir: (dir: string) => void;
 }) => {

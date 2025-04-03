@@ -32,7 +32,6 @@ export const TreeMap = ({
   selectedFiles,
   totalTokens,
   onFileClick,
-  maxDepth = 1,
   className,
 }: TreeMapProps) => {
   const [items, setItems] = useState<TreeMapItem[]>([]);

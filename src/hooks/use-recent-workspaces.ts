@@ -1,16 +1,18 @@
 import { load, Store } from "@tauri-apps/plugin-store";
 import { useState, useEffect, useRef } from "react";
-import { Workspace } from "../types";
+import { RecentWorkspace } from "../types";
 
 export const useRecentWorkspaces = () => {
-  const [recentWorkspaces, setRecentWorkspaces] = useState<Workspace[]>([]);
+  const [recentWorkspaces, setRecentWorkspaces] = useState<RecentWorkspace[]>(
+    []
+  );
   const storeRef = useRef<Store | null>(null);
 
   const addToRecentWorkspaces = (dir: string) => {
     if (recentWorkspaces.some((workspace) => workspace.path === dir)) {
       return;
     }
-    const newWorkspaces: Workspace[] = [
+    const newWorkspaces: RecentWorkspace[] = [
       { name: dir, path: dir },
       ...recentWorkspaces,
     ].slice(0, 5); // Keep only last 5
@@ -31,7 +33,7 @@ export const useRecentWorkspaces = () => {
     try {
       const store = await load("recent-workspaces.json");
       storeRef.current = store;
-      const saved = await store.get<Workspace[]>("recent");
+      const saved = await store.get<RecentWorkspace[]>("recent");
       if (saved) {
         setRecentWorkspaces(saved);
       }

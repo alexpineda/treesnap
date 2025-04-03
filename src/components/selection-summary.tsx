@@ -1,6 +1,6 @@
 import React from "react";
 import { FileTreeNode } from "../types";
-import { Folder, FileText, ChevronDown, SquareX } from "lucide-react";
+import { Folder, FileText, SquareX } from "lucide-react";
 import classNames from "classnames";
 
 interface SelectedFilesProps {

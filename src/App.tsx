@@ -1,143 +1,49 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { load, Store } from "@tauri-apps/plugin-store";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import "./resizable.css";
 import { SelectionSummary } from "./components/selection-summary";
-import { FileTreeNode, Workspace } from "./types";
+import { FileTreeNode } from "./types";
 import { TreeMap } from "./components/tree-map";
 import "react-tooltip/dist/react-tooltip.css";
-import { basename, findNodeByPath, getAllDescendants } from "./utils";
+import { basename, toggleSelect } from "./utils";
 import { WorkspaceSelector } from "./components/workspace-selector";
 import { SidebarSummary, FileTree, SidebarFilter } from "./components/sidebar";
 import { TopBar } from "./components/top-bar";
-import { useRecentWorkspaces } from "./hooks/use-workspaces";
-let store: Store;
+import { useRecentWorkspaces } from "./hooks/use-recent-workspaces";
+import { useWorkspace } from "./hooks/use-workspace";
 
 function App() {
-  const [dir, setDir] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [fileTree, setFileTree] = useState<FileTreeNode[]>([]);
-  const [selectedFiles, setSelectedFiles] = useState<FileTreeNode[]>([]);
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
-    new Set()
-  );
   const [totalTokens, setTotalTokens] = useState(0);
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
-  const [groupByDirectory, setGroupByDirectory] = useState(true);
-  const [processingTokens, setProcessingTokens] = useState(false);
-
   const [copying, setCopying] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
   const { recentWorkspaces, addToRecentWorkspaces } = useRecentWorkspaces();
-
-  useEffect(() => {
-    if (dir) {
-      loadFileTree(dir);
-      // Add to recent workspaces if not already there
-      addToRecentWorkspaces(dir);
-    }
-  }, [dir]);
+  const workspace = useWorkspace(addToRecentWorkspaces);
 
   useEffect(() => {
     calculateTotalTokens();
-  }, [selectedFiles]);
-
-  const loadFileTree = async (dirPath: string) => {
-    try {
-      setLoading(true);
-      // Use the function without tokens for the initial load
-      const tree = await invoke<FileTreeNode[]>("get_file_tree", {
-        dirPath,
-      });
-      setFileTree(tree); // Use the tree directly, no mapping needed
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [workspace.selectedFiles]);
 
   const handleFileSelect = async (node: FileTreeNode) => {
-    setProcessingTokens(true); // Indicate loading
     try {
-      if (node.is_directory) {
-        // --- Directory Selection Logic ---
-
-        // Find the corresponding node in the main fileTree to get its current children for path checking
-        const displayNode = findNodeByPath(fileTree, node.path);
-        if (!displayNode) {
-          console.error(
-            "Could not find directory node in display tree:",
-            node.path
-          );
-          return;
-        }
-
-        const allDescendantPaths = getAllDescendants(displayNode).map(
-          (d) => d.path
-        );
-
-        // Determine if we are selecting or deselecting based on current selection state
-        const isSelecting = !selectedFiles.some(
-          (sf) => allDescendantPaths.includes(sf.path) && !sf.is_directory
-        );
-
-        if (isSelecting) {
-          // Fetch the subtree with tokens
-          const subtreeWithTokens = await invoke<FileTreeNode[]>(
-            "get_file_tree_with_tokens",
-            { dirPath: node.path }
-          );
-
-          // Need to reconstruct the root node for getAllDescendants to work correctly on the result
-          const rootSubtreeNode: FileTreeNode = {
-            ...node,
-            children: subtreeWithTokens,
-          };
-          const filesToAdd = getAllDescendants(rootSubtreeNode)
-            .filter((n) => !n.is_directory)
-            .map((n) => ({ ...n, tokenCount: n.token_count })); // Map token_count
-
-          // Add new files, avoiding duplicates
-          setSelectedFiles((prev) => {
-            const existingPaths = new Set(prev.map((f) => f.path));
-            const uniqueNewFiles = filesToAdd.filter(
-              (f) => !existingPaths.has(f.path)
-            );
-            return [...prev, ...uniqueNewFiles];
-          });
-        } else {
-          // Deselecting: remove all descendants found in the display tree
-          setSelectedFiles((prev) =>
-            prev.filter((sf) => !allDescendantPaths.includes(sf.path))
-          );
-        }
-      } else {
-        // --- File Selection Logic ---
-        const isCurrentlySelected = selectedFiles.some(
-          (f) => f.path === node.path
-        );
-
-        if (isCurrentlySelected) {
-          // Remove file
-          setSelectedFiles((prev) => prev.filter((f) => f.path !== node.path));
-        } else {
-          // Add file (calculateTotalTokens useEffect will handle fetching tokens if needed)
-          setSelectedFiles((prev) => [...prev, node]);
-        }
+      const newSelection = await toggleSelect(
+        node,
+        workspace.fileTree.data,
+        workspace.selectedFiles
+      );
+      if (newSelection) {
+        workspace.setSelectedFiles(newSelection);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setProcessingTokens(false);
+      //TODO toast error
     }
   };
 
   const toggleFolder = (path: string) => {
-    setExpandedFolders((prev) => {
+    workspace.setExpandedFolders((prev) => {
       const newSet = new Set(prev);
       if (newSet.has(path)) {
         newSet.delete(path);
@@ -149,14 +55,14 @@ function App() {
   };
 
   const calculateTotalTokens = async () => {
-    if (selectedFiles.length === 0) {
+    if (workspace.selectedFiles.length === 0) {
       setTotalTokens(0);
       return;
     }
 
     try {
       // First sum up all files that already have token counts
-      let total = selectedFiles.reduce((sum, file) => {
+      let total = workspace.selectedFiles.reduce((sum, file) => {
         if (!file.is_directory && file.tokenCount !== undefined) {
           return sum + file.tokenCount;
         }
@@ -164,7 +70,7 @@ function App() {
       }, 0);
 
       // Then calculate tokens for files that don't have them yet
-      const filesNeedingCalculation = selectedFiles.filter(
+      const filesNeedingCalculation = workspace.selectedFiles.filter(
         (file) =>
           !file.is_directory && file.tokenCount === undefined && !file.isLoading
       );
@@ -181,7 +87,7 @@ function App() {
           );
 
           // Update the selected files with new token counts
-          setSelectedFiles((prev) =>
+          workspace.setSelectedFiles((prev) =>
             prev.map((file) => {
               const batchIndex = batch.findIndex((f) => f.path === file.path);
               if (batchIndex !== -1) {
@@ -203,28 +109,25 @@ function App() {
   };
 
   const resetStates = () => {
-    setSelectedFiles([]);
-    setExpandedFolders(new Set());
-    setFileTree([]);
     setTotalTokens(0);
-    setError(null);
-    setDir("");
   };
-
+  const handleClose = () => {
+    setTotalTokens(0);
+  };
   const handleChooseDirectory = async () => {
     try {
       const selected = await open({ directory: true });
       if (selected) {
+        await workspace.loadWorkspace(selected as string);
         resetStates();
-        setDir(selected as string);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      //TODO toast error
     }
   };
 
   const handleSort = () => {
-    setSelectedFiles((prev) => {
+    workspace.setSelectedFiles((prev) => {
       const newDirection = sortDirection === "asc" ? "desc" : "asc";
       setSortDirection(newDirection);
 
@@ -239,14 +142,9 @@ function App() {
 
   const handleExport = async () => {
     setLoading(true);
-    setError(null);
     try {
-      if (!dir) {
-        throw new Error("Directory path cannot be empty.");
-      }
-
       // Get the paths of all selected files
-      const selectedFilePaths = selectedFiles
+      const selectedFilePaths = workspace.selectedFiles
         .filter((file) => !file.is_directory)
         .map((file) => file.path);
 
@@ -256,7 +154,7 @@ function App() {
 
       // Call the Rust command to get the formatted content
       const result = await invoke<string>("copy_files_with_tree_to_clipboard", {
-        dirPath: dir,
+        dirPath: workspace.workspacePath,
         selectedFilePaths: selectedFilePaths,
       });
 
@@ -271,7 +169,7 @@ function App() {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      //TODO toast error
     } finally {
       setLoading(false);
     }
@@ -281,14 +179,9 @@ function App() {
   const handleCopyWithTree = async () => {
     setLoading(true);
     setCopying(true);
-    setError(null);
     try {
-      if (!dir) {
-        throw new Error("Directory path cannot be empty.");
-      }
-
       // Get the paths of all selected files
-      const selectedFilePaths = selectedFiles
+      const selectedFilePaths = workspace.selectedFiles
         .filter((file) => !file.is_directory)
         .map((file) => file.path);
 
@@ -298,37 +191,27 @@ function App() {
 
       // Call the Rust command to directly copy to clipboard
       await invoke("copy_files_with_tree_to_clipboard", {
-        dirPath: dir,
+        dirPath: workspace.workspacePath,
         selectedFilePaths: selectedFilePaths,
       });
 
       // Show success feedback
       setCopySuccess(true);
-      const originalError = error;
-      setError("Copied to clipboard!");
       setTimeout(() => {
         setCopySuccess(false);
-        setError(originalError);
       }, 1000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      //TODO toast error
     } finally {
       setLoading(false);
       setCopying(false);
     }
   };
 
-  const handleClose = () => {
-    setDir("");
-    setSelectedFiles([]);
-    setExpandedFolders(new Set());
-    setFileTree([]);
-    setTotalTokens(0);
-    setError(null);
-  };
-
-  const numExpandedFolders = Array.from(expandedFolders).length;
-  const numSelectedFiles = selectedFiles.filter((f) => !f.is_directory).length;
+  const numExpandedFolders = Array.from(workspace.expandedFolders).length;
+  const numSelectedFiles = workspace.selectedFiles.filter(
+    (f) => !f.is_directory
+  ).length;
 
   return (
     <div className="flex h-screen flex-col bg-gray-900">
@@ -342,18 +225,18 @@ function App() {
             className="overflow-hidden"
           >
             <div className="h-full overflow-y-auto bg-gray-800 text-white">
-              {!dir ? (
+              {workspace.status === "not-loaded" ? (
                 <WorkspaceSelector
                   handleChooseDirectory={handleChooseDirectory}
                   recentWorkspaces={recentWorkspaces}
                   resetStates={resetStates}
-                  setDir={setDir}
+                  setDir={workspace.loadWorkspace}
                 />
               ) : (
                 <div className="flex flex-col h-full space-y-2">
                   {/* Fixed Header */}
                   <div className="py-4 border-b border-gray-600 pl-6 pr-4 space-y-1">
-                    <h3>{basename(dir)}</h3>
+                    <h3>{basename(workspace.workspacePath)}</h3>
                   </div>
 
                   <div className="px-2 pb-2 border-b border-gray-600">
@@ -365,19 +248,19 @@ function App() {
                       numExpandedFolders={numExpandedFolders}
                       numSelectedFiles={numSelectedFiles}
                       totalTokens={totalTokens}
-                      setExpandedFolders={setExpandedFolders}
-                      fileTree={fileTree}
+                      setExpandedFolders={workspace.setExpandedFolders}
+                      fileTree={workspace.fileTree.data}
                     />
                   </div>
 
                   {/* Scrollable Content */}
                   <div className="flex-1 overflow-y-auto overflow-x-hidden pl-1 mt-1">
-                    {fileTree.length > 0 ? (
+                    {workspace.fileTree.data.length > 0 ? (
                       <FileTree
-                        nodes={fileTree}
+                        nodes={workspace.fileTree.data}
                         level={0}
-                        expandedFolders={expandedFolders}
-                        selectedFiles={selectedFiles}
+                        expandedFolders={workspace.expandedFolders}
+                        selectedFiles={workspace.selectedFiles}
                         handleFileSelect={handleFileSelect}
                         toggleFolder={toggleFolder}
                       />
@@ -402,11 +285,11 @@ function App() {
             className="overflow-hidden"
           >
             <div className="h-full flex flex-col bg-gray-900">
-              {dir && (
+              {workspace.status === "loaded" && (
                 <>
                   {/* Git-like top bar */}
                   <TopBar
-                    dir={dir}
+                    dir={workspace.workspacePath}
                     handleClose={handleClose}
                     handleCopyWithTree={handleCopyWithTree}
                     loading={loading}
@@ -439,12 +322,12 @@ function App() {
                       <PanelGroup direction="vertical" className="flex-1">
                         <Panel defaultSize={25} className="overflow-y-auto">
                           <SelectionSummary
-                            selectedFiles={selectedFiles}
-                            dir={dir}
+                            selectedFiles={workspace.selectedFiles}
+                            dir={workspace.workspacePath}
                             totalTokens={totalTokens}
                             handleSort={handleSort}
                             sortDirection={sortDirection}
-                            groupByDirectory={groupByDirectory}
+                            groupByDirectory={true}
                             onDeselect={(file) => {
                               if (file.is_directory) {
                                 // If it's a directory header, deselect all files in that directory
@@ -457,7 +340,7 @@ function App() {
                                 )
                                   ? dirPath
                                   : `/${dirPath}`;
-                                setSelectedFiles((prev) =>
+                                workspace.setSelectedFiles((prev) =>
                                   prev.filter((f) => {
                                     // Skip directory headers
                                     if (f.is_directory) return true;
@@ -473,7 +356,7 @@ function App() {
                                 );
                               } else {
                                 // If it's a file, just deselect that file
-                                setSelectedFiles((prev) =>
+                                workspace.setSelectedFiles((prev) =>
                                   prev.filter((f) => f.path !== file.path)
                                 );
                               }
@@ -483,23 +366,13 @@ function App() {
                         <PanelResizeHandle className="h-1 bg-gray-700 hover:bg-gray-700 transition-colors" />
                         <Panel defaultSize={75}>
                           <TreeMap
-                            selectedFiles={selectedFiles}
+                            selectedFiles={workspace.selectedFiles}
                             totalTokens={totalTokens}
                             className="flex-1"
                           />
                         </Panel>
                       </PanelGroup>
                     </div>
-
-                    {error && (
-                      <div className="text-red-500 mt-2.5">
-                        <strong>Error:</strong> {error}
-                      </div>
-                    )}
-
-                    {loading && (
-                      <p className="text-white">Generating report...</p>
-                    )}
                   </div>
                 </>
               )}
