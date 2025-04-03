@@ -227,7 +227,7 @@ function App() {
                     <Export
                       selectedFiles={workspace.selectedFiles}
                       workspacePath={workspace.workspacePath}
-                      onClose={() => setIsShowingExport(false)}
+                      onClose={() => setIsShowingExport(!isShowingExport)}
                     />
                   ) : (
                     <div className="flex-1 overflow-y-auto px-4">

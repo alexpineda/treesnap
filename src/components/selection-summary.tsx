@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { FileTreeNode } from "../types";
 import { Folder, FileText, SquareX, ArrowUp, ArrowDown } from "lucide-react";
 import classNames from "classnames";
+import { formatTokens } from "../utils";
 
 interface SelectedFilesProps {
   selectedFiles: FileTreeNode[];
@@ -11,13 +12,6 @@ interface SelectedFilesProps {
   onDeselect: (file: FileTreeNode) => void;
   onSorted: (files: FileTreeNode[]) => void;
 }
-
-// Utility function to format token counts consistently
-const formatTokens = (tokens: number, includeK = true): string => {
-  const absTokens = Math.abs(tokens);
-  const formatted = (absTokens / 1000).toFixed(2);
-  return `~${formatted}${includeK ? "k" : ""}`;
-};
 
 export const SelectionSummary: React.FC<SelectedFilesProps> = ({
   selectedFiles,
@@ -149,7 +143,7 @@ export const SelectionSummary: React.FC<SelectedFilesProps> = ({
 
   return (
     <div className="w-full text-white p-4 shadow-lg h-full flex flex-col">
-      <div className="flex justify-between items-center mb-2.5">
+      <div className="flex justify-between items-center mb-2">
         <div className="flex items-center gap-4">
           <h3 className="m-0 text-sm font-medium text-white">
             Selection Summary

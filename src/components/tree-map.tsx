@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { FileTreeNode } from "../types";
 import classNames from "classnames";
+import { formatTokens } from "../utils";
 
 interface TreeMapProps {
   selectedFiles: FileTreeNode[];
@@ -69,12 +70,6 @@ export const TreeMap = ({
     };
 
     return colorMap[ext] || "bg-gradient-to-br from-gray-400 to-gray-600"; // Default gray gradient for unknown extensions
-  };
-
-  // Format tokens
-  const formatTokens = (tokens: number): string => {
-    if (tokens < 1000) return `${tokens}`;
-    return `${(tokens / 1000).toFixed(1)}k`;
   };
 
   useEffect(() => {
@@ -218,8 +213,18 @@ export const TreeMap = ({
       className={classNames("w-full flex flex-col p-4", className)}
       style={containerStyle}
     >
-      <div className="text-sm font-medium mb-2 text-white">
-        Token Size Treemap
+      <div className="flex items-center gap-4 mb-2">
+        <h3 className="m-0 text-sm font-medium text-white">
+          Token Size Treemap
+        </h3>
+        <div className="flex items-center gap-2">
+          <span className="text-gray-400 text-sm">
+            {selectedFiles.filter((f) => !f.is_directory).length} files
+          </span>
+          <span className="text-gray-400 text-sm">
+            {formatTokens(totalTokens)} Tokens
+          </span>
+        </div>
       </div>
       <div
         ref={containerRef}
