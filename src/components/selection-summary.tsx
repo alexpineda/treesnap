@@ -20,7 +20,7 @@ const formatTokens = (tokens: number, includeK = true): string => {
   return `~${formatted}${includeK ? "k" : ""}`;
 };
 
-export const SelectedFiles: React.FC<SelectedFilesProps> = ({
+export const SelectionSummary: React.FC<SelectedFilesProps> = ({
   selectedFiles,
   dir,
   totalTokens,

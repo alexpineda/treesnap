@@ -1,35 +1,17 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import {
-  Folder,
-  FolderOpen,
-  FileText,
-  ChevronRight,
-  X,
-  Copy,
-  Download,
-  Settings,
-  ChevronsDownUp,
-  ChevronsUpDown,
-} from "lucide-react";
 import { load, Store } from "@tauri-apps/plugin-store";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import "./resizable.css";
-import { SelectedFiles } from "./components/selected-files";
+import { SelectionSummary } from "./components/selection-summary";
 import { FileTreeNode, Workspace } from "./types";
 import { TreeMap } from "./components/tree-map";
-import { Tooltip } from "react-tooltip";
 import "react-tooltip/dist/react-tooltip.css";
-import {
-  formatTokens,
-  basename,
-  findNodeByPath,
-  getAllDescendants,
-  getAllFolderPaths,
-} from "./utils";
+import { basename, findNodeByPath, getAllDescendants } from "./utils";
 import { WorkspaceSelector } from "./components/workspace-selector";
-import { SidebarSummary } from "./components/sidebar/sidebar-summary";
+import { SidebarSummary, FileTree, SidebarFilter } from "./components/sidebar";
+import { TopBar } from "./components/top-bar";
 let store: Store;
 
 function App() {
@@ -262,111 +244,6 @@ function App() {
     }
   };
 
-  const calculateDirectorySelectionState = (
-    node: FileTreeNode
-  ): "none" | "partial" | "all" => {
-    if (!node.is_directory || !node.children) return "none";
-
-    const allDescendants = getAllDescendants(node);
-
-    // Count selected files (not directories) among all descendants
-    const selectedDescendants = allDescendants.filter(
-      (f) =>
-        !f.is_directory &&
-        selectedFiles.some((s: FileTreeNode) => s.path === f.path)
-    );
-    const totalFiles = allDescendants.filter((f) => !f.is_directory);
-
-    if (selectedDescendants.length === 0) return "none";
-    if (selectedDescendants.length === totalFiles.length) return "all";
-    return "partial";
-  };
-
-  const renderFileTree = (nodes: FileTreeNode[], level = 0) => {
-    return nodes.map((node) => {
-      const isFolder = node.is_directory;
-      const isExpanded = expandedFolders.has(node.path);
-      const isSelected = selectedFiles.some((f) => f.path === node.path);
-      const selectedFile = selectedFiles.find((f) => f.path === node.path);
-      const isLoading = selectedFile?.isLoading;
-      const selectionState = isFolder
-        ? calculateDirectorySelectionState(node)
-        : undefined;
-
-      return (
-        <div key={node.path} style={{ marginLeft: `${level * 16}px` }}>
-          <div className="flex items-center py-1 pl-2 cursor-pointer text-sm gap-2 overflow-hidden">
-            {isFolder && (
-              <div
-                onClick={() => toggleFolder(node.path)}
-                className="cursor-pointer flex-shrink-0"
-              >
-                <ChevronRight
-                  size={16}
-                  className={`transition-transform duration-200 ${
-                    isExpanded ? "transform rotate-90" : ""
-                  }`}
-                />
-              </div>
-            )}
-            {!isFolder && <div className="w-4 flex-shrink-0" />}
-            <input
-              type="checkbox"
-              checked={isFolder ? selectionState === "all" : isSelected}
-              ref={(el) => {
-                if (el && isFolder) {
-                  el.indeterminate = selectionState === "partial";
-                }
-              }}
-              onChange={() => handleFileSelect(node)}
-              onClick={(e) => e.stopPropagation()}
-              className={`w-4 h-4 inline-block align-middle relative cursor-pointer flex-shrink-0 ${
-                isSelected || selectionState === "all"
-                  ? "bg-blue-500"
-                  : "bg-gray-800"
-              }`}
-            />
-            <div
-              onClick={() => {
-                if (isFolder) toggleFolder(node.path);
-              }}
-              className={`flex items-center ${
-                isFolder ? "cursor-pointer" : "cursor-default"
-              } min-w-0 flex-shrink overflow-hidden`}
-            >
-              <span className="mr-1 w-4 inline-block text-center flex-shrink-0">
-                {isFolder ? (
-                  isExpanded ? (
-                    <FolderOpen size={16} />
-                  ) : (
-                    <Folder size={16} />
-                  )
-                ) : (
-                  <FileText size={16} />
-                )}
-              </span>
-              <span className="text-gray-300 truncate">{node.name}</span>
-            </div>
-            {!isFolder && (
-              <span className="ml-2 text-sm text-gray-400 flex-shrink-0">
-                {isLoading ? (
-                  <span className="animate-pulse">Calculating...</span>
-                ) : node.tokenCount !== undefined ? (
-                  `${node.tokenCount} tokens`
-                ) : null}
-              </span>
-            )}
-          </div>
-
-          {isFolder &&
-            isExpanded &&
-            node.children &&
-            renderFileTree(node.children, level + 1)}
-        </div>
-      );
-    });
-  };
-
   const resetStates = () => {
     setSelectedFiles([]);
     setExpandedFolders(new Set());
@@ -523,16 +400,7 @@ function App() {
 
                   <div className="px-2 pb-2 border-b border-gray-600">
                     {/* Filter */}
-                    <div className="relative">
-                      <input
-                        placeholder="Ignore Filter"
-                        className="w-full px-2 py-1 pr-8 rounded bg-gray-700 border border-gray-600 text-xs"
-                      />
-                      <Settings
-                        size={14}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400"
-                      />
-                    </div>
+                    <SidebarFilter />
 
                     {/* Short Summary and Collapse/Expand All */}
                     <SidebarSummary
@@ -547,7 +415,14 @@ function App() {
                   {/* Scrollable Content */}
                   <div className="flex-1 overflow-y-auto overflow-x-hidden pl-1 mt-1">
                     {fileTree.length > 0 ? (
-                      <div>{renderFileTree(fileTree)}</div>
+                      <FileTree
+                        nodes={fileTree}
+                        level={0}
+                        expandedFolders={expandedFolders}
+                        selectedFiles={selectedFiles}
+                        handleFileSelect={handleFileSelect}
+                        toggleFolder={toggleFolder}
+                      />
                     ) : (
                       <p>Loading files...</p>
                     )}
@@ -572,58 +447,14 @@ function App() {
               {dir && (
                 <>
                   {/* Git-like top bar */}
-                  <div className="flex relative border-b border-gray-700 bg-gray-800 text-xs text-gray-400 justify-between">
-                    <div className="flex items-center h-full">
-                      <div className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700">
-                        <span className="mb-1">
-                          <FolderOpen size={16} />
-                        </span>
-                        <span>Quick Open</span>
-                      </div>
-                    </div>
-
-                    <div className="flex-1 flex items-center justify-center py-2 absolute left-1/2 -translate-x-1/2 h-full">
-                      <div className="flex items-center gap-2 text-gray-100">
-                        <p>{basename(dir)}</p>
-                        <button
-                          onClick={handleClose}
-                          className="p-1 rounded cursor-pointer bg-gray-700 hover:bg-gray-600"
-                          title="Close directory"
-                        >
-                          <X size={16} />
-                        </button>
-                      </div>
-                    </div>
-                    <div className="flex items-center h-full">
-                      <div
-                        className={`flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700 ${
-                          copying ? "bg-gray-600" : ""
-                        }`}
-                        onClick={handleCopyWithTree}
-                        data-tooltip-id="copy"
-                        data-tooltip-content="Copy to clipboard with tree structure"
-                      >
-                        <span className="mb-1 h-full">
-                          {loading ? (
-                            <span className="animate-spin block w-4 h-4 border-2 border-gray-300 border-t-transparent rounded-full" />
-                          ) : copySuccess ? (
-                            <div className="text-green-500">✓</div>
-                          ) : (
-                            <Copy size={16} />
-                          )}
-                        </span>
-                        <Tooltip id="copy" delayShow={500} />
-                        <span>Copy</span>
-                      </div>
-                      <div className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700">
-                        <span className="mb-1">
-                          <Download size={16} />
-                        </span>
-                        <span>Export</span>
-                      </div>
-                    </div>
-                  </div>
-
+                  <TopBar
+                    dir={dir}
+                    handleClose={handleClose}
+                    handleCopyWithTree={handleCopyWithTree}
+                    loading={loading}
+                    copySuccess={copySuccess}
+                    copying={copying}
+                  />
                   {/* <div className="flex border-b border-gray-700 text-xs">
                     <div className="flex items-center px-3 py-1 bg-gray-700 text-gray-400 border-r border-gray-600">
                       <span>Tab 1</span>
@@ -649,7 +480,7 @@ function App() {
                     <div className="flex flex-col gap-4 h-full">
                       <PanelGroup direction="vertical" className="flex-1">
                         <Panel defaultSize={25} className="overflow-y-auto">
-                          <SelectedFiles
+                          <SelectionSummary
                             selectedFiles={selectedFiles}
                             dir={dir}
                             totalTokens={totalTokens}
