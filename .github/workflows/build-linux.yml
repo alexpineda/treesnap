@@ -1,9 +1,6 @@
 name: Build Tauri App (Linux)
 
 on:
-  push:
-    branches:
-      - release
   workflow_dispatch:
 
 jobs:
@@ -29,10 +26,10 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }} # Add to GitHub Secrets
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
           tagName: v__VERSION__
           releaseName: "RepoSnap v__VERSION__ (Linux)"
           releaseBody: "Linux build (AppImage)."
-          releaseDraft: false # Publish instead of draft
+          releaseDraft: true
           args: "--bundles appimage --verbose"

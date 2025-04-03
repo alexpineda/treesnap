@@ -1,9 +1,6 @@
 name: Build Tauri App (macOS)
 
 on:
-  push:
-    branches:
-      - release
   workflow_dispatch:
 
 jobs:
@@ -35,5 +32,5 @@ jobs:
           tagName: v__VERSION__
           releaseName: "RepoSnap v__VERSION__ (macOS ${{ matrix.target }})"
           releaseBody: "macOS build for ${{ matrix.target }} (.dmg)."
-          releaseDraft: false
+          releaseDraft: true
           args: "--target ${{ matrix.target }} --bundles dmg --verbose"

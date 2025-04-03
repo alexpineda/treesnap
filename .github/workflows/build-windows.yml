@@ -1,9 +1,6 @@
 name: Build Tauri App (Windows)
 
 on:
-  push:
-    branches:
-      - release
   workflow_dispatch:
 
 jobs:
@@ -30,5 +27,5 @@ jobs:
           tagName: v__VERSION__
           releaseName: "RepoSnap v__VERSION__ (Windows)"
           releaseBody: "Windows build (.msi)."
-          releaseDraft: false
+          releaseDraft: true
           args: "--bundles msi --verbose"
