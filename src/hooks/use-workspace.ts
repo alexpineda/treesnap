@@ -22,6 +22,7 @@ export const useWorkspace = (
       await fileTree.loadFileTree(dirPath);
       addToRecentWorkspaces(dirPath);
       setWorkspacePath(dirPath);
+      setWorkspaceStatus("loaded");
       return true;
     } catch (err) {
       setWorkspaceError(err instanceof Error ? err.message : String(err));

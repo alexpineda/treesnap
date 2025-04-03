@@ -113,6 +113,7 @@ function App() {
   };
   const handleClose = () => {
     setTotalTokens(0);
+    workspace.close();
   };
   const handleChooseDirectory = async () => {
     try {

@@ -118,9 +118,9 @@ export const SelectionSummary: React.FC<SelectedFilesProps> = ({
               <div
                 className={classNames("flex justify-between p-1", {
                   rounded: true,
-                  "border-t-1 border-l-1 border-r-1 border-gray-600 bg-gray-800":
+                  "border-t-1 border-l-1 border-r-1 border-gray-600 bg-gray-800 hover:bg-gray-700":
                     isDirectoryHeader,
-                  "border-l-1 border-r-1 border-gray-600 bg-gray-800":
+                  "border-l-1 border-r-1 border-gray-600 bg-gray-800 hover:bg-gray-700":
                     !isDirectoryHeader,
                   "border-b-1 border-gray-600 bg-gray-800":
                     !isDirectoryHeader && index === files.length - 1,
