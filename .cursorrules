@@ -4,18 +4,36 @@ It's meant to analyse a directory, get token counts for files of interset, and c
 
 # ** UI **
 
-The UI should be kept as simple and streamlined as possible. All heavy processing should be delegated to the rust back end.
+The UI should be kept as simple and streamlined as possible. All heavy processing should be delegated to the rust back end. 
 
-## Project / directory select - left panel
 
-User should be able to select a directory or see recent directories selected.
+## UI Without open directories (tabs):
+Show recent opened directories and an Open Folder button
 
-## File tree - left panel
+## UI With open directories (tabs):
 
-Once a directory is selected, the left panel is replaced with a file tree.
-User is shown a tree view of the directory with files.
-Directory should not show files under .gitignore
-User can select files and directories.
+### Left side: 
+    - Directory name
+    - Token totals
+    - Filters
+    - File navigation + selection
+
+### Right side:
+
+Split into 3 sections:
+- Top nav
+- Selected file summary
+- Treemap view
+
+### Key UX Ideas
+
+Users select files to include in their file set. 
+The files are asynchronously tallied for token counts by rust.
+The UI should be snappy and eager update, filling in token counts as they arrive.
+The selected file summary provides sorting files based on token count for better analysis.
+The treemap also provides additional analysis of files by token count.
+The user can then copy the file tree plus concatenated selected files with the Copy button or Export to a markdown format.
+
 
 ## Main area
 

@@ -11,3 +11,8 @@ export interface FileTreeNode {
   isLoading?: boolean;
   selectionState?: "none" | "partial" | "all";
 }
+
+export interface Workspace {
+  name: string;
+  path: string;
+}

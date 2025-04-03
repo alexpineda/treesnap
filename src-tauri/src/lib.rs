@@ -313,14 +313,19 @@ fn render_tree_as_ascii(nodes: &[FileTreeNode], prefix: &str, is_last: bool) -> 
     for (i, node) in nodes.iter().enumerate() {
         let is_current_last = i == nodes.len() - 1;
 
-        // Add the current node with proper prefix
-        let node_prefix = if is_last { "└── " } else { "├── " };
+        // Use is_current_last for the current node's prefix
+        let node_prefix = if is_current_last {
+            "└── "
+        } else {
+            "├── "
+        };
         result.push_str(&format!("{}{}{}\n", prefix, node_prefix, node.name));
 
-        // Add children if this is a directory
         if let Some(children) = &node.children {
-            let child_prefix = if is_last { "    " } else { "│   " };
+            // Use is_current_last to determine the prefix for child connections
+            let child_prefix = if is_current_last { "    " } else { "│   " };
             let new_prefix = format!("{}{}", prefix, child_prefix);
+            // Pass the correct is_current_last down to the recursive call
             result.push_str(&render_tree_as_ascii(
                 children,
                 &new_prefix,

@@ -16,23 +16,21 @@ import {
 import { load, Store } from "@tauri-apps/plugin-store";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import "./resizable.css";
-import { SelectedFiles } from "./components/SelectedFiles";
-import { FileTreeNode } from "./types";
-import { TreeMap } from "./components/TreeMap";
+import { SelectedFiles } from "./components/selected-files";
+import { FileTreeNode, Workspace } from "./types";
+import { TreeMap } from "./components/tree-map";
 import { Tooltip } from "react-tooltip";
 import "react-tooltip/dist/react-tooltip.css";
+import {
+  formatTokens,
+  basename,
+  findNodeByPath,
+  getAllDescendants,
+  getAllFolderPaths,
+} from "./utils";
+import { WorkspaceSelector } from "./components/workspace-selector";
+import { SidebarSummary } from "./components/sidebar/sidebar-summary";
 let store: Store;
-
-// Utility function to format token counts consistently
-const formatTokens = (tokens: number, includeK = true): string => {
-  const absTokens = Math.abs(tokens);
-  const formatted = (absTokens / 1000).toFixed(2);
-  return `~${formatted}${includeK ? "k" : ""}`;
-};
-
-const basename = (path: string) => {
-  return path.split(/[/\\]/).pop();
-};
 
 function App() {
   const [dir, setDir] = useState("");
@@ -48,9 +46,7 @@ function App() {
   const [groupByDirectory, setGroupByDirectory] = useState(true);
   const [processingTokens, setProcessingTokens] = useState(false);
 
-  const [recentWorkspaces, setRecentWorkspaces] = useState<
-    { name: string; path: string }[]
-  >([]);
+  const [recentWorkspaces, setRecentWorkspaces] = useState<Workspace[]>([]);
 
   const [copying, setCopying] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
@@ -122,34 +118,6 @@ function App() {
     } finally {
       setLoading(false);
     }
-  };
-
-  // Helper function to get all descendant files and directories from a node
-  const getAllDescendants = (node: FileTreeNode): FileTreeNode[] => {
-    let items: FileTreeNode[] = [node];
-    if (node.children) {
-      node.children.forEach((child) => {
-        items = items.concat(getAllDescendants(child));
-      });
-    }
-    return items;
-  };
-
-  // Helper function to find a node by path in the tree
-  const findNodeByPath = (
-    nodes: FileTreeNode[],
-    path: string
-  ): FileTreeNode | null => {
-    for (const node of nodes) {
-      if (node.path === path) {
-        return node;
-      }
-      if (node.children) {
-        const found = findNodeByPath(node.children, path);
-        if (found) return found;
-      }
-    }
-    return null;
   };
 
   const handleFileSelect = async (node: FileTreeNode) => {
@@ -299,17 +267,6 @@ function App() {
   ): "none" | "partial" | "all" => {
     if (!node.is_directory || !node.children) return "none";
 
-    // Get all descendants (including nested directories)
-    const getAllDescendants = (node: FileTreeNode): FileTreeNode[] => {
-      let items: FileTreeNode[] = [node];
-      if (node.children) {
-        node.children.forEach((child) => {
-          items = items.concat(getAllDescendants(child));
-        });
-      }
-      return items;
-    };
-
     const allDescendants = getAllDescendants(node);
 
     // Count selected files (not directories) among all descendants
@@ -323,19 +280,6 @@ function App() {
     if (selectedDescendants.length === 0) return "none";
     if (selectedDescendants.length === totalFiles.length) return "all";
     return "partial";
-  };
-
-  const getAllFolderPaths = (nodes: FileTreeNode[]): string[] => {
-    let paths: string[] = [];
-    nodes.forEach((node) => {
-      if (node.is_directory) {
-        paths.push(node.path);
-        if (node.children) {
-          paths = paths.concat(getAllFolderPaths(node.children));
-        }
-      }
-    });
-    return paths;
   };
 
   const renderFileTree = (nodes: FileTreeNode[], level = 0) => {
@@ -548,48 +492,8 @@ function App() {
     setError(null);
   };
 
-  // Render workspace selector view when no directory is selected
-  const renderWorkspaceSelector = () => {
-    return (
-      <div className="flex flex-col items-center justify-center h-full bg-gray-800 text-white p-5 text-center">
-        <h2>Codebases</h2>
-        <p className="text-sm my-2.5 mb-5">
-          Open a folder to start analyzing your codebase.
-        </p>
-
-        <div className="flex flex-wrap gap-2.5">
-          <button
-            onClick={handleChooseDirectory}
-            className="flex items-center gap-2 bg-gray-700 text-white border border-gray-600 p-2 rounded cursor-pointer"
-          >
-            <span>📁</span> Open Folder
-          </button>
-        </div>
-
-        {recentWorkspaces.length > 0 && (
-          <div className="mt-10 w-full">
-            <h3 className="text-sm text-gray-400 text-left">
-              Recent workspaces
-            </h3>
-            <div className="mt-2.5">
-              {recentWorkspaces.map((workspace, index) => (
-                <div
-                  key={index}
-                  className="py-2 text-blue-500 cursor-pointer text-left"
-                  onClick={() => {
-                    resetStates();
-                    setDir(workspace.path);
-                  }}
-                >
-                  {workspace.name}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
+  const numExpandedFolders = Array.from(expandedFolders).length;
+  const numSelectedFiles = selectedFiles.filter((f) => !f.is_directory).length;
 
   return (
     <div className="flex h-screen flex-col bg-gray-900">
@@ -604,7 +508,12 @@ function App() {
           >
             <div className="h-full overflow-y-auto bg-gray-800 text-white">
               {!dir ? (
-                renderWorkspaceSelector()
+                <WorkspaceSelector
+                  handleChooseDirectory={handleChooseDirectory}
+                  recentWorkspaces={recentWorkspaces}
+                  resetStates={resetStates}
+                  setDir={setDir}
+                />
               ) : (
                 <div className="flex flex-col h-full space-y-2">
                   {/* Fixed Header */}
@@ -626,46 +535,13 @@ function App() {
                     </div>
 
                     {/* Short Summary and Collapse/Expand All */}
-                    <div className="flex justify-between mt-3">
-                      <div className="pl-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm text-gray-300">
-                            {
-                              selectedFiles.filter((f) => !f.is_directory)
-                                .length
-                            }{" "}
-                            files selected
-                          </span>
-                          <span className="text-sm text-blue-400">
-                            {formatTokens(totalTokens)} Tokens
-                          </span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          if (expandedFolders.size === 0) {
-                            const allPaths = getAllFolderPaths(fileTree);
-                            setExpandedFolders(new Set(allPaths));
-                          } else {
-                            setExpandedFolders(new Set());
-                          }
-                        }}
-                        className="p-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-400 hover:text-white"
-                        data-tooltip-id="expand-collapse"
-                        data-tooltip-content={
-                          expandedFolders.size === 0
-                            ? "Expand All Folders"
-                            : "Collapse All Folders"
-                        }
-                      >
-                        {expandedFolders.size === 0 ? (
-                          <ChevronsUpDown size={14} />
-                        ) : (
-                          <ChevronsDownUp size={14} />
-                        )}
-                      </button>
-                      <Tooltip id="expand-collapse" delayShow={500} />
-                    </div>
+                    <SidebarSummary
+                      numExpandedFolders={numExpandedFolders}
+                      numSelectedFiles={numSelectedFiles}
+                      totalTokens={totalTokens}
+                      setExpandedFolders={setExpandedFolders}
+                      fileTree={fileTree}
+                    />
                   </div>
 
                   {/* Scrollable Content */}
@@ -748,7 +624,7 @@ function App() {
                     </div>
                   </div>
 
-                  <div className="flex border-b border-gray-700 text-xs">
+                  {/* <div className="flex border-b border-gray-700 text-xs">
                     <div className="flex items-center px-3 py-1 bg-gray-700 text-gray-400 border-r border-gray-600">
                       <span>Tab 1</span>
                       <button className="p-1 hover:bg-gray-600 rounded">
@@ -767,7 +643,7 @@ function App() {
                         <X size={12} />
                       </button>
                     </div>
-                  </div>
+                  </div> */}
 
                   <div className="flex-1 overflow-y-auto px-4">
                     <div className="flex flex-col gap-4 h-full">
