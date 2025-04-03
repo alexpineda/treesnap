@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - release
+  workflow_dispatch: # Manual trigger
 
 jobs:
   build-macos:
