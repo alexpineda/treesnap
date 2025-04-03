@@ -1,4 +1,4 @@
-name: Build Tauri App (All Platforms)
+name: Build Tauri App (All Platforms - Single Release)
 
 on:
   workflow_dispatch:
