@@ -15,3 +15,5 @@ export interface FileTreeNode {
 export interface RecentWorkspace {
   path: string;
 }
+
+export type TreeOption = "include" | "include-only-selected" | "do-not-include";

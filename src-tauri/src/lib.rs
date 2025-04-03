@@ -447,20 +447,115 @@ async fn concatenate_files_with_tree(
 async fn copy_files_with_tree_to_clipboard(
     dir_path: String,
     selected_file_paths: Vec<String>,
+    tree_option: String,
 ) -> Result<(), String> {
     // First get the content using our existing function
-    let content = concatenate_files_with_tree(dir_path, selected_file_paths).await?;
+    let content = match tree_option.as_str() {
+        "include" => {
+            // Get full tree
+            let tree = get_file_tree(dir_path.clone()).await?;
+            let tree_text = generate_file_tree_text(&dir_path, &tree);
+            format!("<file_map>\n{}</file_map>\n\n", tree_text)
+        }
+        "include-only-selected" => {
+            // Get tree with only selected files
+            let mut tree = get_file_tree(dir_path.clone()).await?;
+            filter_tree_to_selected(&mut tree, &selected_file_paths);
+            let tree_text = generate_file_tree_text(&dir_path, &tree);
+            format!("<file_map>\n{}</file_map>\n\n", tree_text)
+        }
+        "do-not-include" => String::new(),
+        _ => return Err("Invalid tree option".to_string()),
+    };
 
-    // Now copy it to clipboard
+    // Add file contents
+    let mut output = content;
+    output.push_str("<file_contents>\n");
+
+    for file_path in selected_file_paths {
+        let path = PathBuf::from(&file_path);
+        if !path.exists() || !path.is_file() {
+            eprintln!("Warning: File does not exist: {:?}", path);
+            continue;
+        }
+
+        let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        let content = match fs::read_to_string(&path) {
+            Ok(content) => content,
+            Err(e) => {
+                eprintln!("Warning: Failed to read file {}: {}", file_path, e);
+                format!("[Error reading file: {}]", e)
+            }
+        };
+
+        let is_likely_binary = content.contains('\0');
+
+        output.push_str(&format!("File: {}\n", file_path));
+
+        if is_likely_binary {
+            output.push_str("```");
+            output.push_str(extension);
+            output.push_str("\n[Binary file]\n```\n\n");
+        } else {
+            output.push_str("```");
+            output.push_str(extension);
+            output.push_str("\n");
+            output.push_str(&content);
+
+            if !content.ends_with('\n') {
+                output.push('\n');
+            }
+
+            output.push_str("```\n\n");
+        }
+    }
+
+    output.push_str("</file_contents>");
+
+    // Copy to clipboard
     match Clipboard::new() {
         Ok(mut clipboard) => {
             clipboard
-                .set_text(content)
+                .set_text(output)
                 .map_err(|e| format!("Failed to copy to clipboard: {}", e))?;
             Ok(())
         }
         Err(e) => Err(format!("Failed to access clipboard: {}", e)),
     }
+}
+
+// Helper function to filter tree to only include selected files
+fn filter_tree_to_selected(tree: &mut Vec<FileTreeNode>, selected_paths: &[String]) {
+    let selected_paths: std::collections::HashSet<_> = selected_paths.iter().collect();
+
+    // Helper function to recursively filter the tree
+    fn filter_node(
+        node: &mut FileTreeNode,
+        selected_paths: &std::collections::HashSet<&String>,
+    ) -> bool {
+        if !node.is_directory {
+            return selected_paths.contains(&node.path);
+        }
+
+        if let Some(children) = &mut node.children {
+            let mut new_children = Vec::new();
+            for mut child in children.drain(..) {
+                if filter_node(&mut child, selected_paths) {
+                    new_children.push(child);
+                }
+            }
+            node.children = if new_children.is_empty() {
+                None
+            } else {
+                Some(new_children)
+            };
+        }
+
+        node.children.is_some()
+    }
+
+    // Filter the tree
+    tree.retain_mut(|node| filter_node(node, &selected_paths));
 }
 
 pub fn run() {

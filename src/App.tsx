@@ -13,10 +13,11 @@ import { SidebarSummary, FileTree, SidebarFilter } from "./components/sidebar";
 import { TopBar } from "./components/top-bar";
 import { useRecentWorkspaces } from "./hooks/use-recent-workspaces";
 import { useWorkspace } from "./hooks/use-workspace";
+import { Export } from "./components/export";
 
 function App() {
   const [totalTokens, setTotalTokens] = useState(0);
-
+  const [isShowingExport, setIsShowingExport] = useState(false);
   const { recentWorkspaces, addToRecentWorkspaces } = useRecentWorkspaces();
   const workspace = useWorkspace(addToRecentWorkspaces);
 
@@ -100,6 +101,7 @@ function App() {
     setTotalTokens(0);
     workspace.close();
   };
+
   const handleChooseDirectory = async () => {
     try {
       const selected = await open({ directory: true });
@@ -107,38 +109,6 @@ function App() {
         await workspace.loadWorkspace(selected as string);
         resetStates();
       }
-    } catch (err) {
-      //TODO toast error
-    }
-  };
-
-  const handleExport = async () => {
-    try {
-      // Get the paths of all selected files
-      const selectedFilePaths = workspace.selectedFiles
-        .filter((file) => !file.is_directory)
-        .map((file) => file.path);
-
-      if (selectedFilePaths.length === 0) {
-        throw new Error("No files selected to export.");
-      }
-
-      // Call the Rust command to get the formatted content
-      const result = await invoke<string>("copy_files_with_tree_to_clipboard", {
-        dirPath: workspace.workspacePath,
-        selectedFilePaths: selectedFilePaths,
-      });
-
-      // Create and download the markdown file
-      const blob = new Blob([result], { type: "text/markdown" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "codebase-report.md";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
     } catch (err) {
       //TODO toast error
     }
@@ -230,6 +200,7 @@ function App() {
                     selectedFiles={workspace.selectedFiles}
                     workspacePath={workspace.workspacePath}
                     handleClose={handleClose}
+                    onExportClick={() => setIsShowingExport(true)}
                   />
                   {/* <div className="flex border-b border-gray-700 text-xs">
                     <div className="flex items-center px-3 py-1 bg-gray-700 text-gray-400 border-r border-gray-600">
@@ -252,64 +223,72 @@ function App() {
                     </div>
                   </div> */}
 
-                  <div className="flex-1 overflow-y-auto px-4">
-                    <div className="flex flex-col gap-4 h-full">
-                      <PanelGroup direction="vertical" className="flex-1">
-                        <Panel defaultSize={25} className="overflow-y-auto">
-                          <SelectionSummary
-                            selectedFiles={workspace.selectedFiles}
-                            dir={workspace.workspacePath}
-                            totalTokens={totalTokens}
-                            groupByDirectory={true}
-                            onSorted={(files) => {
-                              workspace.setSelectedFiles(files);
-                            }}
-                            onDeselect={(file) => {
-                              if (file.is_directory) {
-                                // If it's a directory header, deselect all files in that directory
-                                const dirPath = file.path.replace(
-                                  "_header",
-                                  ""
-                                );
-                                const normalizedDirPath = dirPath.startsWith(
-                                  "/"
-                                )
-                                  ? dirPath
-                                  : `/${dirPath}`;
-                                workspace.setSelectedFiles((prev) =>
-                                  prev.filter((f) => {
-                                    // Skip directory headers
-                                    if (f.is_directory) return true;
-                                    // Check if file is in the directory
-                                    const fileDir = f.path.substring(
-                                      0,
-                                      f.path.lastIndexOf("/")
-                                    );
-                                    return !fileDir.startsWith(
-                                      normalizedDirPath
-                                    );
-                                  })
-                                );
-                              } else {
-                                // If it's a file, just deselect that file
-                                workspace.setSelectedFiles((prev) =>
-                                  prev.filter((f) => f.path !== file.path)
-                                );
-                              }
-                            }}
-                          />
-                        </Panel>
-                        <PanelResizeHandle className="h-1 bg-gray-700 hover:bg-gray-700 transition-colors" />
-                        <Panel defaultSize={75}>
-                          <TreeMap
-                            selectedFiles={workspace.selectedFiles}
-                            totalTokens={totalTokens}
-                            className="flex-1"
-                          />
-                        </Panel>
-                      </PanelGroup>
+                  {isShowingExport ? (
+                    <Export
+                      selectedFiles={workspace.selectedFiles}
+                      workspacePath={workspace.workspacePath}
+                      onClose={() => setIsShowingExport(false)}
+                    />
+                  ) : (
+                    <div className="flex-1 overflow-y-auto px-4">
+                      <div className="flex flex-col gap-4 h-full">
+                        <PanelGroup direction="vertical" className="flex-1">
+                          <Panel defaultSize={25} className="overflow-y-auto">
+                            <SelectionSummary
+                              selectedFiles={workspace.selectedFiles}
+                              dir={workspace.workspacePath}
+                              totalTokens={totalTokens}
+                              groupByDirectory={true}
+                              onSorted={(files) => {
+                                workspace.setSelectedFiles(files);
+                              }}
+                              onDeselect={(file) => {
+                                if (file.is_directory) {
+                                  // If it's a directory header, deselect all files in that directory
+                                  const dirPath = file.path.replace(
+                                    "_header",
+                                    ""
+                                  );
+                                  const normalizedDirPath = dirPath.startsWith(
+                                    "/"
+                                  )
+                                    ? dirPath
+                                    : `/${dirPath}`;
+                                  workspace.setSelectedFiles((prev) =>
+                                    prev.filter((f) => {
+                                      // Skip directory headers
+                                      if (f.is_directory) return true;
+                                      // Check if file is in the directory
+                                      const fileDir = f.path.substring(
+                                        0,
+                                        f.path.lastIndexOf("/")
+                                      );
+                                      return !fileDir.startsWith(
+                                        normalizedDirPath
+                                      );
+                                    })
+                                  );
+                                } else {
+                                  // If it's a file, just deselect that file
+                                  workspace.setSelectedFiles((prev) =>
+                                    prev.filter((f) => f.path !== file.path)
+                                  );
+                                }
+                              }}
+                            />
+                          </Panel>
+                          <PanelResizeHandle className="h-1 bg-gray-700 hover:bg-gray-700 transition-colors" />
+                          <Panel defaultSize={75}>
+                            <TreeMap
+                              selectedFiles={workspace.selectedFiles}
+                              totalTokens={totalTokens}
+                              className="flex-1"
+                            />
+                          </Panel>
+                        </PanelGroup>
+                      </div>
                     </div>
-                  </div>
+                  )}
                 </>
               )}
             </div>

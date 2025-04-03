@@ -4,50 +4,24 @@ import { Tooltip } from "react-tooltip";
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { FileTreeNode } from "../types";
+import { useExport } from "../hooks/use-export";
 
 export const TopBar = ({
   selectedFiles,
   workspacePath,
   handleClose,
+  onExportClick,
 }: {
   selectedFiles: FileTreeNode[];
   workspacePath: string;
   handleClose: () => void;
+  onExportClick: () => void;
 }) => {
-  const [status, setStatus] = useState<
-    "idle" | "copying" | "success" | "error"
-  >("idle");
+  const { status, copyExportToClipboard } = useExport({
+    selectedFiles,
+    workspacePath,
+  });
 
-  // New function to handle the copy to clipboard with tree structure
-  const handleCopyWithTree = async () => {
-    setStatus("copying");
-    try {
-      // Get the paths of all selected files
-      const selectedFilePaths = selectedFiles
-        .filter((file) => !file.is_directory)
-        .map((file) => file.path);
-
-      if (selectedFilePaths.length === 0) {
-        throw new Error("No files selected to copy.");
-      }
-
-      // Call the Rust command to directly copy to clipboard
-      await invoke("copy_files_with_tree_to_clipboard", {
-        dirPath: workspacePath,
-        selectedFilePaths: selectedFilePaths,
-      });
-
-      // Show success feedback
-      setStatus("success");
-      setTimeout(() => {
-        setStatus("idle");
-      }, 1000);
-    } catch (err) {
-      //TODO toast error
-    } finally {
-      setStatus("idle");
-    }
-  };
   return (
     <div className="flex relative border-b border-gray-700 bg-gray-800 text-xs text-gray-400 justify-between">
       <div className="flex items-center h-full">
@@ -76,7 +50,7 @@ export const TopBar = ({
           className={`flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700 ${
             status === "copying" ? "bg-gray-600" : ""
           }`}
-          onClick={handleCopyWithTree}
+          onClick={() => copyExportToClipboard("include")}
           data-tooltip-id="copy"
           data-tooltip-content="Copy to clipboard with tree structure"
         >
@@ -92,7 +66,10 @@ export const TopBar = ({
           <Tooltip id="copy" delayShow={500} />
           <span>Copy</span>
         </div>
-        <div className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700">
+        <div
+          className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700"
+          onClick={onExportClick}
+        >
           <span className="mb-1">
             <Download size={16} />
           </span>
