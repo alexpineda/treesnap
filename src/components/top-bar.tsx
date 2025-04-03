@@ -1,8 +1,6 @@
 import { Copy, Download, FolderOpen, X } from "lucide-react";
 import { basename } from "../utils";
 import { Tooltip } from "react-tooltip";
-import { useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { FileTreeNode } from "../types";
 import { useExport } from "../hooks/use-export";
 

@@ -60,7 +60,7 @@ export const SelectionSummary: React.FC<SelectedFilesProps> = ({
 
     // Sort groups by their total token count
     const sortedGroups = Object.entries(groups).sort(
-      ([keyA, filesA], [keyB, filesB]) => {
+      ([_, filesA], [__, filesB]) => {
         const totalA = filesA.reduce(
           (sum, file) => sum + (file.tokenCount || 0),
           0

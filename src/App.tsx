@@ -9,7 +9,7 @@ import { TreeMap } from "./components/tree-map";
 import "react-tooltip/dist/react-tooltip.css";
 import { basename, toggleSelect } from "./utils";
 import { WorkspaceSelector } from "./components/workspace-selector";
-import { SidebarSummary, FileTree, SidebarFilter } from "./components/sidebar";
+import { SidebarSummary, FileTree } from "./components/sidebar";
 import { TopBar } from "./components/top-bar";
 import { useRecentWorkspaces } from "./hooks/use-recent-workspaces";
 import { useWorkspace } from "./hooks/use-workspace";
