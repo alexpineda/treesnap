@@ -1,0 +1,37 @@
+name: Build Tauri App (macOS)
+
+on:
+  push:
+    branches:
+      - release
+
+jobs:
+  build-macos:
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        target: ["aarch64-apple-darwin", "x86_64-apple-darwin"]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Install frontend dependencies
+        run: npm install
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: "My App v__VERSION__ (macOS ${{ matrix.target }})"
+          releaseBody: "Unsigned macOS build for ${{ matrix.target }} (.dmg)."
+          releaseDraft: true
+          args: "--target ${{ matrix.target }} --bundles dmg"
