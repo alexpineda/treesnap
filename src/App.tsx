@@ -114,6 +114,15 @@ function App() {
     }
   };
 
+  const handleRefresh = () => {
+    resetStates();
+    const selected = structuredClone(workspace.selectedFiles);
+    const expandedFolders = structuredClone(workspace.expandedFolders);
+    workspace.loadWorkspace(workspace.workspacePath);
+    workspace.setSelectedFiles(selected);
+    workspace.setExpandedFolders(expandedFolders);
+  };
+
   const numExpandedFolders = Array.from(workspace.expandedFolders).length;
   const numSelectedFiles = workspace.selectedFiles.filter(
     (f) => !f.is_directory
@@ -147,7 +156,7 @@ function App() {
 
                   <div className="px-2 pb-2 border-b border-gray-600">
                     {/* Filter */}
-                    <SidebarFilter />
+                    {/* <SidebarFilter /> */}
 
                     {/* Short Summary and Collapse/Expand All */}
                     <SidebarSummary
@@ -156,6 +165,7 @@ function App() {
                       totalTokens={totalTokens}
                       setExpandedFolders={workspace.setExpandedFolders}
                       fileTree={workspace.fileTree.data}
+                      onRefresh={handleRefresh}
                     />
                   </div>
 
