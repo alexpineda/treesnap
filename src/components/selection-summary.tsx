@@ -151,9 +151,10 @@ export const SelectionSummary: React.FC<SelectedFilesProps> = ({
           <div className="flex items-center gap-2">
             <span className="text-gray-400 text-sm">
               {selectedFiles.filter((f) => !f.is_directory).length} files
+              selected
             </span>
             <span className="text-gray-400 text-sm">
-              {formatTokens(totalTokens)} Tokens
+              {formatTokens(totalTokens)} tokens
             </span>
           </div>
         </div>
@@ -181,9 +182,9 @@ export const SelectionSummary: React.FC<SelectedFilesProps> = ({
           return (
             <div key={file.path}>
               <div
-                className={classNames("flex justify-between p-1 mr-4", {
+                className={classNames("flex justify-between py-1 px-2  mr-4", {
                   rounded: true,
-                  "border-t-1 border-l-1 border-r-1 border-gray-600 bg-gray-800 hover:bg-gray-700":
+                  "border-t-1 border-l-1 border-r-1 border-gray-600 bg-gray-700 hover:bg-gray-700":
                     isDirectoryHeader,
                   "border-l-1 border-r-1 border-gray-600 bg-gray-800 hover:bg-gray-700":
                     !isDirectoryHeader,
@@ -195,7 +196,7 @@ export const SelectionSummary: React.FC<SelectedFilesProps> = ({
                 <div className="flex items-center text-sm">
                   <span
                     className={`mr-2 ${
-                      isDirectoryHeader ? "text-blue-400" : "text-gray-300"
+                      isDirectoryHeader ? "text-gray-100" : "text-gray-400"
                     }`}
                   >
                     {isDirectoryHeader ? (
@@ -210,7 +211,7 @@ export const SelectionSummary: React.FC<SelectedFilesProps> = ({
                       overflowWrap: "break-word",
                       whiteSpace: "normal",
                     }}
-                    className="text-gray-300"
+                    className="text-gray-200"
                   >
                     {isDirectoryHeader ? `${file.name}/` : file.name}
                   </span>
@@ -219,10 +220,10 @@ export const SelectionSummary: React.FC<SelectedFilesProps> = ({
                   {file.tokenCount !== undefined && (
                     <span
                       className={`${
-                        isDirectoryHeader ? "text-blue-400" : "text-gray-400"
+                        isDirectoryHeader ? "text-grey-200" : "text-gray-300"
                       }`}
                     >
-                      -{formatTokens(file.tokenCount)}
+                      {formatTokens(file.tokenCount)}
                       {isDirectoryHeader &&
                         file.dirPercentage !== undefined &&
                         ` (${file.dirPercentage}%)`}

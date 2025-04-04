@@ -219,10 +219,10 @@ export const TreeMap = ({
         </h3>
         <div className="flex items-center gap-2">
           <span className="text-gray-400 text-sm">
-            {selectedFiles.filter((f) => !f.is_directory).length} files
+            {selectedFiles.filter((f) => !f.is_directory).length} files selected
           </span>
           <span className="text-gray-400 text-sm">
-            {formatTokens(totalTokens)} Tokens
+            {formatTokens(totalTokens)} tokens
           </span>
         </div>
       </div>

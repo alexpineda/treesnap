@@ -26,7 +26,7 @@ export const SidebarSummary = ({
           <span className="text-blue-400">files selected</span>
         </span>
         <span className="text-sm text-gray-300">
-          {formatTokens(totalTokens)} Tokens
+          {formatTokens(totalTokens)} tokens
         </span>
       </div>
     </div>
