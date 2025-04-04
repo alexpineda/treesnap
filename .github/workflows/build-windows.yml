@@ -40,13 +40,18 @@ jobs:
         uses: ./.github/actions/get-version-from-package
         id: package-version
 
-      - name: Upload to R2
+      - name: Upload to R2 (MSI)
         if: ${{ github.event.inputs.deploy == 'true' }}
-        uses: ./.github/actions/upload-to-r2
+        uses: ryand56/r2-upload-action@latest
         id: r2-upload
         with:
+          r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          r2-bucket: ${{ secrets.R2_BUCKET }}
           source-dir: src-tauri/target/release/bundle/msi
-          version: ${{ steps.package-version.outputs.version }}
+          destination-dir: releases/${{ steps.package-version.outputs.version }}
+          output-file-url: true
 
       - name: Debug R2 Upload Outputs
         if: ${{ github.event.inputs.deploy == 'true' }}

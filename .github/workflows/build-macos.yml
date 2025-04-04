@@ -52,29 +52,31 @@ jobs:
           echo "DMG directory contents:"
           ls -la src-tauri/target/${{ matrix.target }}/release/bundle/dmg/
 
-      - name: Upload to R2 (DMG)
+      - name: Upload to R2 (Updater Artifacts)
         if: ${{ github.event.inputs.deploy == 'true' }}
-        uses: ./.github/actions/upload-to-r2
-        id: r2-upload-dmg
-        with:
-          source-dir: src-tauri/target/${{ matrix.target }}/release/bundle/dmg
-          version: ${{ steps.package-version.outputs.version }}
-          r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          r2-bucket: ${{ secrets.R2_BUCKET }}
-
-      - name: Upload Updater Artifacts to R2
-        if: ${{ github.event.inputs.deploy == 'true' }}
-        uses: ./.github/actions/upload-to-r2
+        uses: ryand56/r2-upload-action@latest
         id: r2-upload-updater
         with:
-          source-dir: src-tauri/target/${{ matrix.target }}/release/bundle/macos
-          version: ${{ steps.package-version.outputs.version }}
           r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
           r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
           r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           r2-bucket: ${{ secrets.R2_BUCKET }}
+          source-dir: src-tauri/target/${{ matrix.target }}/release/bundle/macos
+          destination-dir: releases/${{ steps.package-version.outputs.version }}
+          output-file-url: true
+
+      - name: Upload to R2 (DMG)
+        if: ${{ github.event.inputs.deploy == 'true' }}
+        uses: ryand56/r2-upload-action@latest
+        id: r2-upload-dmg
+        with:
+          r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          r2-bucket: ${{ secrets.R2_BUCKET }}
+          source-dir: src-tauri/target/${{ matrix.target }}/release/bundle/dmg
+          destination-dir: releases/${{ steps.package-version.outputs.version }}
+          output-file-url: true
 
       - name: Debug R2 Upload Outputs
         if: ${{ github.event.inputs.deploy == 'true' }}
