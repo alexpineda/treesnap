@@ -4,130 +4,73 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-macos:
+  build-and-release:
     permissions:
-      contents: write
+      contents: write # Needed to create releases
     strategy:
+      fail-fast: false
       matrix:
-        target: ["aarch64-apple-darwin", "x86_64-apple-darwin"]
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Bun
-        run: curl -fsSL https://bun.sh/install | bash -s -- "bun-v1.1.13"
-      - name: Add Bun to PATH
-        run: echo "$HOME/.bun/bin" >> $GITHUB_PATH
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-      - name: Install frontend dependencies
-        run: bun install
-      - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-        with:
-          tagName: v__VERSION__
-          releaseDraft: true # Keep as draft until final publish
-          args: "--target ${{ matrix.target }} --bundles dmg --verbose"
-      - name: Upload macOS artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-${{ matrix.target }}
-          path: |
-            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.app.tar.gz
-            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.sig
+        include:
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            args: "--target aarch64-apple-darwin --bundles dmg"
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+            args: "--target x86_64-apple-darwin --bundles dmg"
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu # Optional target specifier for clarity
+            args: "--bundles appimage"
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc # Optional target specifier for clarity
+            args: "--bundles msi"
 
-  build-windows:
-    needs: build-macos
-    permissions:
-      contents: write
-    runs-on: windows-latest
+    runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install Bun
+
+      # Bun Setup (Conditional for different OS shells)
+      - name: Install Bun (Unix)
+        if: runner.os != 'Windows'
+        run: curl -fsSL https://bun.sh/install | bash -s -- "bun-v1.1.13"
+      - name: Add Bun to PATH (Unix)
+        if: runner.os != 'Windows'
+        run: echo "$HOME/.bun/bin" >> $GITHUB_PATH
+      - name: Install Bun (Windows)
+        if: runner.os == 'Windows'
         run: powershell -Command "irm bun.sh/install.ps1 | iex"
-      - name: Add Bun to PATH
+      - name: Add Bun to PATH (Windows)
+        if: runner.os == 'Windows'
         run: echo "$env:USERPROFILE\.bun\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-      - name: Install frontend dependencies
-        run: bun install
-      - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-        with:
-          tagName: v__VERSION__
-          releaseDraft: true
-          args: "--bundles msi --verbose"
-      - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: windows-x86_64
-          path: |
-            src-tauri/target/release/bundle/msi/*.msi
-            src-tauri/target/release/bundle/msi/*.sig
 
-  build-linux:
-    needs: build-windows
-    permissions:
-      contents: write
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install Bun
-        run: curl -fsSL https://bun.sh/install | bash -s -- "bun-v1.1.13"
-      - name: Add Bun to PATH
-        run: echo "$HOME/.bun/bin" >> $GITHUB_PATH
-      - name: Install Rust
+      - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
+        with:
+          # Install necessary targets only on macOS runners
+          targets: ${{ matrix.platform == 'macos-latest' && format('{0},{1}', matrix.target, 'aarch64-apple-darwin,x86_64-apple-darwin') || matrix.target }}
+
       - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
       - name: Install frontend dependencies
         run: bun install
-      - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-        with:
-          tagName: v__VERSION__
-          releaseDraft: true
-          args: "--bundles appimage --verbose"
-      - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-x86_64
-          path: |
-            src-tauri/target/release/bundle/appimage/*.AppImage
-            src-tauri/target/release/bundle/appimage/*.sig
 
-  publish-release:
-    needs: [build-macos, build-windows, build-linux]
-    permissions:
-      contents: write
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v4
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-      - name: Create and publish release
-        uses: tauri-apps/tauri-action@v0
+      # Build and release using tauri-action
+      - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }} # Pass the signing key
+          # Optional: TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: v__VERSION__
+          projectPath: . # Optional: Explicitly set project path if not root
+          tagName: v__VERSION__ # Use placeholder for automatic version fetching
           releaseName: "RepoSnap v__VERSION__"
-          releaseBody: "Multi-platform release"
-          releaseDraft: false # Publish final release
-          includeUpdaterJson: true
-          updaterJsonArtifactsPath: "artifacts/**/*.{AppImage,msi,app.tar.gz,sig}"
+          releaseBody: "Draft release for v__VERSION__."
+          releaseDraft: true # Create a draft release
+          prerelease: false
+          # includeUpdaterJson: true # This is true by default when tagName is set
+          args: ${{ matrix.args }} --verbose # Pass matrix args (target, bundles) and keep verbose
+          # Optional: Specify tauriScript if bun isn't detected automatically
+          # tauriScript: bun tauri
