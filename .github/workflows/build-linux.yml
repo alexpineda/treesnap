@@ -52,7 +52,7 @@ jobs:
           ls -la src-tauri/target/release/bundle/appimage/
 
       - name: Upload to R2
-        if: ${{ github.event.inputs.deploy == true }}
+        if: ${{ github.event.inputs.deploy == 'true' }}
         uses: ./.github/actions/upload-to-r2
         id: r2-upload
         with:
