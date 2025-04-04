@@ -49,5 +49,5 @@ jobs:
         if: ${{ github.event.inputs.deploy == true }}
         uses: ./.github/actions/upload-to-r2
         with:
-          source-dir: src-tauri/target/release/bundle/dmg
+          source-dir: src-tauri/target/${{ matrix.target }}/release/bundle/dmg
           version: ${{ steps.package-version.outputs.version }}
