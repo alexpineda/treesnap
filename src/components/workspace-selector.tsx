@@ -1,6 +1,6 @@
+import { FolderOpenIcon } from "lucide-react";
 import { RecentWorkspace } from "../types";
 import { basename } from "../utils";
-
 // Render workspace selector view when no directory is selected
 export const WorkspaceSelector = ({
   handleChooseDirectory,
@@ -14,8 +14,11 @@ export const WorkspaceSelector = ({
   setDir: (dir: string) => void;
 }) => {
   return (
-    <div className="flex flex-col items-center justify-center h-full bg-gray-800 text-white p-5 text-center">
-      <h2>Codebases</h2>
+    <div className="flex flex-col items-center justify-center h-full bg-gray-800 text-white px-10 text-center">
+      <h2 className="text-2xl font-bold flex items-center gap-2">
+        <img src="/logo.png" alt="RepoSnap" className="w-8 h-8" />
+        RepoSnap
+      </h2>
       <p className="text-sm my-2.5 mb-5">
         Open a folder to start analyzing your codebase.
       </p>
@@ -23,20 +26,22 @@ export const WorkspaceSelector = ({
       <div className="flex flex-wrap gap-2.5">
         <button
           onClick={handleChooseDirectory}
-          className="flex items-center gap-2 bg-gray-700 text-white border border-gray-600 p-2 rounded cursor-pointer"
+          className="flex items-center gap-2 bg-gray-700 text-white border border-gray-600 px-4 py-2 rounded cursor-pointer"
         >
-          <span>📁</span> Open Folder
+          <FolderOpenIcon className="w-4 h-4" /> Open Folder
         </button>
       </div>
 
+      <div className="h-px w-full bg-gray-700 mt-10 mb-5" />
+
       {recentWorkspaces.length > 0 && (
-        <div className="mt-10 w-full">
-          <h3 className="text-sm text-gray-400 text-left">Recent workspaces</h3>
-          <div className="mt-2.5">
+        <div className="w-full space-y-2">
+          <h3 className="text-gray-300 text-left">Recent workspaces</h3>
+          <div className="space-y-1">
             {recentWorkspaces.map((workspace, index) => (
               <div
                 key={index}
-                className="py-2 text-blue-500 cursor-pointer text-left"
+                className=" text-blue-300 cursor-pointer text-left"
                 onClick={() => {
                   resetStates();
                   setDir(workspace.path);
