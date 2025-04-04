@@ -170,7 +170,7 @@ function App() {
                   </div>
 
                   {/* Scrollable Content */}
-                  <div className="flex-1 overflow-y-auto overflow-x-hidden pl-1 mt-1">
+                  <div className="flex-1 overflow-y-auto overflow-x-hidden pl-2 mt-2">
                     {workspace.fileTree.data.length > 0 ? (
                       <FileTree
                         nodes={workspace.fileTree.data}

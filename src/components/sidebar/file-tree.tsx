@@ -3,6 +3,8 @@ import { Folder } from "lucide-react";
 import { FileText } from "lucide-react";
 import { FileTreeNode } from "../../types";
 import { getAllDescendants } from "../../utils";
+import classNames from "classnames";
+import { CustomCheckbox } from "../ui/custom-checkbox";
 
 const calculateDirectorySelectionState = (
   node: FileTreeNode,
@@ -34,10 +36,12 @@ const FolderToggle = ({
 }) => (
   <div onClick={onClick} className="cursor-pointer flex-shrink-0">
     <ChevronRight
-      size={16}
-      className={`transition-transform duration-200 ${
-        isExpanded ? "transform rotate-90" : ""
-      }`}
+      size={14}
+      className={classNames("transition-transform duration-200", {
+        "transform rotate-90": isExpanded,
+        "text-gray-400": !isExpanded,
+        "text-gray-300": isExpanded,
+      })}
     />
   </div>
 );
@@ -123,21 +127,11 @@ export const FileTree = ({
             />
           )}
           {!isFolder && <div className="w-4 " />}
-          <input
-            type="checkbox"
+          <CustomCheckbox
             checked={isFolder ? selectionState === "all" : isSelected}
-            ref={(el) => {
-              if (el && isFolder) {
-                el.indeterminate = selectionState === "partial";
-              }
-            }}
+            indeterminate={isFolder && selectionState === "partial"}
             onChange={() => handleFileSelect(node)}
-            onClick={(e) => e.stopPropagation()}
-            className={`w-4 h-4 inline-block align-middle relative cursor-pointer flex-shrink-0 border-none ${
-              isSelected || selectionState === "all"
-                ? "bg-blue-500"
-                : "bg-gray-800"
-            }`}
+            className="flex-shrink-0"
           />
 
           <FileIconAndLabel

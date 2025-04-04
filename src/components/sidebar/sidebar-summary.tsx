@@ -19,12 +19,13 @@ export const SidebarSummary = ({
   onRefresh: () => void;
 }) => (
   <div className="flex justify-between mt-3">
-    <div className="pl-2">
+    <div className="pl-4">
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm text-gray-300">
-          {numSelectedFiles} files selected
+          {numSelectedFiles}{" "}
+          <span className="text-blue-400">files selected</span>
         </span>
-        <span className="text-sm text-blue-400">
+        <span className="text-sm text-gray-300">
           {formatTokens(totalTokens)} Tokens
         </span>
       </div>
