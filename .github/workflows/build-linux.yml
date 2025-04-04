@@ -31,7 +31,7 @@ jobs:
 
       - name: Build and publish Tauri app
         uses: tauri-apps/tauri-action@v0
-        id: tauri-build # Add an ID to reference outputs
+        id: tauri-build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -39,7 +39,7 @@ jobs:
           tagName: v__VERSION__
           releaseName: "RepoSnap v__VERSION__ (Linux)"
           releaseBody: "Linux build (AppImage)."
-          releaseDraft: true
+          releaseDraft: ${{ github.event.inputs.deploy == false }}
           args: "--bundles appimage --verbose"
 
       - name: Get Package Version
@@ -50,6 +50,11 @@ jobs:
         run: |
           rm -rf src-tauri/target/release/bundle/appimage/RepoSnap.AppDir
           ls -la src-tauri/target/release/bundle/appimage/
+
+      - name: Debug Deploy Condition
+        if: ${{ github.event.inputs.deploy == 'true' }}
+        run: |
+          echo "Deploy input is: ${{ github.event.inputs.deploy }}"
 
       - name: Upload to R2
         if: ${{ github.event.inputs.deploy == 'true' }}
