@@ -39,7 +39,7 @@ jobs:
           tagName: v__VERSION__
           releaseName: "RepoSnap v__VERSION__ (Linux)"
           releaseBody: "Linux build (AppImage)."
-          releaseDraft: ${{ github.event.inputs.deploy == false }}
+          releaseDraft: true
           args: "--bundles appimage --verbose"
 
       - name: Get Package Version
