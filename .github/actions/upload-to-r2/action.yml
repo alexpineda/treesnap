@@ -8,6 +8,18 @@ inputs:
   version:
     description: "Version string to append to the destination directory (e.g., v1.0.0)"
     required: true
+  r2-account-id:
+    description: "Cloudflare R2 Account ID"
+    required: true
+  r2-access-key-id:
+    description: "Cloudflare R2 Access Key ID"
+    required: true
+  r2-secret-access-key:
+    description: "Cloudflare R2 Secret Access Key"
+    required: true
+  r2-bucket:
+    description: "Cloudflare R2 Bucket Name"
+    required: true
 
 outputs:
   result:
@@ -24,10 +36,10 @@ runs:
       id: upload
       uses: ryand56/r2-upload-action@latest
       with:
-        r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
-        r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-        r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-        r2-bucket: ${{ secrets.R2_BUCKET }}
+        r2-account-id: ${{ inputs.r2-account-id }}
+        r2-access-key-id: ${{ inputs.r2-access-key-id }}
+        r2-secret-access-key: ${{ inputs.r2-secret-access-key }}
+        r2-bucket: ${{ inputs.r2-bucket }}
         source-dir: ${{ inputs.source-dir }}
         destination-dir: releases/${{ inputs.version }}
         output-file-url: true
