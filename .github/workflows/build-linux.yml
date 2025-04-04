@@ -40,7 +40,7 @@ jobs:
           echo "Tauri version output: ${{ steps.tauri-build.outputs.version }}"
           echo "Release ID: ${{ steps.tauri-build.outputs.releaseId }}"
           if [ -z "${{ steps.tauri-build.outputs.version }}" ]; then
-            VERSION=$(jq -r '.package.version' src-tauri/tauri.conf.json)
+            VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
             echo "Fallback version from tauri.conf.json: $VERSION"
             echo "VERSION=$VERSION" >> $GITHUB_ENV
           else
