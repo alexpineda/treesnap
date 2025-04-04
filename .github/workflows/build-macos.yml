@@ -41,21 +41,21 @@ jobs:
           releaseDraft: true
           args: "--target ${{ matrix.target }} --bundles app,dmg --verbose"
 
-      - name: Check Artifacts
-        run: |
-          echo "macOS directory contents:"
-          ls -la src-tauri/target/release/bundle/macos/
-          echo "DMG directory contents:"
-          ls -la src-tauri/target/release/bundle/dmg/
-
       - name: Get Package Version
         uses: ./.github/actions/get-version-from-package
         id: package-version
 
-      - name: Upload to R2
+      - name: Check Artifacts
+        run: |
+          echo "macOS directory contents:"
+          ls -la src-tauri/target/${{ matrix.target }}/release/bundle/macos/
+          echo "DMG directory contents:"
+          ls -la src-tauri/target/${{ matrix.target }}/release/bundle/dmg/
+
+      - name: Upload to R2 (DMG)
         if: ${{ github.event.inputs.deploy == 'true' }}
         uses: ./.github/actions/upload-to-r2
-        id: r2-upload
+        id: r2-upload-dmg
         with:
           source-dir: src-tauri/target/${{ matrix.target }}/release/bundle/dmg
           version: ${{ steps.package-version.outputs.version }}
@@ -71,7 +71,7 @@ jobs:
       - name: Debug R2 Upload Outputs
         if: ${{ github.event.inputs.deploy == 'true' }}
         run: |
-          echo "Upload Result: ${{ steps.r2-upload.outputs.result }}"
-          echo "Uploaded File URLs: ${{ steps.r2-upload.outputs.file-urls }}"
-          echo "Upload Result Updater: ${{ steps.r2-upload-updater.outputs.result }}"
-          echo "Uploaded File URLs Updater: ${{ steps.r2-upload-updater.outputs.file-urls }}"
+          echo "DMG Upload Result: ${{ steps.r2-upload-dmg.outputs.result }}"
+          echo "DMG Uploaded File URLs: ${{ steps.r2-upload-dmg.outputs.file-urls }}"
+          echo "Updater Upload Result: ${{ steps.r2-upload-updater.outputs.result }}"
+          echo "Updater Uploaded File URLs: ${{ steps.r2-upload-updater.outputs.file-urls }}"

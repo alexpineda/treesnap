@@ -1,8 +1,17 @@
 import React, { useState } from "react";
 import { FileTreeNode } from "../types";
-import { Folder, FileText, SquareX, ArrowUp, ArrowDown } from "lucide-react";
+import {
+  Folder,
+  FileText,
+  SquareX,
+  ArrowUp,
+  ArrowDown01Icon,
+  ArrowUp01Icon,
+  ChevronsUpDown,
+  ChevronsDownUp,
+} from "lucide-react";
 import classNames from "classnames";
-import { formatTokens } from "../utils";
+import { formatTokens, getAllFolderPaths } from "../utils";
 
 interface SelectedFilesProps {
   selectedFiles: FileTreeNode[];
@@ -22,6 +31,7 @@ export const SelectionSummary: React.FC<SelectedFilesProps> = ({
   onSorted,
 }) => {
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [expandFolders, setExpandFolders] = useState(true);
 
   const handleSort = () => {
     const newDirection = sortDirection === "asc" ? "desc" : "asc";
@@ -159,25 +169,42 @@ export const SelectionSummary: React.FC<SelectedFilesProps> = ({
           </div>
         </div>
 
-        <button
-          onClick={handleSort}
-          className="ml-2 bg-transparent border-none text-white flex items-center cursor-pointer"
-        >
-          <span className="mr-0.5">
-            {sortDirection === "asc" ? (
-              <ArrowUp size={16} />
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setExpandFolders(!expandFolders);
+            }}
+            className="p-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-400 hover:text-white"
+            data-tooltip-id="expand-collapse"
+            data-tooltip-content={
+              expandFolders ? "Collapse All Folders" : "Expand All Folders"
+            }
+          >
+            {expandFolders ? (
+              <ChevronsUpDown size={14} />
             ) : (
-              <ArrowDown size={16} />
+              <ChevronsDownUp size={14} />
             )}
-          </span>{" "}
-          Sort
-        </button>
+          </button>
+          <button
+            onClick={handleSort}
+            className="p-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-400 hover:text-white"
+          >
+            {sortDirection === "asc" ? (
+              <ArrowUp01Icon size={16} />
+            ) : (
+              <ArrowDown01Icon size={16} />
+            )}
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
         {getGroupedFiles().map((file, index, files) => {
           const isDirectoryHeader =
             file.is_directory && file.dirPercentage !== undefined;
+
+          if (!expandFolders && !isDirectoryHeader) return null;
 
           return (
             <div key={file.path}>
@@ -234,7 +261,7 @@ export const SelectionSummary: React.FC<SelectedFilesProps> = ({
                         )}%)`}
                     </span>
                   )}
-                  <span className="text-gray-300 text-sm">
+                  <span className="text-gray-400 text-sm">
                     <button
                       className="bg-transparent border-none flex items-center cursor-pointer"
                       onClick={() => onDeselect(file)}
