@@ -35,6 +35,18 @@ jobs:
           releaseDraft: true
           args: "--bundles appimage --verbose"
 
+      - name: Debug Tauri Outputs
+        run: |
+          echo "Tauri version output: ${{ steps.tauri-build.outputs.version }}"
+          echo "Release ID: ${{ steps.tauri-build.outputs.releaseId }}"
+          if [ -z "${{ steps.tauri-build.outputs.version }}" ]; then
+            VERSION=$(jq -r '.package.version' src-tauri/tauri.conf.json)
+            echo "Fallback version from tauri.conf.json: $VERSION"
+            echo "VERSION=$VERSION" >> $GITHUB_ENV
+          else
+            echo "VERSION=${{ steps.tauri-build.outputs.version }}" >> $GITHUB_ENV
+          fi
+
       # Upload artifacts to Cloudflare R2
       - name: Upload to R2
         uses: ryand56/r2-upload-action@latest
@@ -44,5 +56,5 @@ jobs:
           r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           r2-bucket: ${{ secrets.R2_BUCKET }}
           source-dir: src-tauri/target/release/bundle/appimage
-          destination-dir: releases/${{ steps.tauri-build.outputs.version }}
+          destination-dir: releases/${{ env.VERSION }}
           output-file-url: true
