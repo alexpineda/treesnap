@@ -82,6 +82,8 @@ jobs:
         if: ${{ github.event.inputs.deploy == 'true' }}
         run: |
           echo "DMG Upload Result: ${{ steps.r2-upload-dmg.outputs.result }}"
-          echo "DMG Uploaded File URLs: ${{ steps.r2-upload-dmg.outputs.file-urls }}"
+          echo "DMG Uploaded File URLs:"
+          echo '${{ steps.r2-upload-dmg.outputs.file-urls }}' | jq -r .
           echo "Updater Upload Result: ${{ steps.r2-upload-updater.outputs.result }}"
-          echo "Updater Uploaded File URLs: ${{ steps.r2-upload-updater.outputs.file-urls }}"
+          echo "Updater Uploaded File URLs:"
+          echo '${{ steps.r2-upload-updater.outputs.file-urls }}' | jq -r .
