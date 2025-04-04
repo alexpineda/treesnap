@@ -32,14 +32,16 @@ export const TopBar = ({
       </div>
 
       <div className="flex-1 flex items-center justify-center py-2 absolute left-1/2 -translate-x-1/2 h-full">
-        <div className="flex items-center gap-2 text-gray-100">
+        <div className="flex items-center gap-2 text-gray-200 text-sm">
           <p>{basename(workspacePath)}</p>
           <button
             onClick={handleClose}
-            className="p-1 rounded cursor-pointer bg-gray-700 hover:bg-gray-600"
+            className="p-1 rounded-full cursor-pointer bg-gray-700 hover:bg-gray-600"
+            data-tooltip-id="copy"
+            data-tooltip-content="Close directory"
             title="Close directory"
           >
-            <X size={16} />
+            <X size={12} />
           </button>
         </div>
       </div>

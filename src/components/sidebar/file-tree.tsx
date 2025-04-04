@@ -30,11 +30,16 @@ const calculateDirectorySelectionState = (
 const FolderToggle = ({
   isExpanded,
   onClick,
+  className,
 }: {
   isExpanded: boolean;
+  className?: string;
   onClick: () => void;
 }) => (
-  <div onClick={onClick} className="cursor-pointer flex-shrink-0">
+  <div
+    onClick={onClick}
+    className={classNames("cursor-pointer flex-shrink-0", className)}
+  >
     <ChevronRight
       size={14}
       className={classNames("transition-transform duration-200", {
@@ -51,16 +56,21 @@ const FileIconAndLabel = ({
   isFolder,
   isExpanded,
   node,
+  className,
 }: {
   onClick: () => void;
   isFolder: boolean;
   isExpanded: boolean;
   node: FileTreeNode;
+  className?: string;
 }) => {
   return (
     <div
       onClick={onClick}
-      className={`flex items-center cursor-pointer min-w-0 flex-shrink overflow-hidden w-full`}
+      className={classNames(
+        "flex items-center cursor-pointer min-w-0 flex-shrink overflow-hidden w-full",
+        className
+      )}
     >
       <span className="mr-1 w-4 inline-block text-center flex-shrink-0">
         {isFolder ? (
@@ -119,19 +129,20 @@ export const FileTree = ({
         style={{ marginLeft: `${level * 12}px` }}
         data-level={level}
       >
-        <div className="flex items-center py-1 pl-2 cursor-pointer text-sm gap-1 overflow-hidden">
+        <div className="flex items-center text-sm gap-1 overflow-hidden">
           {isFolder && (
             <FolderToggle
+              className="pl-2 py-1"
               isExpanded={isExpanded}
               onClick={() => toggleFolder(node.path)}
             />
           )}
-          {!isFolder && <div className="w-4 " />}
+          {!isFolder && <div className="w-6 " />}
           <CustomCheckbox
             checked={isFolder ? selectionState === "all" : isSelected}
             indeterminate={isFolder && selectionState === "partial"}
             onChange={() => handleFileSelect(node)}
-            className="flex-shrink-0"
+            className="flex-shrink-0 py-1"
           />
 
           <FileIconAndLabel
@@ -143,6 +154,7 @@ export const FileTree = ({
             isFolder={isFolder}
             isExpanded={isExpanded}
             node={node}
+            className="py-1"
           />
           {!isFolder && (
             <span className="ml-2 text-sm text-gray-400 flex-shrink-0">

@@ -288,7 +288,7 @@ export const TreeMap = ({
 
       {/* Legend */}
       <div className="mt-2 flex flex-wrap gap-2">
-        <span className="text-gray-400 text-sm ml-6 flex flex-wrap gap-1">
+        <span className="text-gray-400 text-sm ml-6 flex flex-wrap gap-3">
           {(() => {
             const extensionMap = new Map<string, string>();
             items.forEach((f) => {
@@ -300,7 +300,7 @@ export const TreeMap = ({
             return Array.from(extensionMap.entries()).map(
               ([extension, color]) => (
                 <span key={extension} className="flex items-center">
-                  <div className={`w-3 h-3 mr-1 rounded-sm ${color}`} />
+                  <div className={`w-3 h-3 rounded-sm ${color}`} />
                   <span className="text-gray-300">{extension}</span>
                 </span>
               )
