@@ -33,7 +33,7 @@ jobs:
           tagName: v__VERSION__
           releaseName: "RepoSnap v__VERSION__ (Windows)"
           releaseBody: "Windows build (.msi)."
-          releaseDraft: ${{ github.event.inputs.deploy == false }}
+          releaseDraft: true
           args: "--bundles msi --verbose"
 
       - name: Get Package Version

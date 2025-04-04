@@ -38,7 +38,7 @@ jobs:
           tagName: v__VERSION__
           releaseName: "RepoSnap v__VERSION__ (macOS ${{ matrix.target }})"
           releaseBody: "macOS build for ${{ matrix.target }} (.dmg)."
-          releaseDraft: ${{ github.event.inputs.deploy == false }}
+          releaseDraft: true
           args: "--target ${{ matrix.target }} --bundles app,dmg --verbose"
 
       - name: Check Artifacts
