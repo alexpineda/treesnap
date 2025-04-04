@@ -1,0 +1,33 @@
+name: "Upload to Cloudflare R2"
+description: "Uploads build artifacts to Cloudflare R2"
+
+inputs:
+  source-dir:
+    description: "Directory containing the artifacts to upload"
+    required: true
+  version:
+    description: "Version string to append to the destination directory (e.g., v1.0.0)"
+    required: true
+
+outputs:
+  result:
+    description: "Result of the upload (success or failure)"
+    value: ${{ steps.upload.outputs.result }}
+  file-urls:
+    description: "URLs of the uploaded files"
+    value: ${{ steps.upload.outputs.file-urls }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Upload to R2
+      id: upload
+      uses: ryand56/r2-upload-action@latest
+      with:
+        r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
+        r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+        r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        r2-bucket: ${{ secrets.R2_BUCKET }}
+        source-dir: ${{ inputs.source-dir }}
+        destination-dir: releases/${{ inputs.version }}
+        output-file-url: true

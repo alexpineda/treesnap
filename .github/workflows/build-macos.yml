@@ -41,32 +41,13 @@ jobs:
           releaseDraft: true
           args: "--target ${{ matrix.target }} --bundles dmg --verbose"
 
-      - name: Debug Tauri Outputs
-        run: |
-          echo "Tauri version output: ${{ steps.tauri-build.outputs.version }}"
-          echo "Release ID: ${{ steps.tauri-build.outputs.releaseId }}"
-          if [ -z "${{ steps.tauri-build.outputs.version }}" ]; then
-            VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
-            echo "Fallback version from tauri.conf.json: $VERSION"
-            echo "VERSION=$VERSION" >> $GITHUB_ENV
-          else
-            echo "VERSION=${{ steps.tauri-build.outputs.version }}" >> $GITHUB_ENV
-          fi
-
-      #   - name: Clean Up Unneeded Build Artifacts
-      #     run: |
-      #       # Clean up any unnecessary files
-      #       find src-tauri/target -type f -name "*.zip" -delete
-      #       find src-tauri/target -type f -name "*.tar.gz" -delete
+      - name: Get Package Version
+        uses: ./.github/actions/get-version-from-package
+        id: package-version
 
       - name: Upload to R2
         if: ${{ github.event.inputs.deploy == true }}
-        uses: ryand56/r2-upload-action@latest
+        uses: ./.github/actions/upload-to-r2
         with:
-          r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          r2-bucket: ${{ secrets.R2_BUCKET }}
-          source-dir: src-tauri/target/${{ matrix.target }}/release/bundle/dmg
-          destination-dir: releases/${{ env.VERSION }}
-          output-file-url: true
+          source-dir: src-tauri/target/release/bundle/dmg
+          version: ${{ steps.package-version.outputs.version }}

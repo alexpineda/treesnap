@@ -36,26 +36,13 @@ jobs:
           releaseDraft: true
           args: "--bundles msi --verbose"
 
-      - name: Debug Tauri Outputs for Windows
-        run: |
-          Write-Host "Tauri version output: ${{ steps.tauri-build.outputs.version }}"
-          Write-Host "Release ID: ${{ steps.tauri-build.outputs.releaseId }}"
-          if ('${{ steps.tauri-build.outputs.version }}') {
-            "VERSION=${{ steps.tauri-build.outputs.version }}" | Out-File -FilePath $env:GITHUB_ENV -Append
-          } else {
-            $version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
-            Write-Host "Fallback version from tauri.conf.json: $version"
-            "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
-          }
+      - name: Get Package Version
+        uses: ./.github/actions/get-version-from-package
+        id: package-version
 
-      - name: Upload Windows MSI to R2
+      - name: Upload to R2
         if: ${{ github.event.inputs.deploy == true }}
-        uses: ryand56/r2-upload-action@latest
+        uses: ./.github/actions/upload-to-r2
         with:
-          r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          r2-bucket: ${{ secrets.R2_BUCKET }}
           source-dir: src-tauri/target/release/bundle/msi
-          destination-dir: releases/${{ env.VERSION }}
-          output-file-url: true
+          version: ${{ steps.package-version.outputs.version }}

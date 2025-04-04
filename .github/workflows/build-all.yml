@@ -12,7 +12,7 @@ on:
 jobs:
   build-and-release:
     permissions:
-      contents: write # Needed to create releases
+      contents: write
     strategy:
       fail-fast: false
       matrix:
@@ -20,15 +20,19 @@ jobs:
           - platform: macos-latest
             target: aarch64-apple-darwin
             args: "--target aarch64-apple-darwin --bundles dmg"
+            r2-source: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg
           - platform: macos-latest
             target: x86_64-apple-darwin
             args: "--target x86_64-apple-darwin --bundles dmg"
+            r2-source: src-tauri/target/x86_64-apple-darwin/release/bundle/dmg
           - platform: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu # Optional target specifier for clarity
+            target: x86_64-unknown-linux-gnu
             args: "--bundles appimage"
+            r2-source: src-tauri/target/release/bundle/appimage
           - platform: windows-latest
-            target: x86_64-pc-windows-msvc # Optional target specifier for clarity
+            target: x86_64-pc-windows-msvc
             args: "--bundles msi"
+            r2-source: src-tauri/target/release/bundle/msi
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -38,7 +42,6 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          # Install necessary targets only on macOS runners
           targets: ${{ matrix.platform == 'macos-latest' && format('{0},{1}', matrix.target, 'aarch64-apple-darwin,x86_64-apple-darwin') || matrix.target }}
 
       - name: Install Linux dependencies
@@ -50,84 +53,32 @@ jobs:
       - name: Install frontend dependencies
         run: bun install
 
-      # Build and release using tauri-action
       - uses: tauri-apps/tauri-action@v0
-        id: tauri-build # Add an ID to reference outputs
+        id: tauri-build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }} # Pass the signing key
-          # Optional: TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
-          projectPath: . # Optional: Explicitly set project path if not root
-          tagName: v__VERSION__ # Use placeholder for automatic version fetching
+          tagName: v__VERSION__
           releaseName: "RepoSnap v__VERSION__"
           releaseBody: "Draft release for v__VERSION__."
-          releaseDraft: true # Create a draft release
-          prerelease: false
-          # includeUpdaterJson: true # This is true by default when tagName is set
-          args: ${{ matrix.args }} --verbose # Pass matrix args (target, bundles) and keep verbose
-          # Optional: Specify tauriScript if bun isn't detected automatically
-          # tauriScript: bun tauri
+          releaseDraft: true
+          args: ${{ matrix.args }} --verbose
 
-      - name: Debug Tauri Outputs
-        if: matrix.platform == 'macos-latest' || matrix.platform == 'ubuntu-22.04'
+      - name: Get Package Version
+        uses: ./.github/actions/get-version-from-package
+        id: package-version
+
+      - name: Upload to R2
+        if: ${{ github.event.inputs.deploy == 'true' }}
+        uses: ./.github/actions/upload-to-r2
+        id: r2-upload
+        with:
+          source-dir: ${{ matrix.r2-source }}
+          version: ${{ steps.package-version.outputs.version }}
+
+      - name: Debug R2 Upload Outputs
+        if: ${{ github.event.inputs.deploy == 'true' }}
         run: |
-          echo "Tauri version output: ${{ steps.tauri-build.outputs.version }}"
-          echo "Release ID: ${{ steps.tauri-build.outputs.releaseId }}"
-          if [ -z "${{ steps.tauri-build.outputs.version }}" ]; then
-            VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
-            echo "Fallback version from tauri.conf.json: $VERSION"
-            echo "VERSION=$VERSION" >> $GITHUB_ENV
-          else
-            echo "VERSION=${{ steps.tauri-build.outputs.version }}" >> $GITHUB_ENV
-          fi
-
-      - name: Debug Tauri Outputs
-        if: matrix.platform == 'windows-latest'
-        run: |
-          Write-Host "Tauri version output: ${{ steps.tauri-build.outputs.version }}"
-          Write-Host "Release ID: ${{ steps.tauri-build.outputs.releaseId }}"
-          if ('${{ steps.tauri-build.outputs.version }}') {
-            "VERSION=${{ steps.tauri-build.outputs.version }}" | Out-File -FilePath $env:GITHUB_ENV -Append
-          } else {
-            $version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
-            Write-Host "Fallback version from tauri.conf.json: $version"
-            "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
-          }
-
-      # Upload artifacts to Cloudflare R2
-      - name: Upload Linux AppImage to R2
-        if: matrix.platform == 'ubuntu-22.04' && ${{ github.event.inputs.deploy == true }}
-        uses: ryand56/r2-upload-action@latest
-        with:
-          r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          r2-bucket: ${{ secrets.R2_BUCKET }}
-          source-dir: src-tauri/target/release/bundle/appimage
-          destination-dir: releases/${{ env.VERSION }}
-          output-file-url: true
-
-      - name: Upload macOS DMG to R2
-        if: matrix.platform == 'macos-latest' && ${{ github.event.inputs.deploy == true }}
-        uses: ryand56/r2-upload-action@latest
-        with:
-          r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          r2-bucket: ${{ secrets.R2_BUCKET }}
-          source-dir: src-tauri/target/${{ matrix.target }}/release/bundle/dmg # Corrected path
-          destination-dir: releases/${{ env.VERSION }}
-          output-file-url: true
-
-      - name: Upload Windows MSI to R2
-        if: matrix.platform == 'windows-latest' && ${{ github.event.inputs.deploy == true }}
-        uses: ryand56/r2-upload-action@latest
-        with:
-          r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          r2-bucket: ${{ secrets.R2_BUCKET }}
-          source-dir: src-tauri/target/release/bundle/msi
-          destination-dir: releases/${{ env.VERSION }}
-          output-file-url: true
+          echo "Upload Result: ${{ steps.r2-upload.outputs.result }}"
+          echo "Uploaded File URLs: ${{ steps.r2-upload.outputs.file-urls }}"
