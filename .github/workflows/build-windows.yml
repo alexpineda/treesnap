@@ -57,4 +57,5 @@ jobs:
         if: ${{ github.event.inputs.deploy == 'true' }}
         run: |
           echo "Upload Result: ${{ steps.r2-upload.outputs.result }}"
-          echo "Uploaded File URLs: ${{ steps.r2-upload.outputs.file-urls }}"
+          echo "Uploaded File URLs:"
+          echo '${{ steps.r2-upload.outputs.file-urls }}' | jq -r .
