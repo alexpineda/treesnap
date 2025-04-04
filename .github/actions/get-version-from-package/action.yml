@@ -4,14 +4,14 @@ description: "Extracts the version from tauri.conf.json and sets it as an output
 outputs:
   version:
     description: "The extracted version from tauri.conf.json"
-    value: ${{ steps.package-version.outputs.version }}
+    value: ${{ steps.get-package-version.outputs.version }}
 
 runs:
   using: "composite"
   steps:
     - name: Get Package Version (Unix)
       if: runner.os != 'Windows'
-      id: package-version
+      id: get-package-version
       run: |
         VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
         echo "version=$VERSION" >> $GITHUB_OUTPUT
@@ -19,7 +19,7 @@ runs:
 
     - name: Get Package Version (Windows)
       if: runner.os == 'Windows'
-      id: package-version
+      id: get-package-version
       run: |
         $version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
         "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
