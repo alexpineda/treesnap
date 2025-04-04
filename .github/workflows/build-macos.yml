@@ -2,6 +2,12 @@ name: Build Tauri App (macOS)
 
 on:
   workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Deploy to R2"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build-macos:
@@ -13,16 +19,16 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Bun
-        run: curl -fsSL https://bun.sh/install | bash -s -- "bun-v1.1.13"
-      - name: Add Bun to PATH
-        run: echo "$HOME/.bun/bin" >> $GITHUB_PATH
+      - uses: oven-sh/setup-bun@v2
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+
       - name: Install frontend dependencies
         run: bun install
+
       - name: Build and publish Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -54,6 +60,7 @@ jobs:
       #       find src-tauri/target -type f -name "*.tar.gz" -delete
 
       - name: Upload to R2
+        if: ${{ github.event.inputs.deploy == true }}
         uses: ryand56/r2-upload-action@latest
         with:
           r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}

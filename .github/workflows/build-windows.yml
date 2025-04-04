@@ -2,6 +2,12 @@ name: Build Tauri App (Windows)
 
 on:
   workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Deploy to R2"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build-windows:
@@ -10,14 +16,14 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Install Bun
-        run: powershell -Command "irm bun.sh/install.ps1 | iex"
-      - name: Add Bun to PATH
-        run: echo "$env:USERPROFILE\.bun\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+      - uses: oven-sh/setup-bun@v2
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
+
       - name: Install frontend dependencies
         run: bun install
+
       - name: Build and publish Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
@@ -30,19 +36,20 @@ jobs:
           releaseDraft: true
           args: "--bundles msi --verbose"
 
-      - name: Debug Tauri Outputs
+      - name: Debug Tauri Outputs for Windows
         run: |
           Write-Host "Tauri version output: ${{ steps.tauri-build.outputs.version }}"
           Write-Host "Release ID: ${{ steps.tauri-build.outputs.releaseId }}"
-          if (-not ${{ steps.tauri-build.outputs.version }}) {
+          if ('${{ steps.tauri-build.outputs.version }}') {
+            "VERSION=${{ steps.tauri-build.outputs.version }}" | Out-File -FilePath $env:GITHUB_ENV -Append
+          } else {
             $version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
             Write-Host "Fallback version from tauri.conf.json: $version"
             "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
-          } else {
-            "VERSION=${{ steps.tauri-build.outputs.version }}" | Out-File -FilePath $env:GITHUB_ENV -Append
           }
 
       - name: Upload Windows MSI to R2
+        if: ${{ github.event.inputs.deploy == true }}
         uses: ryand56/r2-upload-action@latest
         with:
           r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}

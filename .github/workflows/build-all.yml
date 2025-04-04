@@ -1,7 +1,13 @@
-name: Build Tauri App (All Platforms - Single Release)
+name: Build Tauri App (All Platforms)
 
 on:
   workflow_dispatch:
+    inputs:
+      deploy:
+        description: "Deploy to R2"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build-and-release:
@@ -27,20 +33,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
-
-      # Bun Setup (Conditional for different OS shells)
-      - name: Install Bun (Unix)
-        if: runner.os != 'Windows'
-        run: curl -fsSL https://bun.sh/install | bash -s -- "bun-v1.1.13"
-      - name: Add Bun to PATH (Unix)
-        if: runner.os != 'Windows'
-        run: echo "$HOME/.bun/bin" >> $GITHUB_PATH
-      - name: Install Bun (Windows)
-        if: runner.os == 'Windows'
-        run: powershell -Command "irm bun.sh/install.ps1 | iex"
-      - name: Add Bun to PATH (Windows)
-        if: runner.os == 'Windows'
-        run: echo "$env:USERPROFILE\.bun\bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+      - uses: oven-sh/setup-bun@v2
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -94,17 +87,17 @@ jobs:
         run: |
           Write-Host "Tauri version output: ${{ steps.tauri-build.outputs.version }}"
           Write-Host "Release ID: ${{ steps.tauri-build.outputs.releaseId }}"
-          if (-not ${{ steps.tauri-build.outputs.version }}) {
+          if ('${{ steps.tauri-build.outputs.version }}') {
+            "VERSION=${{ steps.tauri-build.outputs.version }}" | Out-File -FilePath $env:GITHUB_ENV -Append
+          } else {
             $version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
             Write-Host "Fallback version from tauri.conf.json: $version"
             "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
-          } else {
-            "VERSION=${{ steps.tauri-build.outputs.version }}" | Out-File -FilePath $env:GITHUB_ENV -Append
           }
 
       # Upload artifacts to Cloudflare R2
       - name: Upload Linux AppImage to R2
-        if: matrix.platform == 'ubuntu-22.04' # Add condition to only run on Linux
+        if: matrix.platform == 'ubuntu-22.04' && ${{ github.event.inputs.deploy == true }}
         uses: ryand56/r2-upload-action@latest
         with:
           r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
@@ -116,7 +109,7 @@ jobs:
           output-file-url: true
 
       - name: Upload macOS DMG to R2
-        if: matrix.platform == 'macos-latest' # Add condition to only run on macOS
+        if: matrix.platform == 'macos-latest' && ${{ github.event.inputs.deploy == true }}
         uses: ryand56/r2-upload-action@latest
         with:
           r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
@@ -128,7 +121,7 @@ jobs:
           output-file-url: true
 
       - name: Upload Windows MSI to R2
-        if: matrix.platform == 'windows-latest' # Add condition to only run on Windows
+        if: matrix.platform == 'windows-latest' && ${{ github.event.inputs.deploy == true }}
         uses: ryand56/r2-upload-action@latest
         with:
           r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
