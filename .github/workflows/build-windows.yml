@@ -32,15 +32,15 @@ jobs:
 
       - name: Debug Tauri Outputs
         run: |
-          echo "Tauri version output: ${{ steps.tauri-build.outputs.version }}"
-          echo "Release ID: ${{ steps.tauri-build.outputs.releaseId }}"
-          if [ -z "${{ steps.tauri-build.outputs.version }}" ]; then
-            VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
-            echo "Fallback version from tauri.conf.json: $VERSION"
-            echo "VERSION=$VERSION" >> $GITHUB_ENV
-          else
-            echo "VERSION=${{ steps.tauri-build.outputs.version }}" >> $GITHUB_ENV
-          fi
+          Write-Host "Tauri version output: ${{ steps.tauri-build.outputs.version }}"
+          Write-Host "Release ID: ${{ steps.tauri-build.outputs.releaseId }}"
+          if (-not ${{ steps.tauri-build.outputs.version }}) {
+            $version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
+            Write-Host "Fallback version from tauri.conf.json: $version"
+            "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append
+          } else {
+            "VERSION=${{ steps.tauri-build.outputs.version }}" | Out-File -FilePath $env:GITHUB_ENV -Append
+          }
 
       - name: Upload Windows MSI to R2
         uses: ryand56/r2-upload-action@latest
