@@ -47,6 +47,11 @@ jobs:
             echo "VERSION=${{ steps.tauri-build.outputs.version }}" >> $GITHUB_ENV
           fi
 
+      - name: Clean Up Unneeded Build Artifacts
+        run: |
+          rm -rf src-tauri/target/release/bundle/appimage/RepoSnap.AppDir
+          ls -la src-tauri/target/release/bundle/appimage/
+
       # Upload artifacts to Cloudflare R2
       - name: Upload to R2
         uses: ryand56/r2-upload-action@latest
