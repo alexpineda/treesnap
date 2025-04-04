@@ -38,7 +38,7 @@ jobs:
           tagName: v__VERSION__
           releaseName: "RepoSnap v__VERSION__ (macOS ${{ matrix.target }})"
           releaseBody: "macOS build for ${{ matrix.target }} (.dmg)."
-          releaseDraft: true
+          releaseDraft: ${{ github.event.inputs.deploy == false }}
           args: "--target ${{ matrix.target }} --bundles dmg --verbose"
 
       - name: Get Package Version
@@ -46,8 +46,15 @@ jobs:
         id: package-version
 
       - name: Upload to R2
-        if: ${{ github.event.inputs.deploy == true }}
+        if: ${{ github.event.inputs.deploy == 'true' }}
         uses: ./.github/actions/upload-to-r2
+        id: r2-upload
         with:
           source-dir: src-tauri/target/${{ matrix.target }}/release/bundle/dmg
           version: ${{ steps.package-version.outputs.version }}
+
+      - name: Debug R2 Upload Outputs
+        if: ${{ github.event.inputs.deploy == 'true' }}
+        run: |
+          echo "Upload Result: ${{ steps.r2-upload.outputs.result }}"
+          echo "Uploaded File URLs: ${{ steps.r2-upload.outputs.file-urls }}"
