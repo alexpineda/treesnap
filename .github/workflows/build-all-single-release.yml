@@ -75,21 +75,51 @@ jobs:
           args: ${{ matrix.args }} --verbose # Pass matrix args (target, bundles) and keep verbose
           # Optional: Specify tauriScript if bun isn't detected automatically
           # tauriScript: bun tauri
-      # Configure AWS Credentials for S3
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ secrets.AWS_REGION }} # e.g., us-east-1
-          # For S3-compatible storage other than AWS, add endpoint-url
-          endpoint-url: ${{ secrets.S3_ENDPOINT_URL }} # e.g., https://your-s3-compatible-endpoint
 
-      # Upload to S3-compatible bucket
-      - name: Upload to S3
+      - name: Debug Tauri Outputs
         run: |
-          aws s3 cp ./target/release/bundle/ s3://reposnap/${{ matrix.target }}/ --recursive --exclude "*" --include "*.dmg" --include "*.appimage" --include "*.msi"
-        env:
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          # For non-AWS S3-compatible storage, uncomment and set endpoint
-          AWS_ENDPOINT_URL: ${{ secrets.S3_ENDPOINT_URL }}
+          echo "Tauri version output: ${{ steps.tauri-build.outputs.version }}"
+          echo "Release ID: ${{ steps.tauri-build.outputs.releaseId }}"
+          if [ -z "${{ steps.tauri-build.outputs.version }}" ]; then
+            VERSION=$(jq -r '.version' src-tauri/tauri.conf.json)
+            echo "Fallback version from tauri.conf.json: $VERSION"
+            echo "VERSION=$VERSION" >> $GITHUB_ENV
+          else
+            echo "VERSION=${{ steps.tauri-build.outputs.version }}" >> $GITHUB_ENV
+          fi
+      # Upload artifacts to Cloudflare R2
+      - name: Upload Linux AppImage to R2
+        if: matrix.platform == 'ubuntu-22.04' # Add condition to only run on Linux
+        uses: ryand56/r2-upload-action@latest
+        with:
+          r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          r2-bucket: ${{ secrets.R2_BUCKET }}
+          source-dir: src-tauri/target/release/bundle/appimage
+          destination-dir: releases/${{ env.VERSION }}
+          output-file-url: true
+
+      - name: Upload macOS DMG to R2
+        if: matrix.platform == 'macos-latest' # Add condition to only run on macOS
+        uses: ryand56/r2-upload-action@latest
+        with:
+          r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          r2-bucket: ${{ secrets.R2_BUCKET }}
+          source-dir: src-tauri/target/${{ matrix.target }}/release/bundle/dmg # Corrected path
+          destination-dir: releases/${{ env.VERSION }}
+          output-file-url: true
+
+      - name: Upload Windows MSI to R2
+        if: matrix.platform == 'windows-latest' # Add condition to only run on Windows
+        uses: ryand56/r2-upload-action@latest
+        with:
+          r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          r2-bucket: ${{ secrets.R2_BUCKET }}
+          source-dir: src-tauri/target/release/bundle/msi
+          destination-dir: releases/${{ env.VERSION }}
+          output-file-url: true
