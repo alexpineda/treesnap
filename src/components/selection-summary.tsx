@@ -4,14 +4,13 @@ import {
   Folder,
   FileText,
   SquareX,
-  ArrowUp,
   ArrowDown01Icon,
   ArrowUp01Icon,
   ChevronsUpDown,
   ChevronsDownUp,
 } from "lucide-react";
 import classNames from "classnames";
-import { formatTokens, getAllFolderPaths } from "../utils";
+import { formatTokens } from "../utils";
 
 interface SelectedFilesProps {
   selectedFiles: FileTreeNode[];
