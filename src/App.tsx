@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import "./resizable.css";
@@ -14,6 +13,7 @@ import { TopBar } from "./components/top-bar";
 import { useRecentWorkspaces } from "./hooks/use-recent-workspaces";
 import { useWorkspace } from "./hooks/use-workspace";
 import { Export } from "./components/export";
+import { calculateFileTokens } from "./services/tauri";
 
 function App() {
   const [totalTokens, setTotalTokens] = useState(0);
@@ -67,9 +67,7 @@ function App() {
         for (let i = 0; i < filesNeedingCalculation.length; i += batchSize) {
           const batch = filesNeedingCalculation.slice(i, i + batchSize);
           const counts = await Promise.all(
-            batch.map((file) =>
-              invoke<number>("calculate_file_tokens", { filePath: file.path })
-            )
+            batch.map((file) => calculateFileTokens(file.path))
           );
 
           // Update the selected files with new token counts

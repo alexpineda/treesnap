@@ -3,6 +3,8 @@
     windows_subsystem = "windows"
 )]
 
+mod constants;
+
 use anyhow::{Context, Result};
 use arboard::Clipboard;
 use chrono::{DateTime, Utc};
@@ -27,32 +29,7 @@ use tiktoken_rs::CoreBPE; // For GPT-like token counting // Add this import // A
 
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
-/// Hard-coded default ignore patterns (akin to your Node code's default-ignore.ts).
-const DEFAULT_IGNORE_PATTERNS: &str = r#"
-codefetch/
-.git/
-node_modules/
-target/
-dist/
-build/
-.vscode/
-.idea/
-.DS_Store
-*.png
-*.jpg
-*.jpeg
-*.gif
-*.webp
-*.pdf
-*.exe
-*.dll
-*.so
-*.zip
-*.tar
-*.gz
-*.lock
-*.log
-"#;
+use constants::DEFAULT_IGNORE_PATTERNS;
 
 /// Calculate tokens for a specific file.
 #[tauri::command]
@@ -218,17 +195,8 @@ async fn fill_tokens_in_tree(nodes: &mut [FileTreeNode], bpe: Arc<CoreBPE>) -> R
     Ok(())
 }
 
-// Keep the original function that calculates tokens
-#[tauri::command]
-async fn get_file_tree_with_tokens(dir_path: String) -> Result<Vec<FileTreeNode>, String> {
-    let dir = PathBuf::from(&dir_path);
-    if !dir.exists() || !dir.is_dir() {
-        return Err(format!(
-            "Directory does not exist or is not a directory: {:?}",
-            dir
-        ));
-    }
-
+// Helper function to build ignore list for a directory
+fn build_ignore_list(dir: &Path) -> Result<ignore::gitignore::Gitignore, String> {
     let mut ignore_builder = ignore::gitignore::GitignoreBuilder::new(dir.clone());
     let gitignore = dir.join(".gitignore");
     if gitignore.exists() {
@@ -247,8 +215,75 @@ async fn get_file_tree_with_tokens(dir_path: String) -> Result<Vec<FileTreeNode>
             .add_line(None, line.trim())
             .map_err(|e| e.to_string())?;
     }
-    let ig = ignore_builder.build().map_err(|e| e.to_string())?;
 
+    ignore_builder.build().map_err(|e| e.to_string())
+}
+
+// Helper function to build file content string for selected files
+fn build_file_content_string(selected_file_paths: &[String]) -> String {
+    let mut output = String::from("<file_contents>\n");
+
+    for file_path in selected_file_paths {
+        let path = PathBuf::from(file_path);
+        if !path.exists() || !path.is_file() {
+            // Skip non-existent files
+            eprintln!("Warning: File does not exist: {:?}", path);
+            continue;
+        }
+
+        // Determine file extension for code block formatting
+        let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+
+        // Read file content
+        let content = match fs::read_to_string(&path) {
+            Ok(content) => content,
+            Err(e) => {
+                eprintln!("Warning: Failed to read file {}: {}", file_path, e);
+                format!("[Error reading file: {}]", e)
+            }
+        };
+
+        // Check if binary by looking for null bytes
+        let is_likely_binary = content.contains('\0');
+
+        // Add file header and content
+        output.push_str(&format!("File: {}\n", file_path));
+
+        if is_likely_binary {
+            output.push_str("```");
+            output.push_str(extension);
+            output.push_str("\n[Binary file]\n```\n\n");
+        } else {
+            output.push_str("```");
+            output.push_str(extension);
+            output.push_str("\n");
+            output.push_str(&content);
+
+            // Ensure content ends with newline
+            if !content.ends_with('\n') {
+                output.push('\n');
+            }
+
+            output.push_str("```\n\n");
+        }
+    }
+
+    output.push_str("</file_contents>");
+    output
+}
+
+// Update get_file_tree_with_tokens to use the helper
+#[tauri::command]
+async fn get_file_tree_with_tokens(dir_path: String) -> Result<Vec<FileTreeNode>, String> {
+    let dir = PathBuf::from(&dir_path);
+    if !dir.exists() || !dir.is_dir() {
+        return Err(format!(
+            "Directory does not exist or is not a directory: {:?}",
+            dir
+        ));
+    }
+
+    let ig = build_ignore_list(&dir)?;
     let mut tree = build_tree_sync(&dir, &dir, &ig)?;
 
     let bpe = Arc::new(
@@ -261,7 +296,7 @@ async fn get_file_tree_with_tokens(dir_path: String) -> Result<Vec<FileTreeNode>
     Ok(tree)
 }
 
-// Add a new command that only gets the tree structure
+// Update get_file_tree to use the helper
 #[tauri::command]
 async fn get_file_tree(dir_path: String) -> Result<Vec<FileTreeNode>, String> {
     let dir = PathBuf::from(&dir_path);
@@ -272,25 +307,7 @@ async fn get_file_tree(dir_path: String) -> Result<Vec<FileTreeNode>, String> {
         ));
     }
 
-    let mut ignore_builder = ignore::gitignore::GitignoreBuilder::new(dir.clone());
-    let gitignore = dir.join(".gitignore");
-    if gitignore.exists() {
-        if let Some(e) = ignore_builder.add(&gitignore) {
-            eprintln!("Warning: Failed to parse .gitignore: {}", e);
-        }
-    }
-    let codefetchignore = dir.join(".codefetchignore");
-    if codefetchignore.exists() {
-        if let Some(e) = ignore_builder.add(&codefetchignore) {
-            eprintln!("Warning: Failed to parse .codefetchignore: {}", e);
-        }
-    }
-    for line in DEFAULT_IGNORE_PATTERNS.lines() {
-        ignore_builder
-            .add_line(None, line.trim())
-            .map_err(|e| e.to_string())?;
-    }
-    let ig = ignore_builder.build().map_err(|e| e.to_string())?;
+    let ig = build_ignore_list(&dir)?;
 
     // Build the tree structure only
     let tree = build_tree_sync(&dir, &dir, &ig)?;
@@ -340,7 +357,7 @@ fn generate_file_tree_text(root_path: &str, tree: &[FileTreeNode]) -> String {
     result
 }
 
-// New command to concatenate selected files with a tree
+// Update concatenate_files_with_tree to use the helpers
 #[tauri::command]
 async fn concatenate_files_with_tree(
     dir_path: String,
@@ -355,26 +372,8 @@ async fn concatenate_files_with_tree(
         ));
     }
 
-    // Build ignore list
-    let mut ignore_builder = ignore::gitignore::GitignoreBuilder::new(dir.clone());
-    let gitignore = dir.join(".gitignore");
-    if gitignore.exists() {
-        if let Some(e) = ignore_builder.add(&gitignore) {
-            eprintln!("Warning: Failed to parse .gitignore: {}", e);
-        }
-    }
-    let codefetchignore = dir.join(".codefetchignore");
-    if codefetchignore.exists() {
-        if let Some(e) = ignore_builder.add(&codefetchignore) {
-            eprintln!("Warning: Failed to parse .codefetchignore: {}", e);
-        }
-    }
-    for line in DEFAULT_IGNORE_PATTERNS.lines() {
-        ignore_builder
-            .add_line(None, line.trim())
-            .map_err(|e| e.to_string())?;
-    }
-    let ig = ignore_builder.build().map_err(|e| e.to_string())?;
+    // Build ignore list using helper
+    let ig = build_ignore_list(&dir)?;
 
     // Build tree structure
     let tree = build_tree_sync(&dir, &dir, &ig)?;
@@ -385,60 +384,13 @@ async fn concatenate_files_with_tree(
     // Start building the output with file map section
     let mut output = format!("<file_map>\n{}</file_map>\n\n", tree_text);
 
-    // Add each selected file's content
-    output.push_str("<file_contents>\n");
-
-    for file_path in selected_file_paths {
-        let path = PathBuf::from(&file_path);
-        if !path.exists() || !path.is_file() {
-            // Skip non-existent files
-            eprintln!("Warning: File does not exist: {:?}", path);
-            continue;
-        }
-
-        // Determine file extension for code block formatting
-        let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-
-        // Read file content
-        let content = match fs::read_to_string(&path) {
-            Ok(content) => content,
-            Err(e) => {
-                eprintln!("Warning: Failed to read file {}: {}", file_path, e);
-                format!("[Error reading file: {}]", e)
-            }
-        };
-
-        // Check if binary by looking for null bytes
-        let is_likely_binary = content.contains('\0');
-
-        // Add file header and content
-        output.push_str(&format!("File: {}\n", file_path));
-
-        if is_likely_binary {
-            output.push_str("```");
-            output.push_str(extension);
-            output.push_str("\n[Binary file]\n```\n\n");
-        } else {
-            output.push_str("```");
-            output.push_str(extension);
-            output.push_str("\n");
-            output.push_str(&content);
-
-            // Ensure content ends with newline
-            if !content.ends_with('\n') {
-                output.push('\n');
-            }
-
-            output.push_str("```\n\n");
-        }
-    }
-
-    output.push_str("</file_contents>");
+    // Add file contents using helper
+    output.push_str(&build_file_content_string(&selected_file_paths));
 
     Ok(output)
 }
 
-// New command to copy files with tree directly to clipboard
+// Update copy_files_with_tree_to_clipboard to use the helpers
 #[tauri::command]
 async fn copy_files_with_tree_to_clipboard(
     dir_path: String,
@@ -464,49 +416,9 @@ async fn copy_files_with_tree_to_clipboard(
         _ => return Err("Invalid tree option".to_string()),
     };
 
-    // Add file contents
+    // Add file contents using helper
     let mut output = content;
-    output.push_str("<file_contents>\n");
-
-    for file_path in selected_file_paths {
-        let path = PathBuf::from(&file_path);
-        if !path.exists() || !path.is_file() {
-            eprintln!("Warning: File does not exist: {:?}", path);
-            continue;
-        }
-
-        let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("");
-        let content = match fs::read_to_string(&path) {
-            Ok(content) => content,
-            Err(e) => {
-                eprintln!("Warning: Failed to read file {}: {}", file_path, e);
-                format!("[Error reading file: {}]", e)
-            }
-        };
-
-        let is_likely_binary = content.contains('\0');
-
-        output.push_str(&format!("File: {}\n", file_path));
-
-        if is_likely_binary {
-            output.push_str("```");
-            output.push_str(extension);
-            output.push_str("\n[Binary file]\n```\n\n");
-        } else {
-            output.push_str("```");
-            output.push_str(extension);
-            output.push_str("\n");
-            output.push_str(&content);
-
-            if !content.ends_with('\n') {
-                output.push('\n');
-            }
-
-            output.push_str("```\n\n");
-        }
-    }
-
-    output.push_str("</file_contents>");
+    output.push_str(&build_file_content_string(&selected_file_paths));
 
     // Copy to clipboard
     match Clipboard::new() {

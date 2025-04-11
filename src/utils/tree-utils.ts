@@ -1,5 +1,5 @@
-import { invoke } from "@tauri-apps/api/core";
 import { FileTreeNode } from "../types";
+import { getFileTreeWithTokens } from "../services/tauri";
 
 export const findNodeByPath = (
   nodes: FileTreeNode[],
@@ -69,10 +69,7 @@ export const toggleSelect = async (
 
     if (isSelecting) {
       // Fetch the subtree with tokens
-      const subtreeWithTokens = await invoke<FileTreeNode[]>(
-        "get_file_tree_with_tokens",
-        { dirPath: node.path }
-      );
+      const subtreeWithTokens = await getFileTreeWithTokens(node.path);
 
       // Need to reconstruct the root node for getAllDescendants to work correctly on the result
       const rootSubtreeNode: FileTreeNode = {

@@ -1,6 +1,6 @@
 import { FileTreeNode } from "../types";
 import { useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { getFileTree } from "../services/tauri";
 
 export const useFileTree = () => {
   const [fileTree, setFileTree] = useState<FileTreeNode[]>([]);
@@ -13,9 +13,7 @@ export const useFileTree = () => {
     try {
       setStatus("loading");
       // Use the function without tokens for the initial load
-      const tree = await invoke<FileTreeNode[]>("get_file_tree", {
-        dirPath,
-      });
+      const tree = await getFileTree(dirPath);
       setFileTree(tree); // Use the tree directly, no mapping needed
       setStatus("loaded");
     } catch (err) {

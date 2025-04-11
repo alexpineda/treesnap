@@ -1,0 +1,43 @@
+import { invoke } from "@tauri-apps/api/core";
+import { TreeOption, FileTreeNode, RecentWorkspace } from "../types";
+import { load } from "@tauri-apps/plugin-store";
+
+export const calculateFileTokens = async (filePath: string) => {
+  const tokens = await invoke<number>("calculate_file_tokens", { filePath });
+  return tokens;
+};
+
+export const getFileTree = async (dirPath: string) => {
+  const tree = await invoke<FileTreeNode[]>("get_file_tree", { dirPath });
+  return tree;
+};
+
+export const getFileTreeWithTokens = async (dirPath: string) => {
+  const tree = await invoke<FileTreeNode[]>("get_file_tree_with_tokens", {
+    dirPath,
+  });
+  return tree;
+};
+
+export const copyFilesWithTreeToClipboard = (
+  dirPath: string,
+  selectedFilePaths: string[],
+  treeOption: TreeOption
+) => {
+  return invoke("copy_files_with_tree_to_clipboard", {
+    dirPath,
+    selectedFilePaths,
+    treeOption,
+  });
+};
+
+const _recentWorkspacesStore = await load("workspaces.json");
+
+export const loadRecentWorkspaces = async () => {
+  const saved = await _recentWorkspacesStore.get<RecentWorkspace[]>("recent");
+  return saved;
+};
+
+export const saveRecentWorkspaces = async (workspaces: RecentWorkspace[]) => {
+  await _recentWorkspacesStore.set("recent", workspaces);
+};
