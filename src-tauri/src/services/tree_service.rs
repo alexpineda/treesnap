@@ -1,5 +1,11 @@
-use crate::FileTreeNode;
-use std::{fs, path::Path};
+use crate::domain::file_tree_node::FileTreeNode;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
+
+use super::{file_service::build_ignore_list, token_service::fill_tokens_in_tree};
 
 // Synchronous recursive function to build the file tree structure
 pub fn build_tree_sync(
@@ -99,4 +105,31 @@ pub fn filter_tree_to_selected(tree: &mut Vec<FileTreeNode>, selected_paths: &[S
 
     // Filter the tree
     tree.retain_mut(|node| filter_node(node, &selected_paths));
+}
+
+pub async fn get_file_tree(
+    dir_path: String,
+    with_tokens: bool,
+) -> Result<Vec<FileTreeNode>, String> {
+    let dir = PathBuf::from(&dir_path);
+    if !dir.exists() || !dir.is_dir() {
+        return Err(format!(
+            "Directory does not exist or is not a directory: {:?}",
+            dir
+        ));
+    }
+
+    let ig = build_ignore_list(&dir)?;
+    let mut tree = build_tree_sync(&dir, &dir, &ig)?;
+
+    if with_tokens {
+        let bpe = Arc::new(
+            tiktoken_rs::get_bpe_from_model("gpt-4o")
+                .map_err(|e| format!("Failed to initialize tokenizer: {}", e))?,
+        );
+
+        fill_tokens_in_tree(&mut tree, bpe).await?;
+    }
+
+    Ok(tree)
 }

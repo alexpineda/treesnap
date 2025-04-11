@@ -3,28 +3,75 @@
     windows_subsystem = "windows"
 )]
 
-mod commands;
 mod constants;
-mod file_util;
-mod token_builder;
-mod tree_builder;
+mod domain;
+mod services;
 
-use serde::Serialize;
+use domain::file_tree_node::FileTreeNode;
+use services::file_service;
+use services::token_service;
+use services::tree_service;
+use std::collections::HashMap;
+
 use tauri_plugin_dialog;
 use tauri_plugin_fs;
 use tauri_plugin_store;
 use tauri_plugin_updater::UpdaterExt;
 
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
-use token_builder::{calculate_file_tokens, calculate_tokens_for_files};
 
-#[derive(Debug, Serialize, Clone)]
-pub struct FileTreeNode {
-    name: String,
-    path: String,
-    children: Option<Vec<FileTreeNode>>,
-    is_directory: bool,
-    token_count: Option<usize>,
+#[tauri::command]
+async fn copy_files_with_tree_to_clipboard(
+    dir_path: String,
+    selected_file_paths: Vec<String>,
+    tree_option: String,
+) -> Result<(), String> {
+    // First get the content using our existing function
+    let content = match tree_option.as_str() {
+        "include" => {
+            // Get full tree
+            let tree = tree_service::get_file_tree(dir_path.clone(), false).await?;
+            let tree_text = file_service::generate_file_tree_text(&dir_path, &tree);
+            format!("<file_map>\n{}</file_map>\n\n", tree_text)
+        }
+        "include-only-selected" => {
+            // Get tree with only selected files
+            let mut tree = get_file_tree(dir_path.clone(), false).await?;
+            tree_service::filter_tree_to_selected(&mut tree, &selected_file_paths);
+            let tree_text = file_service::generate_file_tree_text(&dir_path, &tree);
+            format!("<file_map>\n{}</file_map>\n\n", tree_text)
+        }
+        "do-not-include" => String::new(),
+        _ => return Err("Invalid tree option".to_string()),
+    };
+
+    // Add file contents using helper
+    let mut output = content;
+    output.push_str(&file_service::build_file_content_string(
+        &selected_file_paths,
+    ));
+
+    // Copy to clipboard
+    file_service::copy_to_clipboard(&output)
+}
+
+#[tauri::command]
+async fn get_file_tree(dir_path: String, with_tokens: bool) -> Result<Vec<FileTreeNode>, String> {
+    return tree_service::get_file_tree(dir_path, with_tokens).await;
+}
+
+/// Calculate tokens for a specific file.
+#[tauri::command]
+async fn calculate_file_tokens(file_path: String) -> Result<usize, String> {
+    return token_service::calculate_file_tokens(file_path).await;
+}
+
+// Calculate tokens for specific files
+#[tauri::command]
+async fn calculate_tokens_for_files(
+    file_paths: Vec<String>,
+) -> Result<HashMap<String, usize>, String> {
+    return token_service::calculate_tokens_for_files(file_paths).await;
 }
 
 pub fn run() {
@@ -77,10 +124,10 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
+            copy_files_with_tree_to_clipboard,
             calculate_file_tokens,
             calculate_tokens_for_files,
-            commands::get_file_tree,
-            commands::copy_files_with_tree_to_clipboard
+            get_file_tree,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

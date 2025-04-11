@@ -1,5 +1,7 @@
+use arboard::Clipboard;
+
 use crate::constants::DEFAULT_IGNORE_PATTERNS;
-use crate::FileTreeNode;
+use crate::domain::file_tree_node::FileTreeNode;
 use std::{fs, path::Path, path::PathBuf};
 
 // Helper function to build ignore list for a directory
@@ -114,4 +116,17 @@ pub fn generate_file_tree_text(root_path: &str, tree: &[FileTreeNode]) -> String
     let mut result = format!("{}\n", root_path);
     result.push_str(&render_tree_as_ascii(tree, ""));
     result
+}
+
+pub fn copy_to_clipboard(text: &str) -> Result<(), String> {
+    // Copy to clipboard
+    match Clipboard::new() {
+        Ok(mut clipboard) => {
+            clipboard
+                .set_text(text)
+                .map_err(|e| format!("Failed to copy to clipboard: {}", e))?;
+            Ok(())
+        }
+        Err(e) => Err(format!("Failed to access clipboard: {}", e)),
+    }
 }

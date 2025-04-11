@@ -7,10 +7,9 @@ use std::{
 };
 use tiktoken_rs::{self, CoreBPE};
 
-use crate::FileTreeNode;
+use crate::domain::file_tree_node::FileTreeNode;
 
 /// Calculate tokens for a specific file.
-#[tauri::command]
 pub async fn calculate_file_tokens(file_path: String) -> Result<usize, String> {
     let path = PathBuf::from(file_path);
     if !path.exists() || !path.is_file() {
@@ -33,7 +32,6 @@ pub async fn calculate_file_tokens(file_path: String) -> Result<usize, String> {
 }
 
 // Calculate tokens for specific files
-#[tauri::command]
 pub async fn calculate_tokens_for_files(
     file_paths: Vec<String>,
 ) -> Result<HashMap<String, usize>, String> {
