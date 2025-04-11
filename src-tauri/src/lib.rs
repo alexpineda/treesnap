@@ -54,26 +54,6 @@ build/
 *.log
 "#;
 
-/// Simple config for scanning.
-#[derive(Debug, Deserialize)]
-pub struct CodefetchConfig {
-    pub dir: String,
-    pub max_tokens: Option<usize>,
-    pub disable_line_numbers: bool,
-    pub verbose: bool,
-}
-
-fn check_beta_status() -> bool {
-    if let Ok(response) = get("https://www.reposnap.io/api/beta-active") {
-        if response.status().is_success() {
-            let json: serde_json::Value = response.json().unwrap_or_default();
-            return json["active"].as_bool().unwrap_or(false);
-        }
-    }
-    // Fallback to hardcoded date
-    Utc::now() < chrono::DateTime::parse_from_rfc3339("2025-06-01T00:00:00Z").unwrap()
-}
-
 /// Calculate tokens for a specific file.
 #[tauri::command]
 async fn calculate_file_tokens(file_path: String) -> Result<usize, String> {
@@ -578,33 +558,26 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
-            if !check_beta_status() {
-                let ans = app
-                    .dialog()
-                    .message("The beta testing period has ended. Thanks for you testing! Visit www.reposnap.io for more information.")
-                    .kind(MessageDialogKind::Info)
-                    .title("Beta Ended")
-                    .blocking_show();
-                std::process::exit(0);
-            }
-         let handle = app.handle().clone();
+            let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
                 match handle.updater()?.check().await {
                     Ok(Some(update)) => {
                         // The check found an update
                         println!(
                             "Update available: version {}, released on {:?}",
-                            update.version,
-                            update.date
+                            update.version, update.date
                         );
                         // Download and install the update
                         update
-                            .download_and_install(|_chunk_len, _content_len| {
-                                // You can add download progress feedback here
-                            }, || {
-                                // Callback when download is finished
-                                println!("Download finished");
-                            })
+                            .download_and_install(
+                                |_chunk_len, _content_len| {
+                                    // You can add download progress feedback here
+                                },
+                                || {
+                                    // Callback when download is finished
+                                    println!("Download finished");
+                                },
+                            )
                             .await
                             .unwrap_or_else(|e| {
                                 eprintln!("Failed to download/install update: {}", e);

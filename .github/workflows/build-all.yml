@@ -1,143 +1,54 @@
-name: Build Tauri App (All Platforms)
+name: "test-on-pr"
 
-on:
-  workflow_dispatch:
-    inputs:
-      deploy:
-        description: "Deploy to R2"
-        required: false
-        type: boolean
-        default: false
+on: [pull_request]
+
+# This workflow will build your tauri app without uploading it anywhere.
 
 jobs:
-  build-and-release:
-    permissions:
-      contents: write
+  test-tauri:
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: macos-latest
-            target: aarch64-apple-darwin
+          - platform: "macos-latest" # for Arm based macs (M1 and above).
             args: "--target aarch64-apple-darwin --bundles app,dmg --verbose"
-            dmg-source: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg
-            macos-app-source: src-tauri/target/aarch64-apple-darwin/release/bundle/macos
-            r2-dest-base: releases
-          - platform: macos-latest
-            target: x86_64-apple-darwin
+          - platform: "macos-latest" # for Intel based macs.
             args: "--target x86_64-apple-darwin --bundles app,dmg --verbose"
-            dmg-source: src-tauri/target/x86_64-apple-darwin/release/bundle/dmg
-            macos-app-source: src-tauri/target/x86_64-apple-darwin/release/bundle/macos
-            r2-dest-base: releases
-          - platform: ubuntu-22.04
-            target: x86_64-unknown-linux-gnu
+          - platform: "ubuntu-22.04" # for Tauri v1 you could replace this with ubuntu-20.04.
             args: "--bundles appimage --verbose"
-            appimage-source: src-tauri/target/release/bundle/appimage
-            r2-dest-base: releases
-          - platform: windows-latest
-            target: x86_64-pc-windows-msvc
+          - platform: "windows-latest"
             args: "--bundles msi --verbose"
-            msi-source: src-tauri/target/release/bundle/msi
-            r2-dest-base: releases
 
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
 
-      - name: Install Rust stable
+      - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          # Those targets are only used on macos runners so it's in an `if` to slightly speed up windows and linux builds.
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
-      - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: "./src-tauri -> target"
+
+      - name: install dependencies (ubuntu only)
+        if: matrix.platform == 'ubuntu-22.04' # This must match the platform value defined above.
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+        # webkitgtk 4.0 is for Tauri v1 - webkitgtk 4.1 is for Tauri v2.
+        # You can remove the one that doesn't apply to your app to speed up the workflow a bit.
 
-      - name: Install frontend dependencies
+      - name: install frontend dependencies
         run: bun install
 
+      # If tagName and releaseId are omitted tauri-action will only build the app and won't try to upload any assets.
       - uses: tauri-apps/tauri-action@v0
-        id: tauri-build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
-          tagName: v__VERSION__
-          releaseName: "RepoSnap v__VERSION__ (${{ matrix.platform }} ${{ matrix.target || '' }})"
-          releaseBody: "Draft release for v__VERSION__."
-          releaseDraft: true
           args: ${{ matrix.args }}
-
-      - name: Get Package Version
-        uses: ./.github/actions/get-version-from-package
-        id: package-version
-
-      - name: Clean Up Unneeded Linux Build Artifacts
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          rm -rf ${{ matrix.appimage-source }}/RepoSnap.AppDir
-          ls -la ${{ matrix.appimage-source }}/
-
-      - name: Upload macOS DMG to R2
-        if: ${{ github.event.inputs.deploy == 'true' && matrix.platform == 'macos-latest' }}
-        uses: ryand56/r2-upload-action@latest
-        id: r2-upload-dmg
-        with:
-          r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          r2-bucket: ${{ secrets.R2_BUCKET }}
-          source-dir: ${{ matrix.dmg-source }}
-          destination-dir: ${{ matrix.r2-dest-base }}/${{ steps.package-version.outputs.version }}
-          output-file-url: true
-
-      - name: Upload macOS App (Updater) to R2
-        if: ${{ github.event.inputs.deploy == 'true' && matrix.platform == 'macos-latest' }}
-        uses: ryand56/r2-upload-action@latest
-        id: r2-upload-updater
-        with:
-          r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          r2-bucket: ${{ secrets.R2_BUCKET }}
-          source-dir: ${{ matrix.macos-app-source }}
-          destination-dir: ${{ matrix.r2-dest-base }}/${{ steps.package-version.outputs.version }}
-          output-file-url: true
-
-      - name: Upload Linux AppImage to R2
-        if: ${{ github.event.inputs.deploy == 'true' && matrix.platform == 'ubuntu-22.04' }}
-        uses: ryand56/r2-upload-action@latest
-        id: r2-upload-appimage
-        with:
-          r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          r2-bucket: ${{ secrets.R2_BUCKET }}
-          source-dir: ${{ matrix.appimage-source }}
-          destination-dir: ${{ matrix.r2-dest-base }}/${{ steps.package-version.outputs.version }}
-          output-file-url: true
-
-      - name: Upload Windows MSI to R2
-        if: ${{ github.event.inputs.deploy == 'true' && matrix.platform == 'windows-latest' }}
-        uses: ryand56/r2-upload-action@latest
-        id: r2-upload-msi
-        with:
-          r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
-          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
-          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-          r2-bucket: ${{ secrets.R2_BUCKET }}
-          source-dir: ${{ matrix.msi-source }}
-          destination-dir: ${{ matrix.r2-dest-base }}/${{ steps.package-version.outputs.version }}
-          output-file-url: true
-
-      - name: Debug R2 Upload Outputs
-        if: ${{ github.event.inputs.deploy == 'true' }}
-        run: |
-          echo "R2 Upload Results for ${{ matrix.platform }} (${{ matrix.target || 'default' }}):"
-          echo "DMG: ${{ steps.r2-upload-dmg.outputs.result || 'N/A' }} | URLs: ${{ steps.r2-upload-dmg.outputs.file-urls || 'N/A' }}"
-          echo "Updater: ${{ steps.r2-upload-updater.outputs.result || 'N/A' }} | URLs: ${{ steps.r2-upload-updater.outputs.file-urls || 'N/A' }}"
-          echo "AppImage: ${{ steps.r2-upload-appimage.outputs.result || 'N/A' }} | URLs: ${{ steps.r2-upload-appimage.outputs.file-urls || 'N/A' }}"
-          echo "MSI: ${{ steps.r2-upload-msi.outputs.result || 'N/A' }} | URLs: ${{ steps.r2-upload-msi.outputs.file-urls || 'N/A' }}"
