@@ -19,20 +19,26 @@ jobs:
         include:
           - platform: macos-latest
             target: aarch64-apple-darwin
-            args: "--target aarch64-apple-darwin --bundles dmg"
-            r2-source: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg
+            args: "--target aarch64-apple-darwin --bundles app,dmg --verbose"
+            dmg-source: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg
+            macos-app-source: src-tauri/target/aarch64-apple-darwin/release/bundle/macos
+            r2-dest-base: releases
           - platform: macos-latest
             target: x86_64-apple-darwin
-            args: "--target x86_64-apple-darwin --bundles dmg"
-            r2-source: src-tauri/target/x86_64-apple-darwin/release/bundle/dmg
+            args: "--target x86_64-apple-darwin --bundles app,dmg --verbose"
+            dmg-source: src-tauri/target/x86_64-apple-darwin/release/bundle/dmg
+            macos-app-source: src-tauri/target/x86_64-apple-darwin/release/bundle/macos
+            r2-dest-base: releases
           - platform: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
-            args: "--bundles appimage"
-            r2-source: src-tauri/target/release/bundle/appimage
+            args: "--bundles appimage --verbose"
+            appimage-source: src-tauri/target/release/bundle/appimage
+            r2-dest-base: releases
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
-            args: "--bundles msi"
-            r2-source: src-tauri/target/release/bundle/msi
+            args: "--bundles msi --verbose"
+            msi-source: src-tauri/target/release/bundle/msi
+            r2-dest-base: releases
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -42,7 +48,7 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && format('{0},{1}', matrix.target, 'aarch64-apple-darwin,x86_64-apple-darwin') || matrix.target }}
+          targets: ${{ matrix.target }}
 
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
@@ -60,25 +66,78 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
           tagName: v__VERSION__
-          releaseName: "RepoSnap v__VERSION__"
+          releaseName: "RepoSnap v__VERSION__ (${{ matrix.platform }} ${{ matrix.target || '' }})"
           releaseBody: "Draft release for v__VERSION__."
           releaseDraft: true
-          args: ${{ matrix.args }} --verbose
+          args: ${{ matrix.args }}
 
       - name: Get Package Version
         uses: ./.github/actions/get-version-from-package
         id: package-version
 
-      - name: Upload to R2
-        if: ${{ github.event.inputs.deploy == 'true' }}
-        uses: ./.github/actions/upload-to-r2
-        id: r2-upload
+      - name: Clean Up Unneeded Linux Build Artifacts
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          rm -rf ${{ matrix.appimage-source }}/RepoSnap.AppDir
+          ls -la ${{ matrix.appimage-source }}/
+
+      - name: Upload macOS DMG to R2
+        if: ${{ github.event.inputs.deploy == 'true' && matrix.platform == 'macos-latest' }}
+        uses: ryand56/r2-upload-action@latest
+        id: r2-upload-dmg
         with:
-          source-dir: ${{ matrix.r2-source }}
-          version: ${{ steps.package-version.outputs.version }}
+          r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          r2-bucket: ${{ secrets.R2_BUCKET }}
+          source-dir: ${{ matrix.dmg-source }}
+          destination-dir: ${{ matrix.r2-dest-base }}/${{ steps.package-version.outputs.version }}
+          output-file-url: true
+
+      - name: Upload macOS App (Updater) to R2
+        if: ${{ github.event.inputs.deploy == 'true' && matrix.platform == 'macos-latest' }}
+        uses: ryand56/r2-upload-action@latest
+        id: r2-upload-updater
+        with:
+          r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          r2-bucket: ${{ secrets.R2_BUCKET }}
+          source-dir: ${{ matrix.macos-app-source }}
+          destination-dir: ${{ matrix.r2-dest-base }}/${{ steps.package-version.outputs.version }}
+          output-file-url: true
+
+      - name: Upload Linux AppImage to R2
+        if: ${{ github.event.inputs.deploy == 'true' && matrix.platform == 'ubuntu-22.04' }}
+        uses: ryand56/r2-upload-action@latest
+        id: r2-upload-appimage
+        with:
+          r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          r2-bucket: ${{ secrets.R2_BUCKET }}
+          source-dir: ${{ matrix.appimage-source }}
+          destination-dir: ${{ matrix.r2-dest-base }}/${{ steps.package-version.outputs.version }}
+          output-file-url: true
+
+      - name: Upload Windows MSI to R2
+        if: ${{ github.event.inputs.deploy == 'true' && matrix.platform == 'windows-latest' }}
+        uses: ryand56/r2-upload-action@latest
+        id: r2-upload-msi
+        with:
+          r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          r2-bucket: ${{ secrets.R2_BUCKET }}
+          source-dir: ${{ matrix.msi-source }}
+          destination-dir: ${{ matrix.r2-dest-base }}/${{ steps.package-version.outputs.version }}
+          output-file-url: true
 
       - name: Debug R2 Upload Outputs
         if: ${{ github.event.inputs.deploy == 'true' }}
         run: |
-          echo "Upload Result: ${{ steps.r2-upload.outputs.result }}"
-          echo "Uploaded File URLs: ${{ steps.r2-upload.outputs.file-urls }}"
+          echo "R2 Upload Results for ${{ matrix.platform }} (${{ matrix.target || 'default' }}):"
+          echo "DMG: ${{ steps.r2-upload-dmg.outputs.result || 'N/A' }} | URLs: ${{ steps.r2-upload-dmg.outputs.file-urls || 'N/A' }}"
+          echo "Updater: ${{ steps.r2-upload-updater.outputs.result || 'N/A' }} | URLs: ${{ steps.r2-upload-updater.outputs.file-urls || 'N/A' }}"
+          echo "AppImage: ${{ steps.r2-upload-appimage.outputs.result || 'N/A' }} | URLs: ${{ steps.r2-upload-appimage.outputs.file-urls || 'N/A' }}"
+          echo "MSI: ${{ steps.r2-upload-msi.outputs.result || 'N/A' }} | URLs: ${{ steps.r2-upload-msi.outputs.file-urls || 'N/A' }}"
