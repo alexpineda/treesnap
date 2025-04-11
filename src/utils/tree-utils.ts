@@ -40,7 +40,7 @@ export const getAllFolderPaths = (nodes: FileTreeNode[]): string[] => {
   return paths;
 };
 
-export const toggleSelect = async (
+export const toggleSelect = (
   node: FileTreeNode,
   fileTree: FileTreeNode[],
   selectedFiles: FileTreeNode[]
@@ -48,49 +48,42 @@ export const toggleSelect = async (
   if (node.is_directory) {
     // --- Directory Selection Logic ---
 
-    // Find the corresponding node in the main fileTree to get its current children for path checking
+    // Find the corresponding node in the main fileTree to get its children
     const displayNode = findNodeByPath(fileTree, node.path);
     if (!displayNode) {
       console.error(
         "Could not find directory node in display tree:",
         node.path
       );
-      return;
+      return selectedFiles; // Return original selection on error
     }
 
-    const allDescendantPaths = getAllDescendants(displayNode).map(
-      (d) => d.path
+    // Get all descendants (files and directories) from the display node
+    const allDescendants = getAllDescendants(displayNode);
+    const allDescendantPaths = new Set(allDescendants.map((d) => d.path));
+
+    // Check if any *file* descendant of this directory is currently selected
+    const isAnyFileDescendantSelected = selectedFiles.some(
+      (sf) => !sf.is_directory && allDescendantPaths.has(sf.path)
     );
 
-    // Determine if we are selecting or deselecting based on current selection state
-    const isSelecting = !selectedFiles.some(
-      (sf) => allDescendantPaths.includes(sf.path) && !sf.is_directory
-    );
-
-    if (isSelecting) {
-      // Fetch the subtree with tokens
-      const subtreeWithTokens = await getFileTreeWithTokens(node.path);
-
-      // Need to reconstruct the root node for getAllDescendants to work correctly on the result
-      const rootSubtreeNode: FileTreeNode = {
-        ...node,
-        children: subtreeWithTokens,
-      };
-      const filesToAdd = getAllDescendants(rootSubtreeNode)
+    if (isAnyFileDescendantSelected) {
+      // DESELECTING: Remove all descendants (files) from the selection
+      return selectedFiles.filter((sf) => !allDescendantPaths.has(sf.path));
+    } else {
+      // SELECTING: Add all file descendants to the selection
+      const filesToAdd = allDescendants
         .filter((n) => !n.is_directory)
-        .map((n) => ({ ...n, tokenCount: n.token_count })); // Map token_count
+        // Ensure we add the node object itself, not just the path
+        // Let the calculateTotalTokens effect handle fetching tokens later
+        .map((n) => ({ ...n, tokenCount: undefined, isLoading: true })); // Mark as loading
 
-      // Add new files, avoiding duplicates
+      // Add new files, avoiding duplicates (though filtering selected should handle this)
       const existingPaths = new Set(selectedFiles.map((f) => f.path));
       const uniqueNewFiles = filesToAdd.filter(
         (f) => !existingPaths.has(f.path)
       );
       return [...selectedFiles, ...uniqueNewFiles];
-    } else {
-      // Deselecting: remove all descendants found in the display tree
-      return selectedFiles.filter(
-        (sf) => !allDescendantPaths.includes(sf.path)
-      );
     }
   } else {
     // --- File Selection Logic ---
@@ -100,8 +93,11 @@ export const toggleSelect = async (
       // Remove file
       return selectedFiles.filter((f) => f.path !== node.path);
     } else {
-      // Add file (calculateTotalTokens useEffect will handle fetching tokens if needed)
-      return [...selectedFiles, node];
+      // Add file (mark as loading, calculateTotalTokens useEffect will handle fetching tokens)
+      return [
+        ...selectedFiles,
+        { ...node, tokenCount: undefined, isLoading: true },
+      ];
     }
   }
 };

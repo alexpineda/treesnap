@@ -27,7 +27,7 @@ function App() {
 
   const handleFileSelect = async (node: FileTreeNode) => {
     try {
-      const newSelection = await toggleSelect(
+      const newSelection = toggleSelect(
         node,
         workspace.fileTree.data,
         workspace.selectedFiles
@@ -58,7 +58,8 @@ function App() {
       // Then calculate tokens for files that don't have them yet
       const filesNeedingCalculation = workspace.selectedFiles.filter(
         (file) =>
-          !file.is_directory && file.tokenCount === undefined && !file.isLoading
+          !file.is_directory &&
+          (file.tokenCount === undefined || file.isLoading)
       );
 
       if (filesNeedingCalculation.length > 0) {
@@ -75,7 +76,11 @@ function App() {
             prev.map((file) => {
               const batchIndex = batch.findIndex((f) => f.path === file.path);
               if (batchIndex !== -1) {
-                return { ...file, tokenCount: counts[batchIndex] };
+                return {
+                  ...file,
+                  tokenCount: counts[batchIndex],
+                  isLoading: false,
+                };
               }
               return file;
             })

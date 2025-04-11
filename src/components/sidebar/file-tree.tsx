@@ -1,4 +1,4 @@
-import { ChevronRight, FolderOpen } from "lucide-react";
+import { ChevronRight, FolderOpen, Loader2 } from "lucide-react";
 import { Folder } from "lucide-react";
 import { FileText } from "lucide-react";
 import { FileTreeNode } from "../../types";
@@ -159,7 +159,9 @@ export const FileTree = ({
           {!isFolder && (
             <span className="ml-2 text-sm text-gray-400 flex-shrink-0">
               {isLoading ? (
-                <span className="animate-pulse">Calculating...</span>
+                <span className="animate-pulse">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                </span>
               ) : node.tokenCount !== undefined ? (
                 `${node.tokenCount} tokens`
               ) : null}

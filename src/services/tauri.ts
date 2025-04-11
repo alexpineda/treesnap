@@ -7,14 +7,26 @@ export const calculateFileTokens = async (filePath: string) => {
   return tokens;
 };
 
+export const calculateTokensForFiles = async (filePaths: string[]) => {
+  const tokenMap = await invoke<Record<string, number>>(
+    "calculate_tokens_for_files",
+    { file_paths: filePaths }
+  );
+  return tokenMap;
+};
+
 export const getFileTree = async (dirPath: string) => {
-  const tree = await invoke<FileTreeNode[]>("get_file_tree", { dirPath });
+  const tree = await invoke<FileTreeNode[]>("get_file_tree", {
+    dirPath,
+    withTokens: false,
+  });
   return tree;
 };
 
 export const getFileTreeWithTokens = async (dirPath: string) => {
-  const tree = await invoke<FileTreeNode[]>("get_file_tree_with_tokens", {
+  const tree = await invoke<FileTreeNode[]>("get_file_tree", {
     dirPath,
+    withTokens: true,
   });
   return tree;
 };
