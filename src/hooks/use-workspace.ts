@@ -1,7 +1,7 @@
 import { FileTreeNode } from "../types";
 import { useState } from "react";
 import { useFileTree } from "./use-filetree";
-
+import { basename } from "../utils";
 type WorkspaceStatus = "not-loaded" | "loading" | "loaded" | "error";
 
 export const useWorkspace = (
@@ -23,6 +23,10 @@ export const useWorkspace = (
       addToRecentWorkspaces(dirPath);
       setWorkspacePath(dirPath);
       setWorkspaceStatus("loaded");
+      if (dirPath !== workspacePath) {
+        setSelectedFiles([]);
+        setExpandedFolders(new Set([dirPath]));
+      }
       return true;
     } catch (err) {
       setWorkspaceError(err instanceof Error ? err.message : String(err));

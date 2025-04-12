@@ -1,11 +1,22 @@
 use crate::domain::file_tree_node::FileTreeNode;
 use std::{
-    fs,
+    fs::{self, Metadata},
     path::{Path, PathBuf},
     sync::Arc,
 };
 
 use super::{file_service::build_ignore_list, token_service::fill_tokens_in_tree};
+
+// Helper function to get last modified time in seconds since UNIX_EPOCH
+fn get_last_modified_secs(metadata: Result<Metadata, std::io::Error>) -> Result<u64, String> {
+    metadata
+        .map_err(|e| format!("Failed to get metadata: {}", e))?
+        .modified()
+        .map_err(|e| format!("Failed to get modified time: {}", e))?
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .map_err(|e| format!("System time is before UNIX EPOCH: {}", e))
+}
 
 // Synchronous recursive function to build the file tree structure
 pub fn build_tree_sync(
@@ -28,21 +39,19 @@ pub fn build_tree_sync(
             continue;
         }
 
-        let is_dir = path.is_dir();
+        let metadata_result = entry.metadata();
+        let is_dir = metadata_result
+            .as_ref()
+            .map(|m| m.is_dir())
+            .unwrap_or(false);
+
         let file_name = path
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("unknown")
             .to_string();
 
-        let last_modified = entry
-            .metadata()
-            .unwrap()
-            .modified()
-            .unwrap()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs();
+        let last_modified = get_last_modified_secs(metadata_result).ok();
 
         if is_dir {
             // Recurse synchronously
@@ -55,7 +64,7 @@ pub fn build_tree_sync(
                         children: Some(children),
                         is_directory: true,
                         token_count: None, // Will be filled later if needed (though usually None for dirs)
-                        last_modified: Some(last_modified),
+                        last_modified,
                     });
                 }
                 Ok(_) => {}              // Skip empty directories
@@ -69,7 +78,7 @@ pub fn build_tree_sync(
                 children: None,
                 is_directory: false,
                 token_count: None, // Will be filled later
-                last_modified: Some(last_modified),
+                last_modified,
             });
         }
     }
@@ -131,7 +140,18 @@ pub async fn get_file_tree(
     }
 
     let ig = build_ignore_list(&dir)?;
-    let mut tree = build_tree_sync(&dir, &dir, &ig)?;
+    // Build the tree for the children first
+    let mut children_nodes = build_tree_sync(&dir, &dir, &ig)?;
+
+    // Get root directory metadata and name
+    let root_metadata = fs::metadata(&dir);
+    let root_last_modified = get_last_modified_secs(root_metadata)?;
+    let root_name = dir
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or(&dir_path)
+        .to_string(); // Fallback to full path if name fails
+    let root_path = dir.to_string_lossy().to_string();
 
     if with_tokens_sync {
         let bpe = Arc::new(
@@ -139,8 +159,37 @@ pub async fn get_file_tree(
                 .map_err(|e| format!("Failed to initialize tokenizer: {}", e))?,
         );
 
-        fill_tokens_in_tree(&mut tree, bpe).await?;
+        // Fill tokens for the children
+        fill_tokens_in_tree(&mut children_nodes, bpe).await?;
     }
 
-    Ok(tree)
+    // Calculate root token count if tokens were calculated
+    let root_token_count = if with_tokens_sync {
+        // Sum tokens from all children nodes. unwrap_or(0) handles potential None for child directories without countable files.
+        Some(
+            children_nodes
+                .iter()
+                .map(|node| node.token_count.unwrap_or(0))
+                .sum(),
+        )
+    } else {
+        None
+    };
+
+    // Create the root node
+    let root_node = FileTreeNode {
+        name: root_name,
+        path: root_path,
+        // Only assign children if the vector is not empty
+        children: if children_nodes.is_empty() {
+            None
+        } else {
+            Some(children_nodes)
+        },
+        is_directory: true,
+        token_count: root_token_count,
+        last_modified: Some(root_last_modified),
+    };
+
+    Ok(vec![root_node]) // Return the single root node wrapped in a Vec
 }
