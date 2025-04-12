@@ -7,4 +7,5 @@ pub struct FileTreeNode {
     pub children: Option<Vec<FileTreeNode>>,
     pub is_directory: bool,
     pub token_count: Option<usize>,
+    pub last_modified: Option<u64>,
 }

@@ -35,6 +35,15 @@ pub fn build_tree_sync(
             .unwrap_or("unknown")
             .to_string();
 
+        let last_modified = entry
+            .metadata()
+            .unwrap()
+            .modified()
+            .unwrap()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
         if is_dir {
             // Recurse synchronously
             match build_tree_sync(&path, base_dir, ig) {
@@ -46,6 +55,7 @@ pub fn build_tree_sync(
                         children: Some(children),
                         is_directory: true,
                         token_count: None, // Will be filled later if needed (though usually None for dirs)
+                        last_modified: Some(last_modified),
                     });
                 }
                 Ok(_) => {}              // Skip empty directories
@@ -59,6 +69,7 @@ pub fn build_tree_sync(
                 children: None,
                 is_directory: false,
                 token_count: None, // Will be filled later
+                last_modified: Some(last_modified),
             });
         }
     }
@@ -109,7 +120,7 @@ pub fn filter_tree_to_selected(tree: &mut Vec<FileTreeNode>, selected_paths: &[S
 
 pub async fn get_file_tree(
     dir_path: String,
-    with_tokens: bool,
+    with_tokens_sync: bool,
 ) -> Result<Vec<FileTreeNode>, String> {
     let dir = PathBuf::from(&dir_path);
     if !dir.exists() || !dir.is_dir() {
@@ -122,7 +133,7 @@ pub async fn get_file_tree(
     let ig = build_ignore_list(&dir)?;
     let mut tree = build_tree_sync(&dir, &dir, &ig)?;
 
-    if with_tokens {
+    if with_tokens_sync {
         let bpe = Arc::new(
             tiktoken_rs::get_bpe_from_model("gpt-4o")
                 .map_err(|e| format!("Failed to initialize tokenizer: {}", e))?,

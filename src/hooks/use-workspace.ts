@@ -38,7 +38,7 @@ export const useWorkspace = (
     setWorkspacePath("");
     setWorkspaceStatus("not-loaded");
     setWorkspaceError(null);
-    fileTree.reset();
+    fileTree.close();
   };
 
   return {

@@ -1,38 +1,94 @@
 import { FileTreeNode } from "../types";
-import { useState } from "react";
-import { getFileTree } from "../services/tauri";
+import { useEffect, useState } from "react";
+import { closeWorkspace, openWorkspace } from "../services/tauri";
+import { listen } from "@tauri-apps/api/event";
 
 export const useFileTree = () => {
   const [fileTree, setFileTree] = useState<FileTreeNode[]>([]);
+  const [currentDirPath, setCurrentDirPath] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "loaded" | "error">(
     "idle"
   );
   const [error, setError] = useState<string | null>(null);
 
   const loadFileTree = async (dirPath: string) => {
+    if (status === "loading") return;
+
     try {
       setStatus("loading");
-      // Use the function without tokens for the initial load
-      const tree = await getFileTree(dirPath);
-      setFileTree(tree); // Use the tree directly, no mapping needed
+      setError(null);
+      const tree = await openWorkspace(dirPath);
+      setFileTree(tree);
+      setCurrentDirPath(dirPath);
       setStatus("loaded");
+      console.log(`File tree loaded for: ${dirPath}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      setError(errorMessage);
       setStatus("error");
+      setCurrentDirPath(null);
+      console.error(`Error loading file tree for ${dirPath}:`, errorMessage);
     }
   };
 
-  const reset = () => {
+  const close = async () => {
+    if (currentDirPath) {
+      try {
+        await closeWorkspace();
+        console.log(`Workspace closed for: ${currentDirPath}`);
+      } catch (err) {
+        console.error("Error closing workspace:", err);
+      }
+    }
     setFileTree([]);
+    setCurrentDirPath(null);
     setStatus("idle");
     setError(null);
   };
+
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+
+    if (status === "loaded" && currentDirPath) {
+      console.log(
+        `Setting up listener for files-changed-event in ${currentDirPath}`
+      );
+      const setupListener = async () => {
+        try {
+          unlisten = await listen<string[]>("files-changed-event", (event) => {
+            console.log("Files changed event received:", event.payload);
+            if (currentDirPath) {
+              console.log("Reloading file tree due to change detection...");
+              loadFileTree(currentDirPath);
+            }
+          });
+        } catch (e) {
+          console.error("Failed to set up file change listener:", e);
+          setError("Failed to listen for file changes.");
+          setStatus("error");
+        }
+      };
+      setupListener();
+    }
+
+    return () => {
+      if (unlisten) {
+        console.log(
+          `Cleaning up listener for files-changed-event in ${
+            currentDirPath || "previous session"
+          }`
+        );
+        unlisten();
+      }
+    };
+  }, [status, currentDirPath]);
 
   return {
     data: fileTree,
     loadFileTree,
     status,
     error,
-    reset,
+    close,
+    currentDirPath,
   };
 };

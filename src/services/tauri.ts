@@ -15,20 +15,23 @@ export const calculateTokensForFiles = async (filePaths: string[]) => {
   return tokenMap;
 };
 
-export const getFileTree = async (dirPath: string) => {
+export const getFileTree = async (dirPath: string, withTokensSync = false) => {
   const tree = await invoke<FileTreeNode[]>("get_file_tree", {
     dirPath,
-    withTokens: false,
+    withTokensSync,
   });
   return tree;
 };
 
-export const getFileTreeWithTokens = async (dirPath: string) => {
-  const tree = await invoke<FileTreeNode[]>("get_file_tree", {
+export const openWorkspace = async (dirPath: string) => {
+  const tree = await invoke<FileTreeNode[]>("open_workspace", {
     dirPath,
-    withTokens: true,
   });
   return tree;
+};
+
+export const closeWorkspace = async () => {
+  await invoke("close_workspace");
 };
 
 export const copyFilesWithTreeToClipboard = (

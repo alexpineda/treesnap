@@ -11,6 +11,7 @@ use domain::file_tree_node::FileTreeNode;
 use services::file_service;
 use services::token_service;
 use services::tree_service;
+use services::watcher_service;
 use std::collections::HashMap;
 
 use tauri_plugin_dialog;
@@ -18,6 +19,8 @@ use tauri_plugin_fs;
 use tauri_plugin_store;
 use tauri_plugin_updater::UpdaterExt;
 
+use std::sync::Mutex;
+use tauri::{Manager, State, Window};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
 #[tauri::command]
@@ -74,9 +77,33 @@ async fn calculate_tokens_for_files(
     return token_service::calculate_tokens_for_files(file_paths).await;
 }
 
+#[tauri::command]
+async fn open_workspace(
+    window: Window,
+    dir_path: String,
+    watcher_state: State<'_, watcher_service::WatcherState>,
+) -> Result<Vec<FileTreeNode>, String> {
+    // First, get the file tree
+    let tree = tree_service::get_file_tree(dir_path.clone(), false).await?;
+
+    // Then, start the watcher for this directory
+    watcher_service::start_watcher_internal(window, dir_path, &watcher_state.0)?;
+
+    Ok(tree)
+}
+
+#[tauri::command]
+async fn close_workspace(
+    watcher_state: State<'_, watcher_service::WatcherState>,
+) -> Result<(), String> {
+    // Stop the current watcher
+    watcher_service::stop_watcher_internal(&watcher_state.0)
+}
+
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(watcher_service::WatcherState(Mutex::new(None)))
         .setup(|app| {
             let handle = app.handle().clone();
             tauri::async_runtime::spawn(async move {
@@ -128,6 +155,10 @@ pub fn run() {
             calculate_file_tokens,
             calculate_tokens_for_files,
             get_file_tree,
+            open_workspace,
+            close_workspace,
+            watcher_service::start_watching_command,
+            watcher_service::stop_watching_command,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

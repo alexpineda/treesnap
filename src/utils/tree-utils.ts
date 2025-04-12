@@ -1,5 +1,4 @@
 import { FileTreeNode } from "../types";
-import { getFileTreeWithTokens } from "../services/tauri";
 
 export const findNodeByPath = (
   nodes: FileTreeNode[],

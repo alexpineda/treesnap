@@ -33,7 +33,8 @@
             "store:default",
             "dialog:default",
             "fs:default",
-            "updater:default"
+            "updater:default",
+            "core:event:default"
           ]
         }
       ]
