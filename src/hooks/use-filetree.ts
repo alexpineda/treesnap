@@ -1,9 +1,11 @@
-import { FileTreeNode } from "../types";
+import { FileChangeEvent, FileTreeNode } from "../types";
 import { useEffect, useState } from "react";
 import { closeWorkspace, openWorkspace } from "../services/tauri";
 import { listen } from "@tauri-apps/api/event";
 
-export const useFileTree = () => {
+export const useFileTree = (
+  onFilesChanged: (files: FileChangeEvent[]) => void
+) => {
   const [fileTree, setFileTree] = useState<FileTreeNode[]>([]);
   const [currentDirPath, setCurrentDirPath] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "loaded" | "error">(
@@ -55,13 +57,17 @@ export const useFileTree = () => {
       );
       const setupListener = async () => {
         try {
-          unlisten = await listen<string[]>("files-changed-event", (event) => {
-            console.log("Files changed event received:", event.payload);
-            if (currentDirPath) {
-              console.log("Reloading file tree due to change detection...");
-              loadFileTree(currentDirPath);
+          unlisten = await listen<FileChangeEvent[]>(
+            "files-changed-event",
+            (event) => {
+              console.log("Files changed event received:", event.payload);
+              if (currentDirPath) {
+                console.log("Reloading file tree due to change detection...");
+                loadFileTree(currentDirPath);
+                onFilesChanged(event.payload);
+              }
             }
-          });
+          );
         } catch (e) {
           console.error("Failed to set up file change listener:", e);
           setError("Failed to listen for file changes.");

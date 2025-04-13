@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { FileTreeNode } from "../types";
 import classNames from "classnames";
 import { formatTokens } from "../utils";
+import { FileTokenSummaryLabel } from "./file-token-summary-label";
 
 interface TreeMapProps {
   selectedFiles: FileTreeNode[];
@@ -217,14 +218,10 @@ export const TreeMap = ({
         <h3 className="m-0 text-sm font-medium text-white">
           Token Size Treemap
         </h3>
-        <div className="flex items-center gap-2">
-          <span className="text-gray-400 text-sm">
-            {selectedFiles.filter((f) => !f.is_directory).length} files selected
-          </span>
-          <span className="text-gray-400 text-sm">
-            {formatTokens(totalTokens)} tokens
-          </span>
-        </div>
+        <FileTokenSummaryLabel
+          selectedFiles={selectedFiles}
+          totalTokens={totalTokens}
+        />
       </div>
       <div
         ref={containerRef}

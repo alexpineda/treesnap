@@ -1,3 +1,6 @@
+import type { Workspace } from "./hooks/use-workspace";
+
+export type { Workspace };
 export interface FileTreeNode {
   name: string;
   path: string;
@@ -10,6 +13,11 @@ export interface FileTreeNode {
   dirPercentage?: number;
   isLoading?: boolean;
   selectionState?: "none" | "partial" | "all";
+}
+
+export interface FileChangeEvent {
+  path: string;
+  kind: "create" | "modify" | "remove";
 }
 
 export interface RecentWorkspace {

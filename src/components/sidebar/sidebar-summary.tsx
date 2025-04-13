@@ -1,34 +1,31 @@
 import { ChevronsDownUp, ChevronsUpDown, RefreshCcw } from "lucide-react";
 import { FileTreeNode } from "../../types";
-import { formatTokens, getAllFolderPaths } from "../../utils";
+import { getAllFolderPaths } from "../../utils";
 import { Tooltip } from "react-tooltip";
+import { FileTokenSummaryLabel } from "../file-token-summary-label";
 
 export const SidebarSummary = ({
   totalTokens,
   numExpandedFolders,
-  numSelectedFiles,
   setExpandedFolders,
   fileTree,
   onRefresh,
+  selectedFiles,
 }: {
   totalTokens: number;
   numExpandedFolders: number;
-  numSelectedFiles: number;
   setExpandedFolders: (folders: Set<string>) => void;
   fileTree: FileTreeNode[];
   onRefresh: () => void;
+  selectedFiles: FileTreeNode[];
 }) => (
   <div className="flex justify-between mt-3">
     <div className="pl-4">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm text-gray-300">
-          {numSelectedFiles}{" "}
-          <span className="text-blue-400">files selected</span>
-        </span>
-        <span className="text-sm text-gray-300">
-          {formatTokens(totalTokens)} tokens
-        </span>
-      </div>
+      <FileTokenSummaryLabel
+        selectedFiles={selectedFiles}
+        totalTokens={totalTokens}
+        variant="sidebar"
+      />
     </div>
     <div className="flex items-center gap-2">
       <button

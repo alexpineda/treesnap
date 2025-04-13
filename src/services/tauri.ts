@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
-import { TreeOption, FileTreeNode, RecentWorkspace } from "../types";
+import { TreeOption, FileTreeNode, RecentWorkspace, Workspace } from "../types";
 import { load } from "@tauri-apps/plugin-store";
+import { open } from "@tauri-apps/plugin-dialog";
 
 export const calculateFileTokens = async (filePath: string) => {
   const tokens = await invoke<number>("calculate_file_tokens", { filePath });
@@ -55,4 +56,8 @@ export const loadRecentWorkspaces = async () => {
 
 export const saveRecentWorkspaces = async (workspaces: RecentWorkspace[]) => {
   await _recentWorkspacesStore.set("recent", workspaces);
+};
+
+export const openDirectoryDialog = async () => {
+  return await open({ directory: true });
 };

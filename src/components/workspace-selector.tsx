@@ -5,12 +5,10 @@ import { basename } from "../utils";
 export const WorkspaceSelector = ({
   handleChooseDirectory,
   recentWorkspaces,
-  resetStates,
   setDir,
 }: {
   handleChooseDirectory: () => void;
   recentWorkspaces: RecentWorkspace[];
-  resetStates: () => void;
   setDir: (dir: string) => void;
 }) => {
   return (
@@ -43,7 +41,6 @@ export const WorkspaceSelector = ({
                 key={index}
                 className=" text-blue-300 cursor-pointer text-left"
                 onClick={() => {
-                  resetStates();
                   setDir(workspace.path);
                 }}
               >

@@ -1,5 +1,8 @@
-use notify::{Event, RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher};
-use std::collections::HashSet;
+use notify::{
+    event::EventKind, Event, RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher,
+};
+use serde::Serialize;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::channel;
 use std::sync::{Arc, Mutex};
@@ -12,6 +15,13 @@ use crate::services::file_service;
 
 // State definition to hold the watcher
 pub struct WatcherState(pub Mutex<Option<RecommendedWatcher>>);
+
+// Define a struct to represent the file change event for the frontend
+#[derive(Clone, Debug, Serialize)]
+struct FileChangeEvent {
+    path: String,
+    kind: String, // e.g., "create", "remove", "modify", "rename"
+}
 
 // Internal function to start the watcher
 // Takes a reference to the Mutex guarded Option<RecommendedWatcher>
@@ -33,8 +43,8 @@ pub fn start_watcher_internal(
 
     // --- State for debouncing ---
     let last_event_time = Arc::new(Mutex::new(Instant::now()));
-    // Use HashSet to automatically handle duplicate paths
-    let accumulated_paths = Arc::new(Mutex::new(HashSet::<PathBuf>::new()));
+    // Use HashMap to store the latest event kind for each path
+    let accumulated_events = Arc::new(Mutex::new(HashMap::<PathBuf, EventKind>::new()));
     let debouncer_handle = Arc::new(Mutex::new(None::<thread::JoinHandle<()>>));
     let debounce_duration = Duration::from_millis(500); // 500ms debounce
                                                         // --- End State for debouncing ---
@@ -43,6 +53,9 @@ pub fn start_watcher_internal(
     let mut watcher = notify::recommended_watcher(move |res: NotifyResult<Event>| {
         match res {
             Ok(event) => {
+                // Determine the primary event kind (simplified handling)
+                let kind = event.kind;
+
                 // Filter out ignored paths
                 let non_ignored_paths: Vec<PathBuf> = event
                     .paths
@@ -58,9 +71,10 @@ pub fn start_watcher_internal(
                 // Only proceed if there are non-ignored paths
                 if !non_ignored_paths.is_empty() {
                     // --- Debounce Start ---
-                    let mut paths = accumulated_paths.lock().unwrap();
+                    let mut events_map = accumulated_events.lock().unwrap();
                     for path in non_ignored_paths {
-                        paths.insert(path); // Add paths to the set
+                        // Insert or update the path with the latest event kind
+                        events_map.insert(path, kind);
                     }
                     *last_event_time.lock().unwrap() = Instant::now(); // Update last event time
 
@@ -69,7 +83,7 @@ pub fn start_watcher_internal(
                         // No active debouncer thread, spawn one
                         let window_clone = window.clone();
                         let last_event_time_clone = Arc::clone(&last_event_time);
-                        let accumulated_paths_clone = Arc::clone(&accumulated_paths);
+                        let accumulated_events_clone = Arc::clone(&accumulated_events);
                         let debouncer_handle_clone = Arc::clone(&debouncer_handle);
 
                         *handle_guard = Some(thread::spawn(move || {
@@ -84,27 +98,46 @@ pub fn start_watcher_internal(
 
                                 if elapsed >= debounce_duration {
                                     // Debounce duration elapsed, emit event
-                                    let paths_to_emit = {
+                                    let events_to_emit_map = {
                                         // Scope for lock guard
-                                        let mut acc_paths = accumulated_paths_clone.lock().unwrap();
-                                        // Take the paths, leave an empty set
-                                        std::mem::take(&mut *acc_paths)
+                                        let mut acc_events =
+                                            accumulated_events_clone.lock().unwrap();
+                                        // Take the events map, leave an empty map
+                                        std::mem::take(&mut *acc_events)
                                     };
 
                                     // Clear the handle *before* emitting
                                     *debouncer_handle_clone.lock().unwrap() = None;
 
-                                    if !paths_to_emit.is_empty() {
+                                    if !events_to_emit_map.is_empty() {
                                         println!(
-                                            "Emitting after debounce: {} files changed",
-                                            paths_to_emit.len()
+                                            "Emitting after debounce: {} file events",
+                                            events_to_emit_map.len()
                                         );
-                                        let paths_as_strings: Vec<String> = paths_to_emit
-                                            .into_iter()
-                                            .map(|p| p.to_string_lossy().into_owned())
-                                            .collect();
-                                        let _ = window_clone
-                                            .emit("files-changed-event", paths_as_strings);
+                                        // Convert the map to the Vec<FileChangeEvent> structure
+                                        let change_events: Vec<FileChangeEvent> =
+                                            events_to_emit_map
+                                                .into_iter()
+                                                .map(|(path, kind)| FileChangeEvent {
+                                                    path: path.to_string_lossy().into_owned(),
+                                                    // Convert EventKind to a simple string
+                                                    kind: match kind {
+                                                        EventKind::Create(_) => {
+                                                            "create".to_string()
+                                                        }
+                                                        EventKind::Modify(_) => {
+                                                            "modify".to_string()
+                                                        }
+                                                        EventKind::Remove(_) => {
+                                                            "remove".to_string()
+                                                        }
+                                                        _ => "other".to_string(), // Handle other kinds like Access, Any
+                                                    },
+                                                })
+                                                .collect();
+
+                                        let _ =
+                                            window_clone.emit("files-changed-event", change_events);
                                     }
                                     break; // Exit the debouncer thread
                                 }

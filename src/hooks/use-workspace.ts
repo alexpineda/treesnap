@@ -1,7 +1,6 @@
 import { FileTreeNode } from "../types";
 import { useState } from "react";
 import { useFileTree } from "./use-filetree";
-import { basename } from "../utils";
 type WorkspaceStatus = "not-loaded" | "loading" | "loaded" | "error";
 
 export const useWorkspace = (
@@ -15,7 +14,18 @@ export const useWorkspace = (
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(
     new Set()
   );
-  const fileTree = useFileTree();
+  const fileTree = useFileTree((changedFiles) => {
+    // changedFiles might mean they are added or removed
+    // we need to update the selected files
+
+    for (const file of changedFiles) {
+      if (selectedFiles.some((f) => f.path === file.path)) {
+        if (file.kind === "remove") {
+          setSelectedFiles(selectedFiles.filter((f) => f.path !== file.path));
+        }
+      }
+    }
+  });
 
   const loadWorkspace = async (dirPath: string) => {
     try {

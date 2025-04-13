@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { open } from "@tauri-apps/plugin-dialog";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import "./resizable.css";
 import { SelectionSummary } from "./components/selection-summary";
@@ -13,7 +12,7 @@ import { TopBar } from "./components/top-bar";
 import { useRecentWorkspaces } from "./hooks/use-recent-workspaces";
 import { useWorkspace } from "./hooks/use-workspace";
 import { Export } from "./components/export";
-import { calculateFileTokens } from "./services/tauri";
+import { calculateFileTokens, openDirectoryDialog } from "./services/tauri";
 
 function App() {
   const [totalTokens, setTotalTokens] = useState(0);
@@ -24,6 +23,14 @@ function App() {
   useEffect(() => {
     calculateTotalTokens();
   }, [workspace.selectedFiles]);
+
+  const resetStates = () => {
+    setTotalTokens(0);
+  };
+
+  useEffect(() => {
+    resetStates();
+  }, [workspace.workspacePath]);
 
   const handleFileSelect = async (node: FileTreeNode) => {
     try {
@@ -88,6 +95,7 @@ function App() {
 
           // Add to total
           total += counts.reduce((sum, count) => sum + count, 0);
+          setTotalTokens(total);
         }
       }
 
@@ -97,17 +105,13 @@ function App() {
     }
   };
 
-  const resetStates = () => {
-    setTotalTokens(0);
-  };
   const handleClose = () => {
-    setTotalTokens(0);
     workspace.close();
   };
 
   const handleChooseDirectory = async () => {
     try {
-      const selected = await open({ directory: true });
+      const selected = await openDirectoryDialog();
       if (selected) {
         await workspace.loadWorkspace(selected as string);
         resetStates();
@@ -127,9 +131,6 @@ function App() {
   };
 
   const numExpandedFolders = Array.from(workspace.expandedFolders).length;
-  const numSelectedFiles = workspace.selectedFiles.filter(
-    (f) => !f.is_directory
-  ).length;
 
   return (
     <div className="flex h-screen flex-col bg-gray-900">
@@ -147,7 +148,6 @@ function App() {
                 <WorkspaceSelector
                   handleChooseDirectory={handleChooseDirectory}
                   recentWorkspaces={recentWorkspaces}
-                  resetStates={resetStates}
                   setDir={workspace.loadWorkspace}
                 />
               ) : (
@@ -163,8 +163,8 @@ function App() {
 
                     {/* Short Summary and Collapse/Expand All */}
                     <SidebarSummary
+                      selectedFiles={workspace.selectedFiles}
                       numExpandedFolders={numExpandedFolders}
-                      numSelectedFiles={numSelectedFiles}
                       totalTokens={totalTokens}
                       setExpandedFolders={workspace.setExpandedFolders}
                       fileTree={workspace.fileTree.data}
