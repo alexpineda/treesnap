@@ -81,7 +81,7 @@ pub async fn get_or_create_machine_id(app_handle: &AppHandle) -> Result<String, 
 }
 
 #[instrument(skip(app_handle, machine_id))]
-pub fn load_encrypted_state<T: DeserializeOwned + Default>(
+pub fn load_encrypted_state<T: DeserializeOwned + Default + std::fmt::Debug>(
     app_handle: &AppHandle,
     machine_id: &str,
 ) -> Result<T, StateError> {
@@ -139,6 +139,7 @@ pub fn load_encrypted_state<T: DeserializeOwned + Default>(
         "Successfully loaded and decrypted state ('{}').",
         APP_STATE_FILENAME
     );
+    info!("Loaded state: {:?}", state);
     Ok(state)
 }
 

@@ -16,6 +16,10 @@ use services::tree_service;
 use services::watcher_service;
 use std::collections::HashMap;
 
+// Conditional imports for debug commands
+#[cfg(debug_assertions)]
+use services::license::debug as license_debug;
+
 use tauri_plugin_dialog;
 use tauri_plugin_fs;
 use tauri_plugin_updater::UpdaterExt;
@@ -295,6 +299,13 @@ pub fn run() {
             check_workspace_limit,
             watcher_service::start_watching_command,
             watcher_service::stop_watching_command,
+            // Add debug handlers only in debug builds
+            #[cfg(debug_assertions)]
+            license_debug::debug_set_license_state,
+            #[cfg(debug_assertions)]
+            license_debug::debug_clear_license_state,
+            #[cfg(debug_assertions)]
+            license_debug::debug_add_usage_entries,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

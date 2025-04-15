@@ -5,6 +5,9 @@ pub mod errors;
 pub mod persistence;
 pub mod state;
 
+#[cfg(debug_assertions)]
+pub mod debug;
+
 // Re-export key items for easier access from `services::license::*`
 pub use api::{
     activate_license_internal, check_and_record_workspace_access, check_workspace_limit_internal,

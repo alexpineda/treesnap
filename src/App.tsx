@@ -14,6 +14,7 @@ import { useWorkspace } from "./hooks/use-workspace";
 import { Export } from "./components/export";
 import { calculateFileTokens, openDirectoryDialog } from "./services/tauri";
 import { LicenseArea } from "./components/license-area";
+import { DebugLicenseControls } from "./components/debug";
 
 function App() {
   const [totalTokens, setTotalTokens] = useState(0);
@@ -308,6 +309,7 @@ function App() {
               {workspace.status === "not-loaded" && (
                 <div className="flex flex-1 w-full items-center justify-center">
                   <LicenseArea />
+                  <DebugLicenseControls />
                 </div>
               )}
             </div>

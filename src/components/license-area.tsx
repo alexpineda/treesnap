@@ -98,6 +98,7 @@ export const LicenseArea = () => {
           </form>
         );
       }
+      return null;
     }
 
     if (localLicenseState.status === "activated") {
