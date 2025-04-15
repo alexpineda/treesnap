@@ -166,3 +166,23 @@ pub async fn check_and_record_workspace_access(
         Err(LicenseError::WorkspaceLimitReached(MAX_FREE_WORKSPACES))
     }
 }
+
+#[instrument(skip(app_handle))]
+pub async fn check_workspace_limit_internal(app_handle: &AppHandle) -> Result<(), LicenseError> {
+    let machine_id = get_or_create_machine_id(app_handle).await?;
+    let app_state = load_encrypted_state::<AppState>(app_handle, &machine_id)?;
+
+    if app_state.license.status == "activated" {
+        return Ok(());
+    }
+
+    if app_state.license.status == "expired" {
+        return Err(LicenseError::LicenseExpired);
+    }
+
+    if app_state.usage.unique_workspaces_opened.len() >= MAX_FREE_WORKSPACES {
+        return Err(LicenseError::WorkspaceLimitReached(MAX_FREE_WORKSPACES));
+    }
+
+    Ok(())
+}

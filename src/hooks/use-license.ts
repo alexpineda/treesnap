@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
-import { activateLicense, getLocalLicenseState } from "../services/tauri";
+import {
+  activateLicense,
+  getLocalLicenseState,
+  checkWorkspaceLimit,
+} from "../services/tauri";
 import { LocalLicenseState } from "../types";
 
 export const useLicense = () => {
@@ -7,42 +11,44 @@ export const useLicense = () => {
     useState<LocalLicenseState>();
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [workspaceLimitError, setWorkspaceLimitError] = useState<string | null>(
+    null
+  );
 
   // Function to fetch the current status (used on mount and for refresh)
   const fetchStatus = useCallback(async () => {
     setIsLoading(true);
     setError(null);
-    try {
-      const state = await getLocalLicenseState();
+    const { state, error } = await getLocalLicenseState();
+    if (error) {
+      setError(error.message);
+    } else if (state) {
       setLocalLicenseState(state);
-    } catch (err: any) {
-      console.error("Error fetching license status:", err);
-      setError(err?.message || "Could not retrieve license information.");
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   }, []);
 
   // Fetch initial status on mount
   useEffect(() => {
     fetchStatus();
+    checkWorkspaceLimit().then((res) => {
+      if (res.error) {
+        setWorkspaceLimitError(res.error);
+      }
+    });
   }, [fetchStatus]);
 
   // Function to activate a license key
   const activate = useCallback(async (licenseKey: string) => {
     setIsLoading(true);
     setError(null);
-    try {
-      const state = await activateLicense(licenseKey);
+    const { state, error } = await activateLicense(licenseKey);
+    if (error) {
+      setError(error.message);
+    } else if (state) {
       setLocalLicenseState(state);
-      return state; // Return status for immediate feedback if needed
-    } catch (err: any) {
-      console.error("Error activating license:", err);
-      setError(err?.message || "Failed to activate license.");
-      throw err; // Re-throw for component-level handling
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   }, []);
 
   return {
@@ -51,5 +57,6 @@ export const useLicense = () => {
     error,
     activate,
     refreshStatus: fetchStatus, // Expose the fetch function as refresh
+    workspaceLimitError,
   };
 };

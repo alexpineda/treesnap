@@ -68,23 +68,76 @@ export const openDirectoryDialog = async () => {
 };
 
 // --- License Service Functions ---
+type LicenseError = {
+  code: string;
+  message: string;
+};
+
+type LicenseStateResponse = {
+  state: LocalLicenseState | null;
+  error: LicenseError | null;
+};
+
+function isLicenseError(error: any): error is LicenseError {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof error.code === "string" &&
+    "message" in error &&
+    typeof error.message === "string"
+  );
+}
+
+function createErrorResponse(error: unknown): LicenseStateResponse {
+  if (isLicenseError(error)) {
+    return { state: null, error: error };
+  }
+  if (error instanceof Error) {
+    return {
+      state: null,
+      error: { code: "unknown_error", message: error.message },
+    };
+  }
+  return {
+    state: null,
+    error: { code: "unknown_error", message: "Unknown error" },
+  };
+}
 
 /**
  * Attempts to activate the application with the provided license key.
  * Corresponds to `activate_license_cmd` in Rust.
  */
-export const activateLicense = async (licenseKey: string) => {
-  const status = await invoke<LocalLicenseState>("activate_license", {
-    licenseKey,
-  });
-  return status;
+export const activateLicense = async (
+  licenseKey: string
+): Promise<LicenseStateResponse> => {
+  try {
+    const status = await invoke<LocalLicenseState>("activate_license", {
+      licenseKey,
+    });
+    return { state: status, error: null };
+  } catch (error) {
+    return createErrorResponse(error);
+  }
 };
 
 /**
  * Gets the locally stored license status.
  * Corresponds to `get_license_status_cmd` in Rust.
  */
-export const getLocalLicenseState = async () => {
-  const status = await invoke<LocalLicenseState>("get_local_license_state");
+export const getLocalLicenseState = async (): Promise<LicenseStateResponse> => {
+  try {
+    const status = await invoke<LocalLicenseState>("get_local_license_state");
+    return { state: status, error: null };
+  } catch (error) {
+    return createErrorResponse(error);
+  }
+};
+
+export const checkWorkspaceLimit = async () => {
+  const status = await invoke<{ error: string | null }>(
+    "check_workspace_limit"
+  );
   return status;
 };

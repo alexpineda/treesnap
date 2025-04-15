@@ -165,7 +165,7 @@ async fn activate_license(
         Err(e) => {
             error!("Activation failed: {}", e);
             // Map the detailed error to a user-friendly string for the frontend
-            Err(e.to_string())
+            Err(e.into())
         }
     }
 }
@@ -180,6 +180,14 @@ async fn get_local_license_state(
             error!("Failed to get license status: {}", e);
             Err(e.to_string())
         }
+    }
+}
+
+#[tauri::command]
+async fn check_workspace_limit(app_handle: AppHandle) -> Result<(), String> {
+    match license::check_workspace_limit_internal(&app_handle).await {
+        Ok(_) => Ok(()),
+        Err(e) => Err(e.to_string()),
     }
 }
 
@@ -290,6 +298,7 @@ pub fn run() {
             close_workspace,
             activate_license,
             get_local_license_state,
+            check_workspace_limit,
             watcher_service::start_watching_command,
             watcher_service::stop_watching_command,
         ])
