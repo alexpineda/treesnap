@@ -1,91 +1,168 @@
+use crate::services::cache_service::{self, CacheState};
 use futures::future::join_all;
-use std::{
-    collections::HashMap,
-    fs,
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{collections::HashMap, fs, path::PathBuf, sync::Arc};
+use tauri::{AppHandle, State};
 use tiktoken_rs::{self, CoreBPE};
+use tracing::{debug, error, info};
 
 use crate::domain::file_tree_node::FileTreeNode;
 
-/// Calculate tokens for a specific file.
-pub async fn calculate_file_tokens(file_path: String) -> Result<usize, String> {
-    let path = PathBuf::from(file_path);
+/// Calculate tokens for a specific file, using the cache if possible.
+pub async fn calculate_file_tokens(
+    file_path: String,
+    app_handle: &AppHandle,
+    cache_state: &State<'_, CacheState>,
+) -> Result<usize, String> {
+    let path = PathBuf::from(file_path.clone());
     if !path.exists() || !path.is_file() {
         return Err(format!("File does not exist: {:?}", path));
     }
 
+    let current_modified_secs = cache_service::get_current_modified_secs(&file_path)?;
+    if let Some(cached_tokens) =
+        cache_service::check_cache(&file_path, current_modified_secs, cache_state)?
+    {
+        info!("Cache hit for {}: {} tokens", file_path, cached_tokens);
+        return Ok(cached_tokens);
+    }
+
+    info!("Cache miss/stale for {}. Calculating tokens...", file_path);
     let content = match fs::read_to_string(&path) {
         Ok(content) => content,
         Err(e) => return Err(format!("Failed to read file: {}", e)),
     };
 
-    // Use GPT-4o tokenizer for consistent counting
     let bpe = match tiktoken_rs::get_bpe_from_model("gpt-4o") {
         Ok(bpe) => bpe,
         Err(e) => return Err(format!("Failed to initialize tokenizer: {}", e)),
     };
 
     let encoded = bpe.encode_with_special_tokens(&content);
-    Ok(encoded.len())
+    let token_count = encoded.len();
+
+    cache_service::update_cache(
+        file_path.clone(),
+        current_modified_secs,
+        token_count,
+        cache_state,
+    )?;
+
+    if let Err(e) = cache_service::save_cache(app_handle, cache_state) {
+        error!("Failed to save cache after updating {}: {}", file_path, e);
+    }
+
+    Ok(token_count)
 }
 
-// Calculate tokens for specific files
+// Calculate tokens for specific files, utilizing the cache
 pub async fn calculate_tokens_for_files(
     file_paths: Vec<String>,
+    app_handle: &AppHandle,
+    cache_state: &State<'_, CacheState>,
 ) -> Result<HashMap<String, usize>, String> {
     let bpe = Arc::new(
         tiktoken_rs::get_bpe_from_model("gpt-4o")
             .map_err(|e| format!("Failed to initialize tokenizer: {}", e))?,
     );
 
-    // Debug: log the paths we received
-    println!("Received {} paths for token calculation", file_paths.len());
-    for (i, path) in file_paths.iter().enumerate().take(3) {
-        println!("  Path {}: {}", i, path);
-    }
-    if file_paths.len() > 3 {
-        println!("  ... and {} more", file_paths.len() - 3);
-    }
-
-    // Simple approach with direct task spawning
-    let mut tasks = Vec::new();
-    for path_str in file_paths {
-        let path = PathBuf::from(&path_str);
-        let bpe_clone = bpe.clone();
-
-        tasks.push(tokio::spawn(async move {
-            // Use the original path_str for the result to ensure exact matching
-            let result_path = path_str.clone();
-
-            let content = match fs::read_to_string(&path) {
-                Ok(c) => c,
-                Err(e) => {
-                    eprintln!("Warning: Failed to read file {}: {}", path.display(), e);
-                    return (result_path, 0);
-                }
-            };
-            let encoded = bpe_clone.encode_with_special_tokens(&content);
-            (result_path, encoded.len())
-        }));
-    }
-
-    let results = join_all(tasks).await;
     let mut token_map = HashMap::new();
-    for result in results {
-        match result {
-            Ok((path_str, count)) => {
-                token_map.insert(path_str, count);
+    let mut paths_to_calculate = Vec::new();
+    let mut needs_save = false;
+
+    for path_str in &file_paths {
+        match cache_service::get_current_modified_secs(path_str) {
+            Ok(current_modified_secs) => {
+                match cache_service::check_cache(path_str, current_modified_secs, cache_state)? {
+                    Some(cached_tokens) => {
+                        debug!("Cache hit for {}: {} tokens", path_str, cached_tokens);
+                        token_map.insert(path_str.clone(), cached_tokens);
+                    }
+                    None => {
+                        debug!("Cache miss/stale for {}. Will calculate.", path_str);
+                        paths_to_calculate.push((path_str.clone(), current_modified_secs));
+                    }
+                }
             }
             Err(e) => {
-                eprintln!("Warning: Token calculation task failed: {}", e);
+                error!(
+                    "Failed to get metadata for {}: {}. Skipping cache check.",
+                    path_str, e
+                );
+                paths_to_calculate.push((path_str.clone(), 0));
             }
         }
     }
 
-    // Debug: log what we're returning
-    println!("Returning token map with {} entries", token_map.len());
+    if !paths_to_calculate.is_empty() {
+        info!(
+            "Calculating tokens for {} files...",
+            paths_to_calculate.len()
+        );
+        let mut tasks = Vec::new();
+        for (path_str, modified_secs) in paths_to_calculate {
+            let path = PathBuf::from(&path_str);
+            let bpe_clone = bpe.clone();
+
+            tasks.push(tokio::spawn(async move {
+                let content = match fs::read_to_string(&path) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        error!("Failed to read file {}: {}", path.display(), e);
+                        return (path_str, modified_secs, Err(e.to_string()));
+                    }
+                };
+                let encoded = bpe_clone.encode_with_special_tokens(&content);
+                (path_str, modified_secs, Ok(encoded.len()))
+            }));
+        }
+
+        let results = join_all(tasks).await;
+        for result in results {
+            match result {
+                Ok((path_str, modified_secs, Ok(count))) => {
+                    token_map.insert(path_str.clone(), count);
+                    let mod_time_to_cache = if modified_secs == 0 {
+                        cache_service::get_current_modified_secs(&path_str).unwrap_or(0)
+                    } else {
+                        modified_secs
+                    };
+
+                    if mod_time_to_cache != 0 {
+                        match cache_service::update_cache(
+                            path_str.clone(),
+                            mod_time_to_cache,
+                            count,
+                            cache_state,
+                        ) {
+                            Ok(()) => needs_save = true,
+                            Err(e) => error!("Failed to update cache for {}: {}", path_str, e),
+                        }
+                    } else {
+                        error!(
+                            "Could not get valid modification time for {}. Not caching.",
+                            path_str
+                        );
+                    }
+                }
+                Ok((path_str, _modified_secs, Err(e))) => {
+                    error!("Token calculation failed for {}: {}", path_str, e);
+                    token_map.insert(path_str, 0);
+                }
+                Err(e) => {
+                    error!("Tokio task join error: {}", e);
+                }
+            }
+        }
+    } else {
+        info!("All token counts retrieved from cache.");
+    }
+
+    if needs_save {
+        info!("Saving updated token cache...");
+        if let Err(e) = cache_service::save_cache(app_handle, cache_state) {
+            error!("Failed to save cache after bulk update: {}", e);
+        }
+    }
 
     Ok(token_map)
 }
@@ -97,7 +174,6 @@ pub async fn fill_tokens_in_tree(
 ) -> Result<(), String> {
     let mut file_nodes: Vec<&mut FileTreeNode> = Vec::new();
 
-    // Collect mutable references to all file nodes first (non-recursive)
     fn collect_file_nodes<'a>(
         nodes: &'a mut [FileTreeNode],
         file_nodes: &mut Vec<&'a mut FileTreeNode>,
@@ -114,19 +190,16 @@ pub async fn fill_tokens_in_tree(
     }
     collect_file_nodes(nodes, &mut file_nodes);
 
-    // Create tasks for each file node
     let mut tasks = Vec::new();
     for node in file_nodes.iter() {
-        // Iterate over immutable refs first to create tasks
-        let path = node.path.clone(); // Clone path for the task
+        let path = node.path.clone();
         let bpe_clone = bpe.clone();
         tasks.push(tokio::spawn(async move {
             let content = match fs::read_to_string(&path) {
                 Ok(c) => c,
-                // If read fails, return 0 tokens for this file
                 Err(e) => {
                     eprintln!("Warning: Failed to read file {}: {}", path, e);
-                    return (path, 0); // Return 0 tokens on error
+                    return (path, 0);
                 }
             };
             let encoded = bpe_clone.encode_with_special_tokens(&content);
@@ -134,23 +207,19 @@ pub async fn fill_tokens_in_tree(
         }));
     }
 
-    // Await all tasks and collect results
     let results = join_all(tasks).await;
 
-    // Create a map for efficient lookup
     let mut token_map = std::collections::HashMap::new();
     for result in results {
         match result {
             Ok((path, count)) => {
                 token_map.insert(path, count);
             }
-            Err(e) => eprintln!("Warning: Token calculation task failed: {}", e), // Log join errors
+            Err(e) => eprintln!("Warning: Token calculation task failed: {}", e),
         }
     }
 
-    // Update the nodes using the map (iterate mutably again)
     for node in file_nodes {
-        // Now iterate over mutable refs to update
         if let Some(count) = token_map.get(&node.path) {
             node.token_count = Some(*count);
         }

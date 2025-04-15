@@ -13,6 +13,7 @@ import { useRecentWorkspaces } from "./hooks/use-recent-workspaces";
 import { useWorkspace } from "./hooks/use-workspace";
 import { Export } from "./components/export";
 import { calculateFileTokens, openDirectoryDialog } from "./services/tauri";
+import { LicenseArea } from "./components/license-area";
 
 function App() {
   const [totalTokens, setTotalTokens] = useState(0);
@@ -304,6 +305,7 @@ function App() {
                   )}
                 </>
               )}
+              {workspace.status === "not-loaded" && <LicenseArea />}
             </div>
           </Panel>
         </PanelGroup>

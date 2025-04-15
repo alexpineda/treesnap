@@ -2,13 +2,12 @@ use notify::{
     event::EventKind, Event, RecommendedWatcher, RecursiveMode, Result as NotifyResult, Watcher,
 };
 use serde::Serialize;
-use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
-use std::sync::mpsc::channel;
+use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
-use tauri::{Emitter, Manager, State, Window};
+use tauri::{Emitter, State, Window};
 
 // Import the file service to use build_ignore_list
 use crate::services::file_service;

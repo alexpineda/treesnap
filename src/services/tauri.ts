@@ -1,5 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
-import { TreeOption, FileTreeNode, RecentWorkspace, Workspace } from "../types";
+import {
+  TreeOption,
+  FileTreeNode,
+  RecentWorkspace,
+  LocalLicenseState,
+} from "../types";
 import { load } from "@tauri-apps/plugin-store";
 import { open } from "@tauri-apps/plugin-dialog";
 
@@ -60,4 +65,26 @@ export const saveRecentWorkspaces = async (workspaces: RecentWorkspace[]) => {
 
 export const openDirectoryDialog = async () => {
   return await open({ directory: true });
+};
+
+// --- License Service Functions ---
+
+/**
+ * Attempts to activate the application with the provided license key.
+ * Corresponds to `activate_license_cmd` in Rust.
+ */
+export const activateLicense = async (licenseKey: string) => {
+  const status = await invoke<LocalLicenseState>("activate_license", {
+    licenseKey,
+  });
+  return status;
+};
+
+/**
+ * Gets the locally stored license status.
+ * Corresponds to `get_license_status_cmd` in Rust.
+ */
+export const getLocalLicenseState = async () => {
+  const status = await invoke<LocalLicenseState>("get_local_license_state");
+  return status;
 };

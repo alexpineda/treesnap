@@ -24,3 +24,6 @@ build/
 *.lock
 *.log
 "#;
+
+pub const CACHE_STORE_FILENAME: &str = "cache.dat";
+pub const SETTINGS_STORE_FILENAME: &str = "settings.dat";
