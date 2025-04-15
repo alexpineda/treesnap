@@ -1,6 +1,5 @@
 import React, { useState, useCallback } from "react";
 import { useLicense } from "../hooks/use-license";
-// Removed Radix UI import
 
 export const LicenseArea = () => {
   const {
@@ -9,6 +8,7 @@ export const LicenseArea = () => {
     error,
     activate,
     refreshStatus,
+    workspaceLimitError,
   } = useLicense();
   const [licenseKeyInput, setLicenseKeyInput] = useState("");
   const [activationError, setActivationError] = useState<string | null>(null);
@@ -39,7 +39,7 @@ export const LicenseArea = () => {
 
     if (error) {
       return (
-        <div className="p-2 text-sm border border-red-500 rounded bg-red-50 text-red-600">
+        <div className="p-2 text-sm border border-red-300 rounded bg-red-50 text-red-700">
           Error loading license: {error}
         </div>
       );
@@ -50,43 +50,43 @@ export const LicenseArea = () => {
     }
 
     if (localLicenseState.status === "inactive") {
-      return (
-        <form onSubmit={handleActivate} className="flex flex-col gap-2">
-          <p className="text-sm text-gray-400">
-            Please activate your license for full access.
-          </p>
-          <input
-            type="text"
-            placeholder="Enter your license key"
-            value={licenseKeyInput}
-            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-              setLicenseKeyInput(e.target.value)
-            }
-            disabled={isLoading}
-            className="p-2 text-sm border border-gray-300 rounded focus:border-blue-500 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
-          />
-          {activationError && (
-            <div className="p-2 text-sm border border-red-500 rounded bg-red-50 text-red-600">
-              {activationError}
-            </div>
-          )}
-          <button
-            type="submit"
-            disabled={isLoading || !licenseKeyInput.trim()}
-            className="p-2 text-sm text-white bg-blue-500 rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
-          >
-            {isLoading ? "Activating..." : "Activate"}
-          </button>
-          <button
-            type="button"
-            onClick={refreshStatus}
-            disabled={isLoading}
-            className="text-sm text-blue-500 hover:text-blue-600 disabled:text-gray-400 disabled:cursor-not-allowed"
-          >
-            Refresh Status
-          </button>
-        </form>
-      );
+      if (workspaceLimitError) {
+        return (
+          <form onSubmit={handleActivate} className="flex flex-col gap-2">
+            <p className="text-sm text-gray-400">{workspaceLimitError}</p>
+            <input
+              type="text"
+              placeholder="Enter your license key"
+              value={licenseKeyInput}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setLicenseKeyInput(e.target.value)
+              }
+              disabled={isLoading}
+              className="p-2 text-sm border border-gray-300 rounded focus:border-blue-500 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+            />
+            {activationError && (
+              <div className="p-2 text-sm border border-red-300 rounded bg-red-50 text-red-700">
+                {activationError}
+              </div>
+            )}
+            <button
+              type="submit"
+              disabled={isLoading || !licenseKeyInput.trim()}
+              className="p-2 text-sm text-white bg-blue-500 rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {isLoading ? "Activating..." : "Activate"}
+            </button>
+            <button
+              type="button"
+              onClick={refreshStatus}
+              disabled={isLoading}
+              className="text-sm text-blue-500 hover:text-blue-600 disabled:text-gray-400 disabled:cursor-not-allowed"
+            >
+              Refresh Status
+            </button>
+          </form>
+        );
+      }
     }
 
     if (localLicenseState.status === "activated") {

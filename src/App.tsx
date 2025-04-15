@@ -206,7 +206,7 @@ function App() {
             maxSize={85}
             className="overflow-hidden"
           >
-            <div className="h-full flex flex-col bg-gray-900">
+            <div className="h-full w-full flex flex-col bg-gray-900">
               {workspace.status === "loaded" && (
                 <>
                   {/* Git-like top bar */}
@@ -305,7 +305,11 @@ function App() {
                   )}
                 </>
               )}
-              {workspace.status === "not-loaded" && <LicenseArea />}
+              {workspace.status === "not-loaded" && (
+                <div className="flex flex-1 w-full items-center justify-center">
+                  <LicenseArea />
+                </div>
+              )}
             </div>
           </Panel>
         </PanelGroup>

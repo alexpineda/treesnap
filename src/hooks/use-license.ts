@@ -34,6 +34,8 @@ export const useLicense = () => {
     checkWorkspaceLimit().then((res) => {
       if (res.error) {
         setWorkspaceLimitError(res.error.message);
+      } else {
+        setWorkspaceLimitError(null);
       }
     });
   }, [fetchStatus]);

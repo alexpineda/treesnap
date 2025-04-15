@@ -27,7 +27,7 @@ export interface RecentWorkspace {
 export type TreeOption = "include" | "include-only-selected" | "do-not-include";
 
 export type LocalLicenseState = {
-  status: "inactive" | "activated";
+  status: "inactive" | "activated" | "expired";
   licenseType: string;
   expiresAt: string;
 };
