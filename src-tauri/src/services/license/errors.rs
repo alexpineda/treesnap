@@ -10,7 +10,13 @@ pub enum LicenseError {
     StateHandlingError(#[from] StateError),
     #[error("API request failed: {0}")]
     ApiRequestError(#[from] reqwest::Error),
-    #[error("Invalid response from API: {0}")]
+    #[error("API activation failed: Status {status}, Code {code:?}, Message: {message}")]
+    ApiActivationError {
+        status: u16,
+        code: Option<String>,
+        message: String,
+    },
+    #[error("Failed to parse API response: {0}")]
     ApiResponseError(String),
     #[error("Internal error: {0}")]
     InternalError(String),
@@ -59,7 +65,14 @@ impl From<LicenseError> for ApiError {
                 ApiError::new("api_response_error", &message)
             }
             LicenseError::ApiRequestError(error) => {
-                ApiError::new("api_request_error", &error.to_string())
+                let message = match error.status() {
+                    Some(status) => format!("Network request failed with status: {}", status),
+                    None => "Network request failed. Please check your connection.".to_string(),
+                };
+                ApiError::new("api_request_error", &message)
+            }
+            LicenseError::ApiActivationError { code, message, .. } => {
+                ApiError::new(code.as_deref().unwrap_or("activation_failed"), &message)
             }
             LicenseError::InternalError(msg) => ApiError::new("internal_error", &msg),
         }

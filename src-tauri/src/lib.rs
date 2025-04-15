@@ -143,25 +143,23 @@ impl Default for LicenseClient {
 #[tracing::instrument(skip(app_handle, client_state, license_key))] // Skip sensitive key
 async fn activate_license(
     app_handle: AppHandle,
-    client_state: State<'_, LicenseClient>, // Renamed state to avoid conflict
+    client_state: State<'_, LicenseClient>, // Assuming LicenseClient type
     license_key: String,
 ) -> Result<license::LocalLicenseState, ApiError> {
-    // Updated return type path
-    info!("Attempting license activation via command");
+    // Changed return type back to ApiError
+    info!("Activating license from Tauri command...");
+    let client = client_state.inner().0.lock().unwrap().clone(); // Clone the client
 
-    // Extract the reqwest::Client from the managed state
-    let client = client_state.inner().0.lock().unwrap().clone();
-
-    // Call the internal function now located in the license module
-    match license::activate_license_internal(&app_handle, client, license_key).await {
+    match crate::services::license::api::activate_license_internal(&app_handle, client, license_key)
+        .await
+    {
         Ok(new_state) => {
-            info!("Activation successful, returning new state.");
+            info!("License activation successful via Tauri command.");
             Ok(new_state)
         }
         Err(e) => {
-            error!("Activation failed: {}", e);
-            // Map the detailed error to ApiError for the frontend
-            Err(e.into())
+            error!("License activation failed: {:?}", e); // Log the full error
+            Err(e.into()) // Use From trait to convert LicenseError to ApiError
         }
     }
 }

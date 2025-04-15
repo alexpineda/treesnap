@@ -7,7 +7,8 @@ use tracing::{error, info, instrument, warn};
 
 use super::constants::LICENSE_API_ENDPOINT;
 use super::state::{
-    ActivateRequest, ActivateResponse, ApiDeviceInfo, AppState, LocalLicenseState, LocalUsageStats,
+    ActivateRequest, ActivateResponse, ApiDeviceInfo, ApiErrorResponse, AppState,
+    LocalLicenseState, LocalUsageStats,
 };
 use reqwest::Client;
 use tauri::{AppHandle, Manager};
@@ -48,43 +49,67 @@ pub async fn activate_license_internal(
         .post(LICENSE_API_ENDPOINT)
         .json(&request_payload)
         .send()
-        .await?
-        .error_for_status()?; // Use reqwest's built-in error handling for non-2xx
+        .await?;
 
     let status = response.status();
-    let response_body_text = response.text().await?; // Read body after checking status
+    let response_body_text = response.text().await?; // Read body once
 
-    info!("Activation API call successful (Status: {})", status);
-    let parsed_response: ActivateResponse =
-        serde_json::from_str(&response_body_text).map_err(|e| {
-            LicenseError::ApiResponseError(format!(
-                "Failed to parse success response: {}. Body: {}",
-                e, response_body_text
-            ))
-        })?;
+    if status.is_success() {
+        info!("Activation API call successful (Status: {})", status);
+        let parsed_response: ActivateResponse =
+            serde_json::from_str(&response_body_text).map_err(|e| {
+                LicenseError::ApiResponseError(format!(
+                    "Failed to parse success response: {}. Body: {}",
+                    e, response_body_text
+                ))
+            })?;
 
-    info!(response = ?parsed_response, "Parsed activation response");
+        info!(response = ?parsed_response, "Parsed activation response");
 
-    // Load the current AppState to update it
-    let mut app_state = load_encrypted_state::<AppState>(app_handle, &machine_id)?;
+        // Load the current AppState to update it
+        let mut app_state = load_encrypted_state::<AppState>(app_handle, &machine_id)?;
 
-    // Update the license part of the state
-    app_state.license = LocalLicenseState {
-        status: "activated".to_string(),
-        license_type: Some(parsed_response.license_type),
-        expires_at: parsed_response.expires_at,
-    };
+        // Update the license part of the state
+        app_state.license = LocalLicenseState {
+            status: "activated".to_string(),
+            license_type: Some(parsed_response.license_type),
+            expires_at: parsed_response.expires_at,
+        };
 
-    // Clear the usage stats as they are no longer needed for activated state
-    app_state.usage = LocalUsageStats::default();
+        // Clear the usage stats as they are no longer needed for activated state
+        app_state.usage = LocalUsageStats::default();
 
-    // Save the updated consolidated state
-    save_encrypted_state(app_handle, &app_state, &machine_id)?;
+        // Save the updated consolidated state
+        save_encrypted_state(app_handle, &app_state, &machine_id)?;
 
-    info!("Local application state updated to activated.");
+        info!("Local application state updated to activated.");
 
-    // Return the updated license state portion
-    Ok(app_state.license)
+        // Return the updated license state portion
+        Ok(app_state.license)
+    } else {
+        // Attempt to parse the error response from the API
+        error!(
+            "Activation API call failed (Status: {})
+Body: {}",
+            status, response_body_text
+        );
+        let parsed_error = serde_json::from_str::<ApiErrorResponse>(&response_body_text);
+
+        match parsed_error {
+            Ok(error_details) => Err(LicenseError::ApiActivationError {
+                status: status.as_u16(),
+                code: error_details.code,
+                message: error_details.error,
+            }),
+            Err(e) => {
+                // If we can't even parse the error response, return a generic error
+                Err(LicenseError::ApiResponseError(format!(
+                    "API returned status {} but failed to parse error response: {}. Body: {}",
+                    status, e, response_body_text
+                )))
+            }
+        }
+    }
 }
 
 #[instrument(skip(app_handle))]

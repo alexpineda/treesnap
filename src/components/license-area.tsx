@@ -9,6 +9,7 @@ export const LicenseArea = () => {
     activate,
     refreshStatus,
     workspaceLimitError,
+    successfulActivation,
   } = useLicense();
   const [licenseKeyInput, setLicenseKeyInput] = useState("");
   const [activationError, setActivationError] = useState<string | null>(null);
@@ -39,9 +40,19 @@ export const LicenseArea = () => {
 
     if (error) {
       return (
-        <div className="p-2 text-sm border border-red-300 rounded bg-red-50 text-red-700">
-          Error loading license: {error}
-        </div>
+        <>
+          <div className="p-2 text-sm border border-red-300 rounded bg-red-50 text-red-700">
+            Error loading license: {error.message}
+          </div>
+          <button
+            type="button"
+            onClick={refreshStatus}
+            disabled={isLoading}
+            className="text-sm text-blue-500 hover:text-blue-600 disabled:text-gray-400 disabled:cursor-not-allowed"
+          >
+            Ok
+          </button>
+        </>
       );
     }
 
@@ -62,7 +73,7 @@ export const LicenseArea = () => {
                 setLicenseKeyInput(e.target.value)
               }
               disabled={isLoading}
-              className="p-2 text-sm border border-gray-300 rounded focus:border-blue-500 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+              className="p-2 text-sm text-gray-100 border border-gray-300 rounded focus:border-blue-500 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
             />
             {activationError && (
               <div className="p-2 text-sm border border-red-300 rounded bg-red-50 text-red-700">
@@ -90,19 +101,16 @@ export const LicenseArea = () => {
     }
 
     if (localLicenseState.status === "activated") {
-      return (
-        <div className="flex flex-col gap-2">
-          <p className="text-sm font-medium text-green-500">License Active</p>
-          <button
-            type="button"
-            onClick={refreshStatus}
-            disabled={isLoading}
-            className="text-sm text-blue-500 hover:text-blue-600 disabled:text-gray-400 disabled:cursor-not-allowed"
-          >
-            Refresh Status
-          </button>
-        </div>
-      );
+      if (successfulActivation) {
+        return (
+          <div className="flex flex-col gap-2">
+            <p className="text-sm font-medium text-green-500">
+              License Successfully Activated!
+            </p>
+          </div>
+        );
+      }
+      return null;
     }
 
     if (localLicenseState.status === "expired") {

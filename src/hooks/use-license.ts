@@ -4,16 +4,18 @@ import {
   getLocalLicenseState,
   checkWorkspaceLimit,
 } from "../services/tauri";
-import { LocalLicenseState } from "../types";
+import { LocalLicenseState, ApiError } from "../types";
 
 export const useLicense = () => {
   const [localLicenseState, setLocalLicenseState] =
     useState<LocalLicenseState>();
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<ApiError | null>(null);
   const [workspaceLimitError, setWorkspaceLimitError] = useState<string | null>(
     null
   );
+  const [successfulActivation, setSuccessfulActivation] =
+    useState<boolean>(false);
 
   // Function to fetch the current status (used on mount and for refresh)
   const fetchStatus = useCallback(async () => {
@@ -21,7 +23,7 @@ export const useLicense = () => {
     setError(null);
     const { state, error } = await getLocalLicenseState();
     if (error) {
-      setError(error.message);
+      setError(error);
     } else if (state) {
       setLocalLicenseState(state);
     }
@@ -46,8 +48,11 @@ export const useLicense = () => {
     setError(null);
     const { state, error } = await activateLicense(licenseKey);
     if (error) {
-      setError(error.message);
+      setError(error);
     } else if (state) {
+      if (state.status === "activated") {
+        setSuccessfulActivation(true);
+      }
       setLocalLicenseState(state);
     }
     setIsLoading(false);
@@ -60,5 +65,6 @@ export const useLicense = () => {
     activate,
     refreshStatus: fetchStatus, // Expose the fetch function as refresh
     workspaceLimitError,
+    successfulActivation,
   };
 };

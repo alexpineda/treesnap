@@ -59,6 +59,14 @@ pub struct ActivateResponse {
     pub expires_at: Option<DateTime<Utc>>,
 }
 
+// Structure to deserialize API error responses
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ApiErrorResponse {
+    pub error: String,
+    pub code: Option<String>,
+}
+
 // New consolidated state struct
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[serde(rename_all = "camelCase")]
