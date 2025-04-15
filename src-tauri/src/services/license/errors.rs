@@ -44,6 +44,10 @@ impl ApiError {
 impl From<LicenseError> for ApiError {
     fn from(e: LicenseError) -> Self {
         match e {
+            LicenseError::StoreError(msg) => ApiError::new("store_error", &msg),
+            LicenseError::StateHandlingError(error) => {
+                ApiError::new("state_error", &error.to_string())
+            }
             LicenseError::WorkspaceLimitReached(limit) => ApiError::new(
                 "workspace_limit_reached",
                 &format!("Free tier limit of {} workspaces reached", limit),
@@ -55,9 +59,9 @@ impl From<LicenseError> for ApiError {
                 ApiError::new("api_response_error", &message)
             }
             LicenseError::ApiRequestError(error) => {
-                ApiError::new("api_activation_error", &error.to_string())
+                ApiError::new("api_request_error", &error.to_string())
             }
-            other => ApiError::new("internal_error", &other.to_string()),
+            LicenseError::InternalError(msg) => ApiError::new("internal_error", &msg),
         }
     }
 }

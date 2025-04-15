@@ -25,6 +25,7 @@ use tauri::{AppHandle, Manager, State, Window};
 // use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use chrono::Utc;
 use reqwest::Client;
+use services::license::errors::ApiError;
 use tracing::{error, info};
 use tracing_subscriber;
 
@@ -94,7 +95,7 @@ async fn open_workspace(
     app_handle: AppHandle,
     dir_path: String,
     watcher_state: State<'_, watcher_service::WatcherState>,
-) -> Result<Vec<FileTreeNode>, String> {
+) -> Result<Vec<FileTreeNode>, ApiError> {
     info!("Attempting to open workspace: {}", dir_path);
 
     // --- License Check ---
@@ -102,25 +103,20 @@ async fn open_workspace(
         .await
         .map_err(|e| {
             error!("License check failed for {}: {}", dir_path, e);
-            // Provide a user-friendly message
-            match e {
-                license::LicenseError::WorkspaceLimitReached(limit) => {
-                    format!("Activation required: You can open a maximum of {} unique folders in the free version.", limit)
-                }
-                license::LicenseError::LicenseExpired => {
-                    "Your license has expired. Please renew to continue receiving updates and support.".to_string()
-                }
-                _ => "An error occurred during license verification.".to_string(),
-            }
+            // Convert LicenseError to ApiError
+            ApiError::from(e)
         })?;
     info!("License check passed for {}", dir_path);
     // --- End License Check ---
 
     // First, get the file tree
-    let tree = tree_service::get_file_tree(dir_path.clone(), false).await?;
+    let tree = tree_service::get_file_tree(dir_path.clone(), false)
+        .await
+        .map_err(|e| ApiError::new("file_tree_error", &e))?;
 
     // Then, start the watcher for this directory
-    watcher_service::start_watcher_internal(window, dir_path, &watcher_state.0)?;
+    watcher_service::start_watcher_internal(window, dir_path, &watcher_state.0)
+        .map_err(|e| ApiError::new("watcher_error", &e))?;
 
     Ok(tree)
 }
@@ -149,7 +145,7 @@ async fn activate_license(
     app_handle: AppHandle,
     client_state: State<'_, LicenseClient>, // Renamed state to avoid conflict
     license_key: String,
-) -> Result<license::LocalLicenseState, String> {
+) -> Result<license::LocalLicenseState, ApiError> {
     // Updated return type path
     info!("Attempting license activation via command");
 
@@ -164,7 +160,7 @@ async fn activate_license(
         }
         Err(e) => {
             error!("Activation failed: {}", e);
-            // Map the detailed error to a user-friendly string for the frontend
+            // Map the detailed error to ApiError for the frontend
             Err(e.into())
         }
     }
@@ -173,21 +169,21 @@ async fn activate_license(
 #[tauri::command]
 async fn get_local_license_state(
     app_handle: AppHandle,
-) -> Result<license::LocalLicenseState, String> {
+) -> Result<license::LocalLicenseState, ApiError> {
     match license::get_local_license_state_internal(&app_handle).await {
         Ok(status) => Ok(status),
         Err(e) => {
             error!("Failed to get license status: {}", e);
-            Err(e.to_string())
+            Err(e.into())
         }
     }
 }
 
 #[tauri::command]
-async fn check_workspace_limit(app_handle: AppHandle) -> Result<(), String> {
+async fn check_workspace_limit(app_handle: AppHandle) -> Result<(), ApiError> {
     match license::check_workspace_limit_internal(&app_handle).await {
         Ok(_) => Ok(()),
-        Err(e) => Err(e.to_string()),
+        Err(e) => Err(e.into()),
     }
 }
 

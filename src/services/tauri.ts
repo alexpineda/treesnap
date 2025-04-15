@@ -29,11 +29,18 @@ export const getFileTree = async (dirPath: string, withTokensSync = false) => {
   return tree;
 };
 
-export const openWorkspace = async (dirPath: string) => {
-  const tree = await invoke<FileTreeNode[]>("open_workspace", {
-    dirPath,
-  });
-  return tree;
+export const openWorkspace = async (
+  dirPath: string
+): Promise<{ tree: FileTreeNode[] | null; error: LicenseError | null }> => {
+  try {
+    const tree = await invoke<FileTreeNode[]>("open_workspace", {
+      dirPath,
+    });
+    return { tree: tree, error: null };
+  } catch (error) {
+    const { error: apiError } = createErrorResponse(error);
+    return { tree: null, error: apiError };
+  }
 };
 
 export const closeWorkspace = async () => {
@@ -135,9 +142,16 @@ export const getLocalLicenseState = async (): Promise<LicenseStateResponse> => {
   }
 };
 
-export const checkWorkspaceLimit = async () => {
-  const status = await invoke<{ error: string | null }>(
-    "check_workspace_limit"
-  );
-  return status;
+export const checkWorkspaceLimit = async (): Promise<{
+  error: LicenseError | null;
+}> => {
+  try {
+    // Rust returns Ok(()) which serializes to null on success
+    await invoke<void>("check_workspace_limit");
+    return { error: null };
+  } catch (error) {
+    // On Err(ApiError), the promise rejects with the ApiError object
+    const { error: apiError } = createErrorResponse(error);
+    return { error: apiError };
+  }
 };

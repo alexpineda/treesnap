@@ -16,20 +16,19 @@ export const useFileTree = (
   const loadFileTree = async (dirPath: string) => {
     if (status === "loading") return;
 
-    try {
-      setStatus("loading");
-      setError(null);
-      const tree = await openWorkspace(dirPath);
+    setStatus("loading");
+    setError(null);
+    const { tree, error } = await openWorkspace(dirPath);
+    if (error) {
+      setError(error.message);
+      setStatus("error");
+      setCurrentDirPath(null);
+      console.error(`Error loading file tree for ${dirPath}:`, error.message);
+    } else if (tree) {
       setFileTree(tree);
       setCurrentDirPath(dirPath);
       setStatus("loaded");
       console.log(`File tree loaded for: ${dirPath}`);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      setError(errorMessage);
-      setStatus("error");
-      setCurrentDirPath(null);
-      console.error(`Error loading file tree for ${dirPath}:`, errorMessage);
     }
   };
 
