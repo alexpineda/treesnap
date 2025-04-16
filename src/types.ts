@@ -28,7 +28,7 @@ export type TreeOption = "include" | "include-only-selected" | "do-not-include";
 
 export interface LocalLicenseState {
   status: "inactive" | "activated" | "expired";
-  licenseType?: string;
+  licenseType?: "basic" | "standard" | "team";
   expiresAt?: string | null;
 }
 

@@ -109,6 +109,7 @@ function isTauriApiError(error: any): error is TauriApiErrorInternal {
 }
 
 function createErrorResponse(error: unknown): LicenseStateResponse {
+  console.error(error);
   if (isTauriApiError(error)) {
     return {
       state: null,
@@ -184,9 +185,9 @@ export const checkWorkspaceLimit = async (): Promise<{
  * Matches `DebugLicenseParams` in Rust.
  */
 export interface DebugLicenseParams {
-  status?: "activated" | "expired" | "unactivated";
-  license_type?: string;
-  expires_at_offset_days?: number;
+  status?: LocalLicenseState["status"];
+  licenseType?: LocalLicenseState["licenseType"];
+  expiresAtOffsetDays?: number;
 }
 
 /**
@@ -233,7 +234,7 @@ export const debugAddUsageEntries = async (
   count: number
 ): Promise<{ error: TauriApiError | null }> => {
   try {
-    await invoke<void>("debug_add_usage_entries", { count });
+    await invoke<void>("debug_add_usage_entries", { count: count });
     console.warn(`DEBUG: Added ${count} dummy usage entries.`);
     return { error: null };
   } catch (error) {

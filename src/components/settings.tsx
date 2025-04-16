@@ -1,31 +1,16 @@
 import { useState } from "react";
-import { Copy, X } from "lucide-react";
-import { FileTreeNode, TreeOption } from "../types";
-import { useExport } from "../hooks/use-export";
+import { X } from "lucide-react";
+import { TreeOption } from "../types";
+import { useLicense } from "../hooks/use-license";
 
-export const Export = ({
-  selectedFiles,
-  workspacePath,
-  onClose,
-}: {
-  selectedFiles: FileTreeNode[];
-  workspacePath: string;
-  onClose: () => void;
-}) => {
+export const Settings = ({ onClose }: { onClose: () => void }) => {
   const [treeOption, setTreeOption] = useState<TreeOption>("include");
-  const { status, copyExportToClipboard } = useExport({
-    selectedFiles,
-    workspacePath,
-  });
-
-  const handleCopy = async () => {
-    await copyExportToClipboard(treeOption);
-  };
+  const license = useLicense();
 
   return (
     <div className="flex flex-col p-4 text-white shadow-lg items-center justify-center h-full w-full gap-8">
       <div className="flex justify-between items-center min-w-xl max-w-2xl border-b-1  border-gray-600 rounded-lg py-1">
-        <h2 className="font-medium text-white">Export Options</h2>
+        <h2 className="font-medium text-white">Application Settings</h2>
       </div>
 
       <div className="space-y-4 min-w-xl max-w-2xl">
@@ -70,8 +55,16 @@ export const Export = ({
           </div>
         </div>
 
+        {license.localLicenseState?.status === "expired" && (
+          <p>The application license has expired.</p>
+        )}
+
+        {license.localLicenseState?.status === "inactive" && (
+          <button className="">Activate License</button>
+        )}
+
         <div className="pt-4 flex gap-4">
-          <button
+          {/* <button
             onClick={handleCopy}
             disabled={status === "copying"}
             className="flex items-center space-x-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-white disabled:opacity-50 border border-gray-600"
@@ -84,7 +77,7 @@ export const Export = ({
                 ? "Copied!"
                 : "Copy to Clipboard"}
             </span>
-          </button>
+          </button> */}
           <button
             onClick={onClose}
             className="flex items-center space-x-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-white disabled:opacity-50 border border-gray-600"

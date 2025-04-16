@@ -12,7 +12,11 @@ export const WorkspaceSelector = ({
   recentWorkspaces: RecentWorkspace[];
   setDir: (dir: string) => void;
 }) => {
-  const { workspaceLimitError } = useLicense();
+  const { workspaceLimitError, localLicenseState } = useLicense();
+
+  const showButton = !(
+    localLicenseState?.status == "inactive" && workspaceLimitError
+  );
 
   return (
     <div className="flex flex-col items-center justify-center h-full bg-gray-800 text-white px-10 text-center">
@@ -25,7 +29,7 @@ export const WorkspaceSelector = ({
       </p>
 
       <div className="flex flex-wrap gap-2.5">
-        {!workspaceLimitError && (
+        {showButton && (
           <button
             onClick={handleChooseDirectory}
             className="flex items-center gap-2 bg-gray-700 text-white border border-gray-600 px-4 py-2 rounded cursor-pointer"

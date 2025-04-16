@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from "react";
-import { useLicense } from "../hooks/use-license";
+import { useLicense } from "../../hooks/use-license";
 
 export const LicenseArea = () => {
   const {
@@ -115,19 +115,7 @@ export const LicenseArea = () => {
     }
 
     if (localLicenseState.status === "expired") {
-      return (
-        <div className="flex flex-col gap-2">
-          <p className="text-sm font-medium text-red-500">License Expired</p>
-          <button
-            type="button"
-            onClick={refreshStatus}
-            disabled={isLoading}
-            className="text-sm text-blue-500 hover:text-blue-600 disabled:text-gray-400 disabled:cursor-not-allowed"
-          >
-            Refresh Status
-          </button>
-        </div>
-      );
+      return null;
     }
 
     // Fallback for Unknown status after initial load attempt

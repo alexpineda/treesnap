@@ -33,7 +33,6 @@ impl FromStr for LicenseStatus {
 #[serde(rename_all = "camelCase")]
 pub struct LocalLicenseState {
     pub status: LicenseStatus,
-    #[serde(rename = "type")]
     pub license_type: Option<String>,
     pub expires_at: Option<DateTime<Utc>>,
 }
@@ -79,7 +78,6 @@ pub struct ActivateRequest {
 #[serde(rename_all = "camelCase")]
 pub struct ActivateResponse {
     pub status: String,
-    #[serde(rename = "type")]
     pub license_type: String,
     pub expires_at: Option<DateTime<Utc>>,
 }

@@ -11,14 +11,14 @@ import { SidebarSummary, FileTree } from "./components/sidebar";
 import { TopBar } from "./components/top-bar";
 import { useRecentWorkspaces } from "./hooks/use-recent-workspaces";
 import { useWorkspace } from "./hooks/use-workspace";
-import { Export } from "./components/export";
+import { Settings } from "./components/settings";
 import { calculateFileTokens, openDirectoryDialog } from "./services/tauri";
-import { LicenseArea } from "./components/license-area";
+import { LicenseArea } from "./components/license/license-area";
 import { DebugLicenseControls } from "./components/debug";
 
 function App() {
   const [totalTokens, setTotalTokens] = useState(0);
-  const [isShowingExport, setIsShowingExport] = useState(false);
+  const [isShowingSettings, setIsShowingSettings] = useState(false);
   const { recentWorkspaces, addToRecentWorkspaces } = useRecentWorkspaces();
   const workspace = useWorkspace(addToRecentWorkspaces);
 
@@ -217,7 +217,7 @@ function App() {
                     selectedFiles={workspace.selectedFiles}
                     workspacePath={workspace.workspacePath}
                     handleClose={handleClose}
-                    onExportClick={() => setIsShowingExport(true)}
+                    onSettingsClick={() => setIsShowingSettings(true)}
                   />
                   {/* <div className="flex border-b border-gray-700 text-xs">
                     <div className="flex items-center px-3 py-1 bg-gray-700 text-gray-400 border-r border-gray-600">
@@ -240,11 +240,9 @@ function App() {
                     </div>
                   </div> */}
 
-                  {isShowingExport ? (
-                    <Export
-                      selectedFiles={workspace.selectedFiles}
-                      workspacePath={workspace.workspacePath}
-                      onClose={() => setIsShowingExport(!isShowingExport)}
+                  {isShowingSettings ? (
+                    <Settings
+                      onClose={() => setIsShowingSettings(!isShowingSettings)}
                     />
                   ) : (
                     <div className="flex-1 overflow-y-auto px-4">

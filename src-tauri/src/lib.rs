@@ -213,18 +213,13 @@ pub fn run() {
                 let should_check_for_updates = match license_state_result {
                     Ok(state) => {
                         info!("License status: {:?}", state.status);
-                        let is_activated = state.status == LicenseStatus::Activated;
-                        let is_not_expired =
-                            state.expires_at.map_or(true, |expiry| Utc::now() <= expiry);
+                        let is_expired = state.status == LicenseStatus::Expired;
 
-                        if is_activated && is_not_expired {
-                            info!("License is active and not expired. Checking for updates.");
+                        if !is_expired {
+                            info!("License is active. Checking for updates.");
                             true
-                        } else if is_activated && !is_not_expired {
-                            info!("License is active but expired. Skipping update check.");
-                            false
                         } else {
-                            info!("License is inactive. Skipping update check.");
+                            info!("License is expired. Skipping update check.");
                             false
                         }
                     }

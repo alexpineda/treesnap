@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useDebug } from "../hooks/use-debug";
-import { getLocalLicenseState } from "../services/tauri";
+import { DebugLicenseParams, getLocalLicenseState } from "../services/tauri";
 import { LocalLicenseState } from "../types";
 
 export const DebugLicenseControls = () => {
@@ -12,12 +12,16 @@ export const DebugLicenseControls = () => {
     error,
   } = useDebug();
 
-  const [status, setStatus] = useState<
-    "activated" | "expired" | "unactivated" | ""
-  >("");
-  const [licenseType, setLicenseType] = useState("");
-  const [expiryOffset, setExpiryOffset] = useState<number | "">("");
-  const [usageCount, setUsageCount] = useState<number | "">("");
+  const [status, setStatus] = useState<LocalLicenseState["status"] | undefined>(
+    undefined
+  );
+  const [licenseType, setLicenseType] = useState<
+    LocalLicenseState["licenseType"] | undefined
+  >(undefined);
+  const [expiryOffset, setExpiryOffset] = useState<number | undefined>(
+    undefined
+  );
+  const [usageCount, setUsageCount] = useState<number | undefined>(undefined);
   const [localState, setLocalState] = useState<LocalLicenseState | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [isFetching, setIsFetching] = useState(false);
@@ -47,15 +51,11 @@ export const DebugLicenseControls = () => {
   }, []);
 
   const handleSetLicense = async () => {
-    const params: {
-      status?: "activated" | "expired" | "unactivated";
-      license_type?: string;
-      expires_at_offset_days?: number;
-    } = {};
-    if (status) params.status = status;
-    if (licenseType) params.license_type = licenseType;
-    if (typeof expiryOffset === "number")
-      params.expires_at_offset_days = expiryOffset;
+    const params: DebugLicenseParams = {
+      status: status,
+      licenseType: licenseType,
+      expiresAtOffsetDays: expiryOffset,
+    };
     const success = await setLicenseState(params);
     if (success) {
       refreshLicenseState();
@@ -146,16 +146,11 @@ export const DebugLicenseControls = () => {
                 id="debug-status"
                 value={status}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                  setStatus(
-                    e.target.value as
-                      | "activated"
-                      | "expired"
-                      | "unactivated"
-                      | ""
-                  )
+                  setStatus(e.target.value as LocalLicenseState["status"])
                 }
                 className="w-full p-2 border border-gray-300 rounded shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
               >
+                <option value="">Select Status</option>
                 <option value="activated">Activated</option>
                 <option value="expired">Expired</option>
                 <option value="inactive">Inactive</option>
@@ -172,10 +167,13 @@ export const DebugLicenseControls = () => {
                 id="debug-type"
                 value={licenseType}
                 onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                  setLicenseType(e.target.value)
+                  setLicenseType(
+                    e.target.value as LocalLicenseState["licenseType"]
+                  )
                 }
                 className="w-full p-2 border border-gray-300 rounded shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
               >
+                <option value="">Select License Type</option>
                 <option value="basic">Basic</option>
                 <option value="standard">Standard</option>
                 <option value="team">Team</option>
@@ -195,7 +193,9 @@ export const DebugLicenseControls = () => {
                 value={expiryOffset}
                 onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                   setExpiryOffset(
-                    e.target.value === "" ? "" : parseInt(e.target.value, 10)
+                    e.target.value === ""
+                      ? undefined
+                      : parseInt(e.target.value, 10)
                   )
                 }
                 className="w-full p-2 border border-gray-300 rounded shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
@@ -232,7 +232,9 @@ export const DebugLicenseControls = () => {
               value={usageCount}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                 setUsageCount(
-                  e.target.value === "" ? "" : parseInt(e.target.value, 10)
+                  e.target.value === ""
+                    ? undefined
+                    : parseInt(e.target.value, 10)
                 )
               }
               className="flex-grow p-2 border border-gray-300 rounded shadow-sm focus:ring-indigo-500 focus:border-indigo-500"

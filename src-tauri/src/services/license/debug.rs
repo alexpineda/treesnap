@@ -19,6 +19,7 @@ use tracing::{info, instrument, warn};
 
 #[cfg(debug_assertions)]
 #[derive(serde::Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct DebugLicenseParams {
     status: Option<String>,
     license_type: Option<String>,

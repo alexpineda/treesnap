@@ -153,8 +153,8 @@ pub async fn check_and_record_workspace_access(
     }
 
     if app_state.license.status == LicenseStatus::Expired {
-        warn!("License expired, access denied.");
-        return Err(LicenseError::LicenseExpired);
+        warn!("License expired, access granted.");
+        return Ok(());
     }
 
     // If inactive, check the limit

@@ -1,4 +1,4 @@
-import { Copy, Download, FolderOpen, X } from "lucide-react";
+import { Copy, FolderOpen, Settings, X } from "lucide-react";
 import { basename } from "../utils";
 import { Tooltip } from "react-tooltip";
 import { FileTreeNode } from "../types";
@@ -8,12 +8,12 @@ export const TopBar = ({
   selectedFiles,
   workspacePath,
   handleClose,
-  onExportClick,
+  onSettingsClick,
 }: {
   selectedFiles: FileTreeNode[];
   workspacePath: string;
   handleClose: () => void;
-  onExportClick: () => void;
+  onSettingsClick: () => void;
 }) => {
   const { status, copyExportToClipboard } = useExport({
     selectedFiles,
@@ -68,12 +68,12 @@ export const TopBar = ({
         </div>
         <div
           className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700"
-          onClick={onExportClick}
+          onClick={onSettingsClick}
         >
           <span className="mb-1">
-            <Download size={16} />
+            <Settings size={16} />
           </span>
-          <span>Export</span>
+          <span>Settings</span>
         </div>
       </div>
     </div>
