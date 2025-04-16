@@ -1,6 +1,7 @@
 import { FolderOpenIcon } from "lucide-react";
 import { RecentWorkspace } from "../types";
 import { basename } from "../utils";
+import { useLicense } from "../hooks/use-license";
 // Render workspace selector view when no directory is selected
 export const WorkspaceSelector = ({
   handleChooseDirectory,
@@ -11,6 +12,8 @@ export const WorkspaceSelector = ({
   recentWorkspaces: RecentWorkspace[];
   setDir: (dir: string) => void;
 }) => {
+  const { workspaceLimitError } = useLicense();
+
   return (
     <div className="flex flex-col items-center justify-center h-full bg-gray-800 text-white px-10 text-center">
       <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -22,12 +25,14 @@ export const WorkspaceSelector = ({
       </p>
 
       <div className="flex flex-wrap gap-2.5">
-        <button
-          onClick={handleChooseDirectory}
-          className="flex items-center gap-2 bg-gray-700 text-white border border-gray-600 px-4 py-2 rounded cursor-pointer"
-        >
-          <FolderOpenIcon className="w-4 h-4" /> Open Folder
-        </button>
+        {!workspaceLimitError && (
+          <button
+            onClick={handleChooseDirectory}
+            className="flex items-center gap-2 bg-gray-700 text-white border border-gray-600 px-4 py-2 rounded cursor-pointer"
+          >
+            <FolderOpenIcon className="w-4 h-4" /> Open Folder
+          </button>
+        )}
       </div>
 
       <div className="h-px w-full bg-gray-700 mt-10 mb-5" />

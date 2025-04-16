@@ -3,11 +3,13 @@ use super::persistence::{
     get_or_create_machine_id, load_encrypted_state, save_encrypted_state, StateError,
 };
 #[cfg(debug_assertions)]
-use super::state::{AppState, LocalLicenseState, LocalUsageStats};
+use super::state::{AppState, LicenseStatus, LocalLicenseState, LocalUsageStats};
 #[cfg(debug_assertions)]
 use chrono::{Duration as ChronoDuration, Utc};
 #[cfg(debug_assertions)]
 use std::collections::HashSet;
+#[cfg(debug_assertions)]
+use std::str::FromStr;
 #[cfg(debug_assertions)]
 use std::time::{Duration, SystemTime};
 #[cfg(debug_assertions)]
@@ -46,11 +48,12 @@ pub async fn debug_set_license_state(
     let mut new_license_state = app_state.license.clone(); // Start with current or default
 
     if let Some(status) = params.status {
-        new_license_state.status = status;
+        new_license_state.status =
+            LicenseStatus::from_str(&status).map_err(|e| format!("Invalid status: {}", e))?;
     }
     if let Some(license_type) = params.license_type {
         new_license_state.license_type = Some(license_type);
-    } else if new_license_state.status == "activated" {
+    } else if new_license_state.status == LicenseStatus::Activated {
         // Default to basic if activating and no type specified
         new_license_state.license_type = Some("basic".to_string());
     }
@@ -59,13 +62,13 @@ pub async fn debug_set_license_state(
         let now = Utc::now();
         let new_expiry = now + ChronoDuration::days(offset_days);
         new_license_state.expires_at = Some(new_expiry);
-    } else if new_license_state.status == "activated" {
+    } else if new_license_state.status == LicenseStatus::Activated {
         // Default to 1 year if activating and no expiry specified
         new_license_state.expires_at = Some(Utc::now() + ChronoDuration::days(365));
     }
 
     // If activating, clear usage stats
-    if new_license_state.status == "activated" {
+    if new_license_state.status == LicenseStatus::Activated {
         app_state.usage = LocalUsageStats::default();
         info!("License activated via debug, resetting usage stats.");
     }
@@ -113,7 +116,7 @@ pub async fn debug_add_usage_entries(app_handle: AppHandle, count: usize) -> Res
     let mut app_state: AppState = load_encrypted_state(&app_handle, &machine_id)
         .map_err(|e| format!("Failed to load state: {}", e))?;
 
-    if app_state.license.status == "activated" {
+    if app_state.license.status == LicenseStatus::Activated {
         warn!("DEBUG: License is activated, not modifying usage stats.");
         return Ok(());
     }

@@ -7,7 +7,7 @@ use tracing::{error, info, instrument, warn};
 
 use super::constants::LICENSE_API_ENDPOINT;
 use super::state::{
-    ActivateRequest, ActivateResponse, ApiDeviceInfo, ApiErrorResponse, AppState,
+    ActivateRequest, ActivateResponse, ApiDeviceInfo, ApiErrorResponse, AppState, LicenseStatus,
     LocalLicenseState, LocalUsageStats,
 };
 use reqwest::Client;
@@ -71,7 +71,7 @@ pub async fn activate_license_internal(
 
         // Update the license part of the state
         app_state.license = LocalLicenseState {
-            status: "activated".to_string(),
+            status: LicenseStatus::Activated,
             license_type: Some(parsed_response.license_type),
             expires_at: parsed_response.expires_at,
         };
@@ -118,7 +118,7 @@ pub async fn get_local_license_state_internal(
 ) -> Result<LocalLicenseState, LicenseError> {
     let machine_id = get_or_create_machine_id(app_handle).await?;
     let mut app_state = load_encrypted_state::<AppState>(app_handle, &machine_id)?;
-    if app_state.license.status == "activated" {
+    if app_state.license.status == LicenseStatus::Activated {
         // Check expiry if the license has an expiration date
         if let Some(expires_at) = app_state.license.expires_at {
             if Utc::now() > expires_at {
@@ -127,7 +127,7 @@ pub async fn get_local_license_state_internal(
                     expires_at
                 );
                 // Optionally, could reset the status here before returning error
-                app_state.license.status = "expired".to_string();
+                app_state.license.status = LicenseStatus::Expired;
                 save_encrypted_state(app_handle, &app_state, &machine_id)?;
             }
         }
@@ -146,13 +146,13 @@ pub async fn check_and_record_workspace_access(
     let machine_id = get_or_create_machine_id(app_handle).await?;
     let mut app_state = load_encrypted_state::<AppState>(app_handle, &machine_id)?;
 
-    if app_state.license.status == "activated" {
+    if app_state.license.status == LicenseStatus::Activated {
         // If no expiry date or not expired, access is granted
         info!("License activated and valid, access granted.");
         return Ok(());
     }
 
-    if app_state.license.status == "expired" {
+    if app_state.license.status == LicenseStatus::Expired {
         warn!("License expired, access denied.");
         return Err(LicenseError::LicenseExpired);
     }
@@ -197,11 +197,11 @@ pub async fn check_workspace_limit_internal(app_handle: &AppHandle) -> Result<()
     let machine_id = get_or_create_machine_id(app_handle).await?;
     let app_state = load_encrypted_state::<AppState>(app_handle, &machine_id)?;
 
-    if app_state.license.status == "activated" {
+    if app_state.license.status == LicenseStatus::Activated {
         return Ok(());
     }
 
-    if app_state.license.status == "expired" {
+    if app_state.license.status == LicenseStatus::Expired {
         return Err(LicenseError::LicenseExpired);
     }
 

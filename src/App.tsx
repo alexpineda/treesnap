@@ -187,6 +187,8 @@ function App() {
                           workspace.setExpandedFolders
                         }
                       />
+                    ) : workspace.error ? (
+                      <p>{workspace.error}</p>
                     ) : (
                       <p>Loading files...</p>
                     )}

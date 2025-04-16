@@ -1,13 +1,38 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::str::FromStr;
 
 // --- Structs ---
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub enum LicenseStatus {
+    #[serde(rename = "inactive")]
+    Inactive,
+    #[serde(rename = "activated")]
+    Activated,
+    #[serde(rename = "expired")]
+    Expired,
+}
+
+impl FromStr for LicenseStatus {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "inactive" => Ok(LicenseStatus::Inactive),
+            "activated" => Ok(LicenseStatus::Activated),
+            "expired" => Ok(LicenseStatus::Expired),
+            _ => Err(format!("'{}' is not a valid LicenseStatus", s)),
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct LocalLicenseState {
-    pub status: String, // "inactive" | "activated"
+    pub status: LicenseStatus,
     #[serde(rename = "type")]
     pub license_type: Option<String>,
     pub expires_at: Option<DateTime<Utc>>,
@@ -16,7 +41,7 @@ pub struct LocalLicenseState {
 impl Default for LocalLicenseState {
     fn default() -> Self {
         Self {
-            status: "inactive".to_string(),
+            status: LicenseStatus::Inactive,
             license_type: None,
             expires_at: None,
         }

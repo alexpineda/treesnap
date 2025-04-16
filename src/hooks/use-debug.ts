@@ -4,6 +4,7 @@ import {
   debugClearLicenseState,
   debugAddUsageEntries,
   DebugLicenseParams,
+  TauriApiError,
 } from "../services/tauri";
 
 /**
@@ -14,8 +15,8 @@ export const useDebug = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const _executeDebugCommand = async <T>(
-    commandFn: () => Promise<{ error: { message: string } | null }>
+  const _executeDebugCommand = async (
+    commandFn: () => Promise<{ error: TauriApiError | null }>
   ): Promise<boolean> => {
     if (!import.meta.env.DEV) {
       console.warn("Debug commands are only available in development mode.");

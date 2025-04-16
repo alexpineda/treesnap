@@ -18,12 +18,15 @@ export const useFileTree = (
 
     setStatus("loading");
     setError(null);
+
     const { tree, error } = await openWorkspace(dirPath);
+    console.log("openworkspace", tree, error);
     if (error) {
       setError(error.message);
       setStatus("error");
       setCurrentDirPath(null);
       console.error(`Error loading file tree for ${dirPath}:`, error.message);
+      throw error;
     } else if (tree) {
       setFileTree(tree);
       setCurrentDirPath(dirPath);

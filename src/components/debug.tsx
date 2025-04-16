@@ -72,6 +72,9 @@ export const DebugLicenseControls = () => {
   const handleAddUsage = async () => {
     if (typeof usageCount === "number" && usageCount > 0) {
       const success = await addUsageEntries(usageCount);
+      if (success) {
+        refreshLicenseState();
+      }
     }
   };
 
@@ -153,10 +156,9 @@ export const DebugLicenseControls = () => {
                 }
                 className="w-full p-2 border border-gray-300 rounded shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
               >
-                <option value="">Default</option>
                 <option value="activated">Activated</option>
                 <option value="expired">Expired</option>
-                <option value="unactivated">Unactivated</option>
+                <option value="inactive">Inactive</option>
               </select>
             </div>
             <div>
@@ -166,16 +168,18 @@ export const DebugLicenseControls = () => {
               >
                 Type
               </label>
-              <input
+              <select
                 id="debug-type"
-                type="text"
-                placeholder="e.g., basic, standard"
                 value={licenseType}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
                   setLicenseType(e.target.value)
                 }
                 className="w-full p-2 border border-gray-300 rounded shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
-              />
+              >
+                <option value="basic">Basic</option>
+                <option value="standard">Standard</option>
+                <option value="team">Team</option>
+              </select>
             </div>
             <div className="col-span-2">
               <label

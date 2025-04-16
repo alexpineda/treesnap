@@ -40,7 +40,7 @@ export const useWorkspace = (
       return true;
     } catch (err) {
       setWorkspaceError(err instanceof Error ? err.message : String(err));
-      setWorkspaceStatus("error");
+      setWorkspaceStatus("not-loaded");
       setWorkspacePath("");
       throw err;
     }

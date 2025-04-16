@@ -11,6 +11,7 @@ use domain::file_tree_node::FileTreeNode;
 use services::cache_service;
 use services::file_service;
 use services::license;
+use services::license::state::LicenseStatus;
 use services::token_service;
 use services::tree_service;
 use services::watcher_service;
@@ -211,8 +212,8 @@ pub fn run() {
 
                 let should_check_for_updates = match license_state_result {
                     Ok(state) => {
-                        info!("License status: {}", state.status);
-                        let is_activated = state.status == "activated";
+                        info!("License status: {:?}", state.status);
+                        let is_activated = state.status == LicenseStatus::Activated;
                         let is_not_expired =
                             state.expires_at.map_or(true, |expiry| Utc::now() <= expiry);
 

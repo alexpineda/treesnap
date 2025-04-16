@@ -11,7 +11,7 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use tauri::{AppHandle, Manager};
 use thiserror::Error;
-use tracing::{error, info, instrument};
+use tracing::{debug, error, info, instrument};
 use uuid::Uuid;
 
 use super::constants::{APP_STATE_FILENAME, HKDF_SALT, MACHINE_ID_FILENAME};
@@ -101,10 +101,13 @@ pub fn load_encrypted_state<T: DeserializeOwned + Default + std::fmt::Debug>(
 
     if buffer.len() <= 12 {
         // Nonce size
+        #[cfg(debug_assertions)]
         error!(
             "State file '{}' is corrupted or too small.",
             APP_STATE_FILENAME
         );
+        #[cfg(not(debug_assertions))]
+        info!("Application state file is corrupted or too small.");
         return Ok(T::default()); // Return default if corrupted
     }
 
@@ -135,11 +138,17 @@ pub fn load_encrypted_state<T: DeserializeOwned + Default + std::fmt::Debug>(
         }
     };
 
-    info!(
+    #[cfg(debug_assertions)]
+    debug!(
         "Successfully loaded and decrypted state ('{}').",
         APP_STATE_FILENAME
     );
-    info!("Loaded state: {:?}", state);
+    #[cfg(debug_assertions)]
+    debug!("Loaded state: {:?}", state);
+
+    #[cfg(not(debug_assertions))]
+    info!("Successfully loaded application state.");
+
     Ok(state)
 }
 
@@ -163,7 +172,7 @@ pub fn save_encrypted_state<T: Serialize>(
         .map_err(StateError::EncryptionError)?;
 
     let file_path = get_data_file_path(app_handle, APP_STATE_FILENAME)?;
-    info!(
+    debug!(
         "Saving encrypted state ('{}') to: {:?}",
         APP_STATE_FILENAME, file_path
     );
@@ -176,9 +185,12 @@ pub fn save_encrypted_state<T: Serialize>(
     file.sync_all()?;
     fs::rename(&temp_file_path, &file_path)?;
 
-    info!(
+    #[cfg(debug_assertions)]
+    debug!(
         "Successfully saved encrypted state ('{}').",
         APP_STATE_FILENAME
     );
+    #[cfg(not(debug_assertions))]
+    info!("Successfully saved application state.");
     Ok(())
 }

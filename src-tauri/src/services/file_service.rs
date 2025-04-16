@@ -130,3 +130,29 @@ pub fn copy_to_clipboard(text: &str) -> Result<(), String> {
         Err(e) => Err(format!("Failed to access clipboard: {}", e)),
     }
 }
+
+// Decide if a file is “likely” binary by scanning a partial chunk.
+pub fn is_likely_binary_file(path: &Path) -> bool {
+    // Limit how many bytes to inspect
+    const MAX_BYTES: usize = 2048;
+    let bytes = match fs::read(path) {
+        Ok(b) => b,
+        Err(_) => return true, // If we can’t read at all, treat as “binary” skip.
+    };
+    let check_len = bytes.len().min(MAX_BYTES);
+
+    // If there’s a lot of control chars or null bytes, consider it binary
+    let mut control_count = 0;
+    for &b in bytes[..check_len].iter() {
+        if b == 0 {
+            // immediate giveaway
+            return true;
+        }
+        // ASCII 7 and below or 14 and below, etc. Tweak as you wish
+        if b < 32 && b != b'\n' && b != b'\r' && b != b'\t' {
+            control_count += 1;
+        }
+    }
+    // e.g. if > 10% control chars => treat as binary
+    control_count as f64 / check_len as f64 > 0.10
+}

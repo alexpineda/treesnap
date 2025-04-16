@@ -31,7 +31,10 @@ export const getFileTree = async (dirPath: string, withTokensSync = false) => {
 
 export const openWorkspace = async (
   dirPath: string
-): Promise<{ tree: FileTreeNode[] | null; error: LicenseError | null }> => {
+): Promise<{
+  tree: FileTreeNode[] | null;
+  error: TauriApiErrorInternal | null;
+}> => {
   try {
     const tree = await invoke<FileTreeNode[]>("open_workspace", {
       dirPath,
@@ -75,17 +78,26 @@ export const openDirectoryDialog = async () => {
 };
 
 // --- License Service Functions ---
-type LicenseError = {
+type TauriApiErrorInternal = {
   code: string;
   message: string;
 };
 
 type LicenseStateResponse = {
   state: LocalLicenseState | null;
-  error: LicenseError | null;
+  error: TauriApiError | null;
 };
 
-function isLicenseError(error: any): error is LicenseError {
+export class TauriApiError extends Error {
+  constructor(message: string, public code: string) {
+    super(message);
+  }
+  static fromInternal(error: TauriApiErrorInternal): TauriApiError {
+    return new TauriApiError(error.message, error.code);
+  }
+}
+
+function isTauriApiError(error: any): error is TauriApiErrorInternal {
   return (
     typeof error === "object" &&
     error !== null &&
@@ -97,18 +109,27 @@ function isLicenseError(error: any): error is LicenseError {
 }
 
 function createErrorResponse(error: unknown): LicenseStateResponse {
-  if (isLicenseError(error)) {
-    return { state: null, error: error };
+  if (isTauriApiError(error)) {
+    return {
+      state: null,
+      error: TauriApiError.fromInternal(error),
+    };
   }
   if (error instanceof Error) {
     return {
       state: null,
-      error: { code: "unknown_error", message: error.message },
+      error: TauriApiError.fromInternal({
+        code: "unknown_error",
+        message: error.message,
+      }),
     };
   }
   return {
     state: null,
-    error: { code: "unknown_error", message: "Unknown error" },
+    error: TauriApiError.fromInternal({
+      code: "unknown_error",
+      message: "Unknown error",
+    }),
   };
 }
 
@@ -143,7 +164,7 @@ export const getLocalLicenseState = async (): Promise<LicenseStateResponse> => {
 };
 
 export const checkWorkspaceLimit = async (): Promise<{
-  error: LicenseError | null;
+  error: TauriApiErrorInternal | null;
 }> => {
   try {
     // Rust returns Ok(()) which serializes to null on success
@@ -174,7 +195,7 @@ export interface DebugLicenseParams {
  */
 export const debugSetLicenseState = async (
   params: DebugLicenseParams
-): Promise<{ error: LicenseError | null }> => {
+): Promise<{ error: TauriApiError | null }> => {
   try {
     await invoke<void>("debug_set_license_state", { params });
     console.warn("DEBUG: License state set:", params);
@@ -191,7 +212,7 @@ export const debugSetLicenseState = async (
  * Corresponds to `debug_clear_license_state` in Rust.
  */
 export const debugClearLicenseState = async (): Promise<{
-  error: LicenseError | null;
+  error: TauriApiError | null;
 }> => {
   try {
     await invoke<void>("debug_clear_license_state");
@@ -210,7 +231,7 @@ export const debugClearLicenseState = async (): Promise<{
  */
 export const debugAddUsageEntries = async (
   count: number
-): Promise<{ error: LicenseError | null }> => {
+): Promise<{ error: TauriApiError | null }> => {
   try {
     await invoke<void>("debug_add_usage_entries", { count });
     console.warn(`DEBUG: Added ${count} dummy usage entries.`);

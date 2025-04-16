@@ -41,8 +41,8 @@ export const useExport = ({
       }, 1000);
     } catch (err) {
       //TODO toast error
-    } finally {
       setStatus("idle");
+    } finally {
     }
   };
   return { status, copyExportToClipboard };
