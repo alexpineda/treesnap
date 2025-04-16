@@ -6,6 +6,7 @@ interface CustomCheckboxProps {
   indeterminate?: boolean;
   onChange: () => void;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 export const CustomCheckbox = ({
@@ -13,6 +14,7 @@ export const CustomCheckbox = ({
   indeterminate,
   onChange,
   className,
+  style,
 }: CustomCheckboxProps) => {
   return (
     <div
@@ -28,6 +30,7 @@ export const CustomCheckbox = ({
         },
         className
       )}
+      style={style}
     >
       {checked && <Check size={12} className="text-white" />}
       {indeterminate && <Minus size={10} className="text-white" />}

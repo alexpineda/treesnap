@@ -68,7 +68,7 @@ const FileIconAndLabel = ({
     <div
       onClick={onClick}
       className={classNames(
-        "flex items-center cursor-pointer min-w-0 flex-shrink overflow-hidden w-full",
+        "flex items-center cursor-pointer min-w-0 flex-shrink overflow-hidden w-full gap-1",
         className
       )}
     >
@@ -113,6 +113,8 @@ export const FileTree = ({
     onFoldersExpandedOrCollapsed(newSet);
   };
 
+  const hasFolders = nodes.some((node) => node.is_directory);
+
   return nodes.map((node) => {
     const isFolder = node.is_directory;
     const isExpanded = expandedFolders.has(node.path);
@@ -126,23 +128,38 @@ export const FileTree = ({
     return (
       <div
         key={node.path}
-        style={{ marginLeft: `${level * 12}px` }}
+        // style={{ marginLeft: `${level * 8}px` }}
+        style={{ marginLeft: `calc(var(--spacing) * ${level})` }}
         data-level={level}
       >
-        <div className="flex items-center text-sm gap-1 overflow-hidden">
+        <div className="flex items-center text-sm gap-2 overflow-hidden">
           {isFolder && (
             <FolderToggle
-              className="pl-2 py-1"
+              className="pl-4 py-1"
               isExpanded={isExpanded}
               onClick={() => toggleFolder(node.path)}
             />
           )}
-          {!isFolder && <div className="w-6 " />}
+          {/* {!isFolder && (
+            <div
+              className={classNames({
+                "w-6": hasFolders,
+                "w-3": !hasFolders,
+              })}
+            />
+          )} */}
           <CustomCheckbox
             checked={isFolder ? selectionState === "all" : isSelected}
             indeterminate={isFolder && selectionState === "partial"}
             onChange={() => handleFileSelect(node)}
-            className="flex-shrink-0 py-1"
+            className={classNames("flex-shrink-0 py-1", {})}
+            style={{
+              marginLeft: !isFolder
+                ? !hasFolders
+                  ? `calc(var(--spacing) * 4 + 14px)`
+                  : "calc(var(--spacing)*4)"
+                : "0",
+            }}
           />
 
           <FileIconAndLabel
@@ -157,7 +174,7 @@ export const FileTree = ({
             className="py-1"
           />
           {!isFolder && (
-            <span className="ml-2 text-sm text-gray-400 flex-shrink-0">
+            <span className="text-sm text-gray-400 flex-shrink-0">
               {isLoading ? (
                 <span className="animate-pulse">
                   <Loader2 className="w-4 h-4 animate-spin" />

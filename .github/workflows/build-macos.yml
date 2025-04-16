@@ -8,6 +8,11 @@ on:
         required: false
         type: boolean
         default: false
+      production-release:
+        description: "Release to GitHub"
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   build-macos:
@@ -37,9 +42,11 @@ jobs:
       - name: Build and publish Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASE_REPO_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
+          owner: ${{ github.repository_owner }}
+          repo: ${{ github.event.inputs.production-release == 'true' && 'reposnap-releases' || 'reposnap-early-releases' }}
           tagName: v__VERSION__
           releaseName: "RepoSnap v__VERSION__ (macOS ${{ matrix.target }})"
           releaseBody: "macOS build for ${{ matrix.target }} (.dmg)."

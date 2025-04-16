@@ -15,16 +15,16 @@ export const FileTokenSummaryLabel = ({
 
   if (variant === "sidebar") {
     return (
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm text-gray-300">
+      <div className="flex items-center justify-between gap-2 overflow-hidden">
+        <span className="text-sm text-gray-300 whitespace-nowrap">
           {numSelectedFiles}{" "}
           <span className="text-blue-400">files selected</span>
         </span>
-        <span className="text-sm text-gray-300">
+        <span className="text-sm text-gray-300 whitespace-nowrap">
           {formatTokens(totalTokens)} tokens
         </span>
         {hasLoadingFiles && (
-          <span className="animate-pulse">
+          <span className="animate-pulse flex-shrink-0">
             <Loader2 className="w-4 h-4 animate-spin" />
           </span>
         )}
@@ -32,15 +32,15 @@ export const FileTokenSummaryLabel = ({
     );
   }
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-gray-400 text-sm">
+    <div className="flex items-center gap-2 overflow-hidden">
+      <span className="text-gray-400 text-sm whitespace-nowrap">
         {numSelectedFiles} <span>files selected</span>
       </span>
-      <span className="text-gray-400 text-sm">
+      <span className="text-gray-400 text-sm whitespace-nowrap">
         {formatTokens(totalTokens)} tokens
       </span>
       {hasLoadingFiles && (
-        <span className="animate-pulse">
+        <span className="animate-pulse flex-shrink-0">
           <Loader2 className="w-4 h-4 animate-spin" />
         </span>
       )}
