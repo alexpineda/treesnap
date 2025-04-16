@@ -13,12 +13,6 @@ pub fn build_ignore_list(dir: &Path) -> Result<ignore::gitignore::Gitignore, Str
             eprintln!("Warning: Failed to parse .gitignore: {}", e);
         }
     }
-    let codefetchignore = dir.join(".codefetchignore");
-    if codefetchignore.exists() {
-        if let Some(e) = ignore_builder.add(&codefetchignore) {
-            eprintln!("Warning: Failed to parse .codefetchignore: {}", e);
-        }
-    }
     for line in DEFAULT_IGNORE_PATTERNS.lines() {
         ignore_builder
             .add_line(None, line.trim())
@@ -35,7 +29,6 @@ pub fn build_file_content_string(selected_file_paths: &[String]) -> String {
     for file_path in selected_file_paths {
         let path = PathBuf::from(file_path);
         if !path.exists() || !path.is_file() {
-            // Skip non-existent files
             eprintln!("Warning: File does not exist: {:?}", path);
             continue;
         }
@@ -43,37 +36,39 @@ pub fn build_file_content_string(selected_file_paths: &[String]) -> String {
         // Determine file extension for code block formatting
         let extension = path.extension().and_then(|e| e.to_str()).unwrap_or("");
 
-        // Read file content
-        let content = match fs::read_to_string(&path) {
-            Ok(content) => content,
-            Err(e) => {
-                eprintln!("Warning: Failed to read file {}: {}", file_path, e);
-                format!("[Error reading file: {}]", e)
-            }
-        };
-
-        // Check if binary by looking for null bytes
-        let is_likely_binary = content.contains('\0');
-
-        // Add file header and content
+        // Add file header first
         output.push_str(&format!("File: {}\n", file_path));
 
-        if is_likely_binary {
+        // Check if likely binary *before* attempting to read as string
+        if is_likely_binary_file(&path) {
             output.push_str("```");
             output.push_str(extension);
             output.push_str("\n[Binary file]\n```\n\n");
         } else {
-            output.push_str("```");
-            output.push_str(extension);
-            output.push_str("\n");
-            output.push_str(&content);
+            // Try reading as UTF-8 string
+            match fs::read_to_string(&path) {
+                Ok(content) => {
+                    output.push_str("```");
+                    output.push_str(extension);
+                    output.push_str("\n");
+                    output.push_str(&content);
 
-            // Ensure content ends with newline
-            if !content.ends_with('\n') {
-                output.push('\n');
-            }
+                    // Ensure content ends with newline
+                    if !content.ends_with('\n') {
+                        output.push('\n');
+                    }
 
-            output.push_str("```\n\n");
+                    output.push_str("```\n\n");
+                }
+                Err(e) => {
+                    // If reading as string fails (e.g., unexpected encoding), log and add placeholder
+                    eprintln!("Warning: Failed to read file {} as UTF-8: {}", file_path, e);
+                    output.push_str("```");
+                    output.push_str(extension);
+                    // Use a generic placeholder
+                    output.push_str("\n[Could not read content]\n```\n\n");
+                }
+            };
         }
     }
 
@@ -137,11 +132,11 @@ pub fn is_likely_binary_file(path: &Path) -> bool {
     const MAX_BYTES: usize = 2048;
     let bytes = match fs::read(path) {
         Ok(b) => b,
-        Err(_) => return true, // If we can’t read at all, treat as “binary” skip.
+        Err(_) => return true, // If we can't read at all, treat as "binary" skip.
     };
     let check_len = bytes.len().min(MAX_BYTES);
 
-    // If there’s a lot of control chars or null bytes, consider it binary
+    // If there's a lot of control chars or null bytes, consider it binary
     let mut control_count = 0;
     for &b in bytes[..check_len].iter() {
         if b == 0 {

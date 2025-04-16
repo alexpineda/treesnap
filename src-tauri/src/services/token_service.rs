@@ -6,6 +6,7 @@ use tiktoken_rs::{self, CoreBPE};
 use tracing::{debug, error, info};
 
 use crate::domain::file_tree_node::FileTreeNode;
+use crate::services::file_service::is_likely_binary_file;
 
 /// Calculate tokens for a specific file, using the cache if possible.
 pub async fn calculate_file_tokens(
@@ -16,6 +17,36 @@ pub async fn calculate_file_tokens(
     let path = PathBuf::from(file_path.clone());
     if !path.exists() || !path.is_file() {
         return Err(format!("File does not exist: {:?}", path));
+    }
+
+    // Check if the file is likely binary
+    if is_likely_binary_file(&path) {
+        info!("Skipping binary file: {}", file_path);
+        // Optionally cache binary files as 0 tokens
+        if let Ok(modified_secs) = cache_service::get_current_modified_secs(&file_path) {
+            if let Err(e) =
+                cache_service::update_cache(file_path.clone(), modified_secs, 0, cache_state)
+            {
+                error!(
+                    "Failed to update cache for binary file {}: {}",
+                    file_path, e
+                );
+            } else {
+                // Attempt to save cache immediately after updating for binary file
+                if let Err(e) = cache_service::save_cache(app_handle, cache_state) {
+                    error!(
+                        "Failed to save cache after updating binary file {}: {}",
+                        file_path, e
+                    );
+                }
+            }
+        } else {
+            error!(
+                "Could not get modification time for binary file {}. Not caching.",
+                file_path
+            );
+        }
+        return Ok(0); // Return 0 tokens for binary files
     }
 
     let current_modified_secs = cache_service::get_current_modified_secs(&file_path)?;
@@ -70,6 +101,27 @@ pub async fn calculate_tokens_for_files(
     let mut needs_save = false;
 
     for path_str in &file_paths {
+        let path = PathBuf::from(path_str);
+        // Check if the file is likely binary first
+        if is_likely_binary_file(&path) {
+            info!("Skipping binary file: {}", path_str);
+            token_map.insert(path_str.clone(), 0);
+            // Optionally cache binary files as 0 tokens
+            if let Ok(modified_secs) = cache_service::get_current_modified_secs(path_str) {
+                match cache_service::update_cache(path_str.clone(), modified_secs, 0, cache_state) {
+                    Ok(()) => needs_save = true,
+                    Err(e) => error!("Failed to update cache for binary file {}: {}", path_str, e),
+                }
+            } else {
+                error!(
+                    "Could not get modification time for binary file {}. Not caching.",
+                    path_str
+                );
+            }
+            continue; // Skip the rest of the loop for binary files
+        }
+
+        // Proceed with cache check for non-binary files
         match cache_service::get_current_modified_secs(path_str) {
             Ok(current_modified_secs) => {
                 match cache_service::check_cache(path_str, current_modified_secs, cache_state)? {
@@ -195,11 +247,17 @@ pub async fn fill_tokens_in_tree(
         let path = node.path.clone();
         let bpe_clone = bpe.clone();
         tasks.push(tokio::spawn(async move {
-            let content = match fs::read_to_string(&path) {
+            let file_path = PathBuf::from(&path);
+            // Check if the file is likely binary
+            if is_likely_binary_file(&file_path) {
+                debug!("Skipping binary file in fill_tokens_in_tree: {}", path);
+                return (path, 0); // Return 0 for binary files
+            }
+            let content = match fs::read_to_string(&file_path) {
                 Ok(c) => c,
                 Err(e) => {
                     eprintln!("Warning: Failed to read file {}: {}", path, e);
-                    return (path, 0);
+                    return (path, 0); // Return 0 if read fails
                 }
             };
             let encoded = bpe_clone.encode_with_special_tokens(&content);
