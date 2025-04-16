@@ -47,6 +47,7 @@ jobs:
         with:
           owner: ${{ github.repository_owner }}
           repo: ${{ github.event.inputs.production-release == 'true' && 'reposnap-releases' || 'reposnap-early-releases' }}
+          releaseCommitish: main
           tagName: v__VERSION__
           releaseName: "RepoSnap v__VERSION__ (macOS ${{ matrix.target }})"
           releaseBody: "macOS build for ${{ matrix.target }} (.dmg)."
