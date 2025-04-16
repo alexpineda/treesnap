@@ -1,55 +1,194 @@
-name: "build-all"
+name: Build and Merge All
 
 on:
   workflow_dispatch:
-
-# This workflow will build your tauri app without uploading it anywhere.
+    inputs:
+      deploy:
+        description: "Deploy to R2"
+        type: boolean
+        required: false
+        default: false
+      production-release:
+        description: "Release to GitHub"
+        type: boolean
+        required: false
+        default: false
 
 jobs:
   build-all:
+    name: "Build All Tauri Targets"
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - platform: "macos-latest" # for Arm based macs (M1 and above).
-            args: "--target aarch64-apple-darwin --bundles app,dmg --verbose"
-          - platform: "macos-latest" # for Intel based macs.
-            args: "--target x86_64-apple-darwin --bundles app,dmg --verbose"
-          - platform: "ubuntu-22.04" # for Tauri v1 you could replace this with ubuntu-20.04.
-            args: "--bundles appimage --verbose"
-          - platform: "windows-latest"
-            args: "--bundles msi --verbose"
+          # macOS
+          - os: macos-latest
+            platform: macos
+            buildArgs: "--target universal-apple-darwin --bundles app,dmg --verbose"
+            partialScript: ".github/actions/generate-manifest/generate-mac-partial-manifest.ts"
+            artifactDir: "src-tauri/target/universal-apple-darwin/release/bundle/macos"
+          # Linux
+          - os: ubuntu-22.04
+            platform: linux
+            buildArgs: "--bundles appimage --verbose"
+            partialScript: ".github/actions/generate-manifest/generate-linux-partial-manifest.ts"
+            artifactDir: "src-tauri/target/release/bundle/appimage"
+          # Windows
+          - os: windows-latest
+            platform: windows
+            buildArgs: "--bundles msi --verbose"
+            partialScript: ".github/actions/generate-manifest/generate-windows-partial-manifest.ts"
+            artifactDir: "src-tauri/target/release/bundle/msi"
 
-    runs-on: ${{ matrix.platform }}
+    outputs:
+      finalVersion: ${{ steps.exportVersion.outputs.version }}
+
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
 
-      - name: install Rust stable
+      - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          # Those targets are only used on macos runners so it's in an `if` to slightly speed up windows and linux builds.
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          # Extra targets needed on macOS:
+          targets: ${{ matrix.os == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
           workspaces: "./src-tauri -> target"
 
-      - name: install dependencies (ubuntu only)
-        if: matrix.platform == 'ubuntu-22.04' # This must match the platform value defined above.
+      # -- Platform‐specific steps:
+      - name: Install Linux dependencies
+        if: matrix.platform == 'linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.0-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
-        # webkitgtk 4.0 is for Tauri v1 - webkitgtk 4.1 is for Tauri v2.
-        # You can remove the one that doesn't apply to your app to speed up the workflow a bit.
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
-      - name: install frontend dependencies
+      - name: Import Apple Developer Certificate
+        if: matrix.platform == 'macos'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import certificate.p12 -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+
+      - name: Set Apple Signing Identity
+        if: matrix.platform == 'macos'
+        run: |
+          CERT_INFO=$(security find-identity -v -p codesigning build.keychain | grep "Developer ID Application")
+          CERT_ID=$(echo "$CERT_INFO" | awk -F'"' '{print $2}')
+          echo "CERT_ID=$CERT_ID" >> $GITHUB_ENV
+
+      # ...Add more Windows‐specific steps or custom code‐signing if needed
+
+      - name: Install frontend dependencies
         run: bun install
 
-      # If tagName and releaseId are omitted tauri-action will only build the app and won't try to upload any assets.
-      - uses: tauri-apps/tauri-action@v0
+      - name: Get Tauri version
+        id: version
+        uses: ./.github/actions/get-version-from-package
+
+      - name: Export version to job output
+        id: exportVersion
+        run: echo "version=${{ steps.version.outputs.version }}" >> $GITHUB_OUTPUT
+
+      - name: Build Tauri App
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          # Apple vars needed for signing and notarization
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ env.CERT_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
-          args: ${{ matrix.args }}
+          tagName: v__VERSION__
+          releaseName: "RepoSnap v__VERSION__ (${{ matrix.platform }})"
+          releaseBody: "Build for ${{ matrix.platform }}"
+          releaseDraft: true
+          args: ${{ matrix.buildArgs }}
+
+      - name: Upload to R2
+        if: ${{ github.event.inputs.deploy == 'true' }}
+        uses: ryand56/r2-upload-action@latest
+        id: r2-upload
+        with:
+          r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          r2-bucket: ${{ secrets.R2_BUCKET }}
+          source-dir: ${{ matrix.artifactDir }}
+          destination-dir: releases/${{ steps.version.outputs.version }}
+          output-file-url: true
+
+      - name: Debug R2 Upload
+        if: ${{ github.event.inputs.deploy == 'true' }}
+        run: |
+          echo "Upload Result: ${{ steps.r2-upload.outputs.result }}"
+          echo "File URLs:"
+          echo '${{ steps.r2-upload.outputs.file-urls }}' | jq -r .
+
+      - name: Generate partial manifest
+        run: bun run ${{ matrix.partialScript }} ${{ steps.version.outputs.version }}
+
+      - name: Upload partial manifest artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: partial-manifest-${{ matrix.platform }}
+          path: partial-manifest-${{ matrix.platform }}.json
+
+  merge-manifests:
+    name: "Merge Partial Manifests"
+    runs-on: ubuntu-22.04
+    needs: build-all
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+
+      # Download each partial manifest from the three matrix runs:
+      - name: Download Mac Manifest
+        uses: actions/download-artifact@v3
+        with:
+          name: partial-manifest-macos
+          path: manifests
+
+      - name: Download Linux Manifest
+        uses: actions/download-artifact@v3
+        with:
+          name: partial-manifest-linux
+          path: manifests
+
+      - name: Download Windows Manifest
+        uses: actions/download-artifact@v3
+        with:
+          name: partial-manifest-windows
+          path: manifests
+
+      - name: Merge partial manifests
+        run: |
+          bun run .github/actions/generate-manifest/merge-manifests.ts ${{ needs.build-all.outputs.finalVersion }}
+          echo "Merged 'latest.json' content:"
+          cat manifests/latest.json
+
+      - name: Upload merged latest.json to R2
+        if: ${{ github.event.inputs.deploy == 'true' }}
+        uses: ryand56/r2-upload-action@latest
+        with:
+          r2-account-id: ${{ secrets.R2_ACCOUNT_ID }}
+          r2-access-key-id: ${{ secrets.R2_ACCESS_KEY_ID }}
+          r2-secret-access-key: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          r2-bucket: ${{ secrets.R2_BUCKET }}
+          source-dir: manifests
+          destination-dir: releases/${{ needs.build-all.outputs.finalVersion }}

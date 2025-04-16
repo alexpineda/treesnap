@@ -80,3 +80,7 @@ jobs:
           echo "Upload Result: ${{ steps.r2-upload.outputs.result }}"
           echo "Uploaded File URLs:"
           echo '${{ steps.r2-upload.outputs.file-urls }}' | jq -r .
+
+      - name: Generate linux partial manifest
+        run: |
+          bun run .github/actions/generate-manifest/generate-linux-partial-manifest.ts ${{ steps.package-version.outputs.version }}
