@@ -5,7 +5,7 @@ import {
   RecentWorkspace,
   LocalLicenseState,
 } from "../types";
-import { load } from "@tauri-apps/plugin-store";
+import { Store, load } from "@tauri-apps/plugin-store";
 import { open } from "@tauri-apps/plugin-dialog";
 
 export const calculateFileTokens = async (filePath: string) => {
@@ -62,15 +62,25 @@ export const copyFilesWithTreeToClipboard = (
   });
 };
 
-const _recentWorkspacesStore = await load("workspaces.json");
+let _recentWorkspacesStore: Store | null = null;
+
+// Helper function to lazily load the store
+const getRecentWorkspacesStore = async (): Promise<Store> => {
+  if (!_recentWorkspacesStore) {
+    _recentWorkspacesStore = await load("workspaces.json");
+  }
+  return _recentWorkspacesStore;
+};
 
 export const loadRecentWorkspaces = async () => {
-  const saved = await _recentWorkspacesStore.get<RecentWorkspace[]>("recent");
+  const store = await getRecentWorkspacesStore();
+  const saved = await store.get<RecentWorkspace[]>("recent");
   return saved;
 };
 
 export const saveRecentWorkspaces = async (workspaces: RecentWorkspace[]) => {
-  await _recentWorkspacesStore.set("recent", workspaces);
+  const store = await getRecentWorkspacesStore();
+  await store.set("recent", workspaces);
 };
 
 export const openDirectoryDialog = async () => {
