@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 use tauri::{Emitter, State, Window};
+use tracing::debug;
 
 // Import the file service to use build_ignore_list
 use crate::services::file_service;
@@ -170,7 +171,7 @@ pub fn start_watcher_internal(
     // Store the watcher in the state, automatically dropping the old one if exists
     *watcher_mutex.lock().unwrap() = Some(watcher);
 
-    println!("Started watching directory: {}", dir_path_str);
+    debug!("Started watching directory: {}", dir_path_str);
     Ok(())
 }
 

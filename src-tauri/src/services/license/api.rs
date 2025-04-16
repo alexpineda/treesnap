@@ -3,7 +3,7 @@ use super::errors::LicenseError;
 use super::persistence::{get_or_create_machine_id, load_encrypted_state, save_encrypted_state};
 use chrono::Utc;
 use std::path::Path;
-use tracing::{error, info, instrument, warn};
+use tracing::{debug, error, info, instrument, warn};
 
 use super::constants::LICENSE_API_ENDPOINT;
 use super::state::{
@@ -43,7 +43,7 @@ pub async fn activate_license_internal(
         device_info,
     };
 
-    info!(payload = ?request_payload, "Sending activation request");
+    debug!(payload = ?request_payload, "Sending activation request");
 
     let response = client
         .post(LICENSE_API_ENDPOINT)
@@ -55,7 +55,7 @@ pub async fn activate_license_internal(
     let response_body_text = response.text().await?; // Read body once
 
     if status.is_success() {
-        info!("Activation API call successful (Status: {})", status);
+        info!("Activation API call successful. Status: {}", status);
         let parsed_response: ActivateResponse =
             serde_json::from_str(&response_body_text).map_err(|e| {
                 LicenseError::ApiResponseError(format!(
@@ -64,7 +64,7 @@ pub async fn activate_license_internal(
                 ))
             })?;
 
-        info!(response = ?parsed_response, "Parsed activation response");
+        debug!(response = ?parsed_response, "Parsed activation response");
 
         // Load the current AppState to update it
         let mut app_state = load_encrypted_state::<AppState>(app_handle, &machine_id)?;

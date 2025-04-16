@@ -83,7 +83,7 @@ pub fn save_cache(
     app_handle: &AppHandle,
     cache_state: &State<'_, CacheState>,
 ) -> Result<(), String> {
-    debug!("Attempting to save token cache...");
+    info!("Saving token cache...");
     let path = Path::new(CACHE_STORE_FILENAME);
 
     match app_handle.store(path) {
