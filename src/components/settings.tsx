@@ -22,6 +22,13 @@ export const Settings = ({ onClose }: { onClose: () => void }) => {
   }, []);
 
   const handleCheckForUpdates = async () => {
+    if (license.localLicenseState?.status === "expired") {
+      alert(
+        "Your license has expired. Please activate your license to check for updates."
+      );
+      return;
+    }
+
     const update = await check();
     if (update) {
       const confirmed = confirm("Update found, download and install?");
@@ -49,12 +56,14 @@ export const Settings = ({ onClose }: { onClose: () => void }) => {
           {appVersion && (
             <div className="flex items-center space-x-2">
               {/* Minimal Check for Updates button */}
-              <button
-                onClick={handleCheckForUpdates}
-                className="text-xs text-blue-400 hover:text-blue-300 hover:underline focus:outline-none"
-              >
-                Check for Updates
-              </button>
+              {license.localLicenseState?.status !== "expired" && (
+                <button
+                  onClick={handleCheckForUpdates}
+                  className="text-xs text-blue-400 hover:text-blue-300 hover:underline focus:outline-none"
+                >
+                  Check for Updates
+                </button>
+              )}
               <span className="text-xs text-gray-400 bg-gray-700 px-2 py-1 rounded">
                 v{appVersion}
               </span>
