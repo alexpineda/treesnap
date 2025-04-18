@@ -210,6 +210,10 @@ pub fn run() {
                 // --- License Check ---
                 let license_state_result = license::get_local_license_state_internal(&handle).await;
 
+                #[cfg(debug_assertions)]
+                let should_check_for_updates = false;
+
+                #[cfg(not(debug_assertions))]
                 let should_check_for_updates = match license_state_result {
                     Ok(state) => {
                         info!("License status: {:?}", state.status);

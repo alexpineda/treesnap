@@ -1,7 +1,11 @@
 import React, { useState, useCallback } from "react";
 import { useLicense } from "../../hooks/use-license";
 
-export const LicenseArea = () => {
+export const LicenseArea = ({
+  showActivationUnderLimit = false,
+}: {
+  showActivationUnderLimit?: boolean;
+}) => {
   const {
     localLicenseState: localLicenseState,
     isLoading,
@@ -61,7 +65,7 @@ export const LicenseArea = () => {
     }
 
     if (localLicenseState.status === "inactive") {
-      if (workspaceLimitError) {
+      if (workspaceLimitError || showActivationUnderLimit) {
         return (
           <form onSubmit={handleActivate} className="flex flex-col gap-2">
             <p className="text-sm text-gray-400">{workspaceLimitError}</p>

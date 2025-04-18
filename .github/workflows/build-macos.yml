@@ -120,3 +120,7 @@ jobs:
           echo "Updater Upload Result: ${{ steps.r2-upload-updater.outputs.result }}"
           echo "Updater Uploaded File URLs:"
           echo '${{ steps.r2-upload-updater.outputs.file-urls }}' | jq -r .
+
+      - name: Generate macOS partial manifest
+        run: |
+          bun run .github/actions/generate-manifest/generate-mac-partial-manifest.ts ${{ steps.package-version.outputs.version }}

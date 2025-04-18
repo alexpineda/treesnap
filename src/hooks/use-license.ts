@@ -46,14 +46,18 @@ export const useLicense = () => {
   const activate = useCallback(async (licenseKey: string) => {
     setIsLoading(true);
     setError(null);
+    setSuccessfulActivation(false); // Reset activation success flag
     const { state, error } = await activateLicense(licenseKey);
     if (error) {
       setError(error);
     } else if (state) {
+      setLocalLicenseState(state);
       if (state.status === "activated") {
         setSuccessfulActivation(true);
+        // Re-fetch workspace limit now that we're activated
+        const { error: limitErr } = await checkWorkspaceLimit();
+        setWorkspaceLimitError(limitErr ? limitErr.message : null);
       }
-      setLocalLicenseState(state);
     }
     setIsLoading(false);
   }, []);

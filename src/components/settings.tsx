@@ -2,9 +2,11 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { TreeOption } from "../types";
 import { useLicense } from "../hooks/use-license";
+import { LicenseArea } from "./license/license-area";
 
 export const Settings = ({ onClose }: { onClose: () => void }) => {
   const [treeOption, setTreeOption] = useState<TreeOption>("include");
+  const [showActivationForm, setShowActivationForm] = useState(false);
   const license = useLicense();
 
   return (
@@ -59,28 +61,22 @@ export const Settings = ({ onClose }: { onClose: () => void }) => {
           <p>The application license has expired.</p>
         )}
 
-        {license.localLicenseState?.status === "inactive" && (
-          <button className="">Activate License</button>
-        )}
+        {license.localLicenseState?.status === "inactive" &&
+          !showActivationForm && (
+            <button
+              className="bg-blue-500 text-white px-4 py-2 rounded-md cursor-pointer"
+              onClick={() => setShowActivationForm(true)}
+            >
+              Activate License
+            </button>
+          )}
+
+        {showActivationForm && <LicenseArea showActivationUnderLimit={true} />}
 
         <div className="pt-4 flex gap-4">
-          {/* <button
-            onClick={handleCopy}
-            disabled={status === "copying"}
-            className="flex items-center space-x-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-white disabled:opacity-50 border border-gray-600"
-          >
-            <Copy size={16} />
-            <span>
-              {status === "copying"
-                ? "Copying..."
-                : status === "success"
-                ? "Copied!"
-                : "Copy to Clipboard"}
-            </span>
-          </button> */}
           <button
             onClick={onClose}
-            className="flex items-center space-x-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-white disabled:opacity-50 border border-gray-600"
+            className="cursor-pointer flex items-center space-x-2 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded text-white disabled:opacity-50 border border-gray-600"
           >
             <X size={16} />
             <span>Close</span>
