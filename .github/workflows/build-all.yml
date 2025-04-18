@@ -132,6 +132,18 @@ jobs:
             --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" --wait
           xcrun stapler staple "$dmg"
 
+      - name: Strip non‑distributables
+        if: matrix.platform == 'macos'
+        run: |
+          rm -rf src-tauri/target/universal-apple-darwin/release/bundle/macos/RepoSnap.app
+          rm -rf src-tauri/target/universal-apple-darwin/release/bundle/macos/RepoSnap.AppDir
+
+      - name: Copy DMG beside other artifacts
+        if: matrix.platform == 'macos'
+        run: |
+          cp src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg \
+              src-tauri/target/universal-apple-darwin/release/bundle/macos/
+
       - name: Upload to R2
         if: ${{ github.event.inputs.deploy == 'true' }}
         uses: ryand56/r2-upload-action@latest
