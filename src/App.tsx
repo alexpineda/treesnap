@@ -15,12 +15,14 @@ import { Settings } from "./components/settings";
 import { calculateFileTokens, openDirectoryDialog } from "./services/tauri";
 import { LicenseArea } from "./components/license/license-area";
 import { DebugLicenseControls } from "./components/debug";
+import { useLicense } from "./hooks/use-license";
 
 function App() {
   const [totalTokens, setTotalTokens] = useState(0);
   const [isShowingSettings, setIsShowingSettings] = useState(false);
   const { recentWorkspaces, addToRecentWorkspaces } = useRecentWorkspaces();
   const workspace = useWorkspace(addToRecentWorkspaces);
+  const { workspaceLimitError, localLicenseState } = useLicense();
 
   useEffect(() => {
     calculateTotalTokens();
@@ -111,7 +113,7 @@ function App() {
     workspace.close();
   };
 
-  const handleChooseDirectory = async () => {
+  const handleOpenDirectory = async () => {
     try {
       const selected = await openDirectoryDialog();
       if (selected) {
@@ -120,6 +122,7 @@ function App() {
       }
     } catch (err) {
       //TODO toast error
+      console.error("Error opening directory:", err);
     }
   };
 
@@ -133,6 +136,11 @@ function App() {
   };
 
   const numExpandedFolders = Array.from(workspace.expandedFolders).length;
+
+  // Calculate if the quick open button should be shown
+  const showQuickOpenButton = !(
+    localLicenseState?.status === "inactive" && workspaceLimitError
+  );
 
   return (
     <div className="flex h-screen flex-col bg-gray-900">
@@ -148,7 +156,7 @@ function App() {
             <div className="h-full overflow-y-auto bg-gray-800 text-white">
               {workspace.status === "not-loaded" ? (
                 <WorkspaceSelector
-                  handleChooseDirectory={handleChooseDirectory}
+                  handleChooseDirectory={handleOpenDirectory}
                   recentWorkspaces={recentWorkspaces}
                   setDir={workspace.loadWorkspace}
                 />
@@ -218,6 +226,8 @@ function App() {
                     workspacePath={workspace.workspacePath}
                     handleClose={handleClose}
                     onSettingsClick={() => setIsShowingSettings(true)}
+                    onQuickOpenClick={handleOpenDirectory}
+                    showQuickOpenButton={showQuickOpenButton}
                   />
                   {/* <div className="flex border-b border-gray-700 text-xs">
                     <div className="flex items-center px-3 py-1 bg-gray-700 text-gray-400 border-r border-gray-600">

@@ -28,15 +28,15 @@
         {
           "identifier": "main-capability",
           "description": "Main window capabilities",
-          "windows": [
-            "*"
-          ],
+          "windows": ["*"],
           "permissions": [
             "store:default",
             "dialog:default",
             "fs:default",
             "updater:default",
-            "core:event:default"
+            "core:event:default",
+            "core:app:allow-version",
+            "process:default"
           ]
         }
       ]
@@ -58,9 +58,7 @@
     "updater": {
       "active": true,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE5QkQxOTRDQ0M1MDg0NkIKUldScmhGRE1UQm05R1U5dCt0NHVKZDN1dWp2eGtpUXZoRG9tSkJMSWVVdG1oVUYxSXdXM05OVEkK",
-      "endpoints": [
-        "https://releases.reposnap.io/latest.json"
-      ]
+      "endpoints": ["https://releases.reposnap.io/latest.json"]
     }
   }
 }

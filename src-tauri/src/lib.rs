@@ -195,6 +195,7 @@ pub fn run() {
     tracing_subscriber::fmt::init();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(watcher_service::WatcherState(Mutex::new(None)))
         .manage(LicenseClient::default()) // Manage the LicenseClient

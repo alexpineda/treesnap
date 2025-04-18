@@ -9,11 +9,15 @@ export const TopBar = ({
   workspacePath,
   handleClose,
   onSettingsClick,
+  onQuickOpenClick,
+  showQuickOpenButton,
 }: {
   selectedFiles: FileTreeNode[];
   workspacePath: string;
   handleClose: () => void;
   onSettingsClick: () => void;
+  onQuickOpenClick: () => void;
+  showQuickOpenButton: boolean;
 }) => {
   const { status, copyExportToClipboard } = useExport({
     selectedFiles,
@@ -23,12 +27,17 @@ export const TopBar = ({
   return (
     <div className="flex relative border-b border-gray-700 bg-gray-800 text-xs text-gray-400 justify-between">
       <div className="flex items-center h-full">
-        <div className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700">
-          <span className="mb-1">
-            <FolderOpen size={16} />
-          </span>
-          <span>Quick Open</span>
-        </div>
+        {showQuickOpenButton && (
+          <div
+            className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700"
+            onClick={onQuickOpenClick}
+          >
+            <span className="mb-1">
+              <FolderOpen size={16} />
+            </span>
+            <span>Quick Open</span>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 flex items-center justify-center py-2 absolute left-1/2 -translate-x-1/2 h-full">
