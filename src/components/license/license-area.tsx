@@ -1,4 +1,5 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
+import { confirm } from "@tauri-apps/plugin-dialog";
 import { useLicense } from "../../hooks/use-license";
 
 export const LicenseArea = ({
@@ -36,6 +37,18 @@ export const LicenseArea = ({
     },
     [activate, licenseKeyInput]
   );
+
+  useEffect(() => {
+    if (successfulActivation) {
+      confirm("License Successfully Activated!", {
+        title: "Success",
+        kind: "info",
+      });
+      // Optional: You might want to reset the successfulActivation flag
+      // in the hook after showing the dialog if it's not automatically reset.
+      // refreshStatus(); // Or a specific function to reset just that flag
+    }
+  }, [successfulActivation]);
 
   const renderContent = () => {
     if (isLoading) {
@@ -106,15 +119,7 @@ export const LicenseArea = ({
     }
 
     if (localLicenseState.status === "activated") {
-      if (successfulActivation) {
-        return (
-          <div className="flex flex-col gap-2">
-            <p className="text-sm font-medium text-green-500">
-              License Successfully Activated!
-            </p>
-          </div>
-        );
-      }
+      // The success message is now handled by the useEffect dialog
       return null;
     }
 

@@ -6,6 +6,7 @@ import { useLicense } from "../hooks/use-license";
 import { LicenseArea } from "./license/license-area";
 import { check } from "@tauri-apps/plugin-updater";
 import { relaunch } from "@tauri-apps/plugin-process";
+import { confirm as tauriConfirm } from "@tauri-apps/plugin-dialog";
 
 export const Settings = ({ onClose }: { onClose: () => void }) => {
   const [treeOption, setTreeOption] = useState<TreeOption>("include");
@@ -29,18 +30,61 @@ export const Settings = ({ onClose }: { onClose: () => void }) => {
       return;
     }
 
-    const update = await check();
-    if (update) {
-      const confirmed = confirm("Update found, download and install?");
-      if (confirmed) {
-        await update.downloadAndInstall();
-        const restartConfirm = confirm("Restart to apply updates?");
-        if (restartConfirm) {
-          await relaunch();
+    try {
+      const update = await check();
+      if (update) {
+        const confirmed = await tauriConfirm(
+          `Update available!\n\nVersion: ${update.version}\nRelease Notes:\n${
+            update.body || "No release notes provided."
+          }\n\nDownload and install now?`,
+          {
+            title: "Update Found",
+          }
+        );
+
+        if (confirmed) {
+          try {
+            await update.downloadAndInstall();
+
+            const restartConfirm = await tauriConfirm(
+              "Update installed successfully. Restart now to apply?",
+              {
+                title: "Restart Required",
+              }
+            );
+
+            if (restartConfirm) {
+              await relaunch();
+            } else {
+              alert(
+                "Update installed. Please restart the application later to apply the changes."
+              );
+            }
+          } catch (installError) {
+            console.error("Update installation failed:", installError);
+            alert(
+              `Failed to install update: ${
+                installError instanceof Error
+                  ? installError.message
+                  : installError
+              }`
+            );
+          }
+        } else {
+          console.log("Update cancelled by user.");
+          alert("Update cancelled by user.");
         }
+      } else {
+        console.log("No update found.");
+        alert("You are running the latest version.");
       }
-    } else {
-      alert("No update found");
+    } catch (error) {
+      console.error("Failed to check for updates:", error);
+      alert(
+        `Failed to check for updates: ${
+          error instanceof Error ? error.message : error
+        }`
+      );
     }
   };
 
@@ -134,44 +178,33 @@ export const Settings = ({ onClose }: { onClose: () => void }) => {
         <hr className="border-gray-600" />
 
         {/* License Section */}
-        <div className="space-y-3">
-          <h3 className="text-base font-medium mb-2 text-gray-200">License</h3>
-          {license.localLicenseState?.status === "expired" && (
-            <p className="text-sm text-yellow-400">
-              Your application license has expired. Functionality remains, but
-              updates are disabled.
-            </p>
-          )}
-
-          {license.localLicenseState?.status === "inactive" &&
-            !showActivationForm && (
-              <button
-                className="bg-blue-600 text-white px-4 py-2 rounded-md cursor-pointer hover:bg-blue-700 text-sm"
-                onClick={() => setShowActivationForm(true)}
-              >
-                Activate License
-              </button>
+        {license.localLicenseState?.status !== "activated" && (
+          <div className="space-y-3">
+            <h3 className="text-base font-medium mb-2 text-gray-200">
+              License
+            </h3>
+            {license.localLicenseState?.status === "expired" && (
+              <p className="text-sm text-yellow-400">
+                Your application license has expired.
+              </p>
             )}
 
-          {/* Conditionally render LicenseArea inline within this section */}
-          {showActivationForm && (
-            <LicenseArea showActivationUnderLimit={true} />
-          )}
+            {license.localLicenseState?.status === "inactive" &&
+              !showActivationForm && (
+                <button
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md cursor-pointer hover:bg-blue-700 text-sm"
+                  onClick={() => setShowActivationForm(true)}
+                >
+                  Activate License
+                </button>
+              )}
 
-          {license.localLicenseState?.status === "activated" &&
-            !showActivationForm && (
-              <div className="text-sm text-gray-300">
-                License active. Plan:{" "}
-                <span className="font-medium text-green-400">
-                  {license.localLicenseState.licenseType}
-                </span>
-                {license.localLicenseState.expiresAt &&
-                  ` (Expires: ${new Date(
-                    license.localLicenseState.expiresAt
-                  ).toLocaleDateString()})`}
-              </div>
+            {/* Conditionally render LicenseArea inline within this section */}
+            {showActivationForm && (
+              <LicenseArea showActivationUnderLimit={true} />
             )}
-        </div>
+          </div>
+        )}
 
         <hr className="border-gray-600" />
 

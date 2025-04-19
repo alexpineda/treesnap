@@ -207,85 +207,85 @@ pub fn run() {
             let initial_cache = cache_service::load_cache(&handle);
             app.manage(cache_service::CacheState(Mutex::new(initial_cache)));
 
-            tauri::async_runtime::spawn(async move {
-                // --- License Check ---
-                let license_state_result = license::get_local_license_state_internal(&handle).await;
+            // tauri::async_runtime::spawn(async move {
+            //     // --- License Check ---
+            //     let license_state_result = license::get_local_license_state_internal(&handle).await;
 
-                #[cfg(debug_assertions)]
-                let should_check_for_updates = false;
+            //     #[cfg(debug_assertions)]
+            //     let should_check_for_updates = false;
 
-                #[cfg(not(debug_assertions))]
-                let should_check_for_updates = match license_state_result {
-                    Ok(state) => {
-                        info!("License status: {:?}", state.status);
-                        let is_expired = state.status == LicenseStatus::Expired;
+            //     #[cfg(not(debug_assertions))]
+            //     let should_check_for_updates = match license_state_result {
+            //         Ok(state) => {
+            //             info!("License status: {:?}", state.status);
+            //             let is_expired = state.status == LicenseStatus::Expired;
 
-                        if !is_expired {
-                            info!("License is active. Checking for updates.");
-                            true
-                        } else {
-                            info!("License is expired. Skipping update check.");
-                            false
-                        }
-                    }
-                    Err(e) => {
-                        error!("Failed to get license state: {}. Skipping update check.", e);
-                        false
-                    }
-                };
-                // --- End License Check ---
+            //             if !is_expired {
+            //                 info!("License is active. Checking for updates.");
+            //                 true
+            //             } else {
+            //                 info!("License is expired. Skipping update check.");
+            //                 false
+            //             }
+            //         }
+            //         Err(e) => {
+            //             error!("Failed to get license state: {}. Skipping update check.", e);
+            //             false
+            //         }
+            //     };
+            //     // --- End License Check ---
 
-                // --- Update Check ---
-                if should_check_for_updates {
-                    match handle.updater() {
-                        Ok(updater) => match updater.check().await {
-                            Ok(Some(update)) => {
-                                // The check found an update
-                                info!(
-                                    "Update available: version {}, released on {:?}",
-                                    update.version, update.date
-                                );
-                                // Download and install the update
-                                match update
-                                    .download_and_install(
-                                        |_chunk_len, _content_len| {
-                                            // You can add download progress feedback here
-                                        },
-                                        || {
-                                            // Callback when download is finished
-                                            info!("Update download finished");
-                                        },
-                                    )
-                                    .await
-                                {
-                                    Ok(_) => {
-                                        info!("Update installed successfully. Restarting app...");
-                                        handle.restart(); // Use handle to restart
-                                    }
-                                    Err(e) => {
-                                        error!("Failed to download/install update: {}", e);
-                                    }
-                                }
-                            }
-                            Ok(None) => {
-                                // No update available
-                                info!("No update available.");
-                            }
-                            Err(e) => {
-                                // Error during check
-                                error!("Failed to check updates: {}", e);
-                            }
-                        },
-                        Err(e) => {
-                            error!("Failed to get updater instance: {}", e);
-                        }
-                    }
-                }
-                // --- End Update Check ---
+            //     // --- Update Check ---
+            //     if should_check_for_updates {
+            //         match handle.updater() {
+            //             Ok(updater) => match updater.check().await {
+            //                 Ok(Some(update)) => {
+            //                     // The check found an update
+            //                     info!(
+            //                         "Update available: version {}, released on {:?}",
+            //                         update.version, update.date
+            //                     );
+            //                     // Download and install the update
+            //                     match update
+            //                         .download_and_install(
+            //                             |_chunk_len, _content_len| {
+            //                                 // You can add download progress feedback here
+            //                             },
+            //                             || {
+            //                                 // Callback when download is finished
+            //                                 info!("Update download finished");
+            //                             },
+            //                         )
+            //                         .await
+            //                     {
+            //                         Ok(_) => {
+            //                             info!("Update installed successfully. Restarting app...");
+            //                             handle.restart(); // Use handle to restart
+            //                         }
+            //                         Err(e) => {
+            //                             error!("Failed to download/install update: {}", e);
+            //                         }
+            //                     }
+            //                 }
+            //                 Ok(None) => {
+            //                     // No update available
+            //                     info!("No update available.");
+            //                 }
+            //                 Err(e) => {
+            //                     // Error during check
+            //                     error!("Failed to check updates: {}", e);
+            //                 }
+            //             },
+            //             Err(e) => {
+            //                 error!("Failed to get updater instance: {}", e);
+            //             }
+            //         }
+            //     }
+            //     // --- End Update Check ---
 
-                // Add a type annotation here if the compiler complains about the future's return type
-                Ok::<(), Box<dyn std::error::Error + Send + Sync>>(()) // Use a broader error type or handle specific errors
-            });
+            //     // Add a type annotation here if the compiler complains about the future's return type
+            //     Ok::<(), Box<dyn std::error::Error + Send + Sync>>(()) // Use a broader error type or handle specific errors
+            // });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
