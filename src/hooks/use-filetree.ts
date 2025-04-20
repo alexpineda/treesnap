@@ -1,7 +1,6 @@
 import { FileChangeEvent, FileTreeNode } from "../types";
 import { useEffect, useState } from "react";
-import { closeWorkspace, openWorkspace } from "../services/tauri";
-import { listen } from "@tauri-apps/api/event";
+import { closeWorkspace, openWorkspace, listen } from "@/platform";
 
 export const useFileTree = (
   onFilesChanged: (files: FileChangeEvent[]) => void

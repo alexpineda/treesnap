@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { RecentWorkspace } from "../types";
-import { loadRecentWorkspaces, saveRecentWorkspaces } from "../services/tauri";
+import { loadRecentWorkspaces, saveRecentWorkspaces } from "@/platform";
 
 export const useRecentWorkspaces = () => {
   const [recentWorkspaces, setRecentWorkspaces] = useState<RecentWorkspace[]>(

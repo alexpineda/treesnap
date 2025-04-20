@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useDebug } from "../hooks/use-debug";
-import { DebugLicenseParams, getLocalLicenseState } from "../services/tauri";
+import { DebugLicenseParams, getLocalLicenseState } from "@/platform";
 import { LocalLicenseState } from "../types";
 
 export const DebugLicenseControls = () => {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { FileTreeNode } from "../types";
-import { copyFilesWithTreeToClipboard } from "../services/tauri";
+import { copyFilesWithTreeToClipboard } from "@/platform";
 
 type TreeOption = "include" | "include-only-selected" | "do-not-include";
 

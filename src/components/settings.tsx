@@ -1,12 +1,9 @@
 import { useState, useEffect } from "react";
 import { X } from "lucide-react";
-import { getVersion } from "@tauri-apps/api/app";
+import { getVersion, confirm, check, relaunch } from "@/platform";
 import { TreeOption } from "../types";
 import { useLicense } from "../hooks/use-license";
 import { LicenseArea } from "./license/license-area";
-import { check } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
-import { confirm as tauriConfirm } from "@tauri-apps/plugin-dialog";
 
 export const Settings = ({ onClose }: { onClose: () => void }) => {
   const [treeOption, setTreeOption] = useState<TreeOption>("include");
@@ -33,7 +30,7 @@ export const Settings = ({ onClose }: { onClose: () => void }) => {
     try {
       const update = await check();
       if (update) {
-        const confirmed = await tauriConfirm(
+        const confirmed = await confirm(
           `Update available!\n\nVersion: ${update.version}\nRelease Notes:\n${
             update.body || "No release notes provided."
           }\n\nDownload and install now?`,
@@ -46,7 +43,7 @@ export const Settings = ({ onClose }: { onClose: () => void }) => {
           try {
             await update.downloadAndInstall();
 
-            const restartConfirm = await tauriConfirm(
+            const restartConfirm = await confirm(
               "Update installed successfully. Restart now to apply?",
               {
                 title: "Restart Required",

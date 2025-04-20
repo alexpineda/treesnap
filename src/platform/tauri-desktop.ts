@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { getVersion as tauriGetVersion } from "@tauri-apps/api/app";
 import {
   TreeOption,
   FileTreeNode,
@@ -6,7 +7,48 @@ import {
   LocalLicenseState,
 } from "../types";
 import { Store, load } from "@tauri-apps/plugin-store";
-import { open } from "@tauri-apps/plugin-dialog";
+import {
+  type ConfirmDialogOptions,
+  open,
+  confirm as tauriConfirm,
+} from "@tauri-apps/plugin-dialog";
+import {
+  CheckOptions,
+  check as tauriCheck,
+  type Update,
+} from "@tauri-apps/plugin-updater";
+import { relaunch as tauriRelaunch } from "@tauri-apps/plugin-process";
+import {
+  listen as tauriListen,
+  type Event,
+  type UnlistenFn,
+} from "@tauri-apps/api/event";
+
+export const listen = <T>(
+  event: string,
+  handler: (event: Event<T>) => void
+): Promise<UnlistenFn> => {
+  return tauriListen<T>(event, handler);
+};
+
+export const relaunch = (): Promise<void> => {
+  return tauriRelaunch();
+};
+
+export const check = (options?: CheckOptions): Promise<Update | null> => {
+  return tauriCheck(options);
+};
+
+export const confirm = (
+  message: string,
+  options?: string | ConfirmDialogOptions
+): Promise<boolean> => {
+  return tauriConfirm(message, options);
+};
+
+export const getVersion = (): Promise<string> => {
+  return tauriGetVersion();
+};
 
 export const calculateFileTokens = async (filePath: string) => {
   const tokens = await invoke<number>("calculate_file_tokens", { filePath });

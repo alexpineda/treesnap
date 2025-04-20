@@ -12,7 +12,7 @@ import { TopBar } from "./components/top-bar";
 import { useRecentWorkspaces } from "./hooks/use-recent-workspaces";
 import { useWorkspace } from "./hooks/use-workspace";
 import { Settings } from "./components/settings";
-import { calculateFileTokens, openDirectoryDialog } from "./services/tauri";
+import { calculateFileTokens, openDirectoryDialog } from "@/platform";
 import { LicenseArea } from "./components/license/license-area";
 import { DebugLicenseControls } from "./components/debug";
 import { useLicense } from "./hooks/use-license";
@@ -225,7 +225,14 @@ function App() {
                     selectedFiles={workspace.selectedFiles}
                     workspacePath={workspace.workspacePath}
                     handleClose={handleClose}
-                    onSettingsClick={() => setIsShowingSettings(true)}
+                    onSettingsClick={() => {
+                      if (import.meta.env.MODE === "web-demo") {
+                        alert("Settings are not available in demo mode");
+                        return;
+                      }
+
+                      setIsShowingSettings(true);
+                    }}
                     onQuickOpenClick={handleOpenDirectory}
                     showQuickOpenButton={showQuickOpenButton}
                   />
@@ -318,8 +325,28 @@ function App() {
               )}
               {workspace.status === "not-loaded" && (
                 <div className="flex flex-1 w-full items-center justify-center">
-                  <LicenseArea />
-                  <DebugLicenseControls />
+                  {import.meta.env.MODE === "web-demo" ? (
+                    <div className="flex flex-col items-center justify-center">
+                      <div>
+                        <p className="font-bold text-gray-300">
+                          This is a limited web demo version.
+                        </p>{" "}
+                        <a
+                          href="https://www.reposnap.io/download"
+                          target="_blank"
+                          className="text-blue-500 underline"
+                        >
+                          Click here to download the full desktop version for
+                          full functionality.
+                        </a>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <LicenseArea />
+                      <DebugLicenseControls />
+                    </>
+                  )}
                 </div>
               )}
             </div>

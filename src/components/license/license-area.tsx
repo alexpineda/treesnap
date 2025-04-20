@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
-import { confirm } from "@tauri-apps/plugin-dialog";
+import { confirm } from "@/platform";
 import { useLicense } from "../../hooks/use-license";
 
 export const LicenseArea = ({

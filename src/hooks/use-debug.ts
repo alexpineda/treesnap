@@ -5,7 +5,7 @@ import {
   debugAddUsageEntries,
   DebugLicenseParams,
   TauriApiError,
-} from "../services/tauri";
+} from "@/platform";
 
 /**
  * Hook providing access to debug license commands.

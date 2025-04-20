@@ -3,7 +3,7 @@ import {
   activateLicense,
   getLocalLicenseState,
   checkWorkspaceLimit,
-} from "../services/tauri";
+} from "@/platform";
 import { LocalLicenseState, ApiError } from "../types";
 
 export const useLicense = () => {
