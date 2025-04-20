@@ -74,6 +74,8 @@ pub async fn activate_license_internal(
             status: LicenseStatus::Activated,
             license_type: Some(parsed_response.license_type),
             expires_at: parsed_response.expires_at,
+            ref_code: parsed_response.ref_code,
+            ref_code_expires_at: parsed_response.ref_code_expires_at,
         };
 
         // Clear the usage stats as they are no longer needed for activated state

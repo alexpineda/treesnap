@@ -35,6 +35,8 @@ pub struct LocalLicenseState {
     pub status: LicenseStatus,
     pub license_type: Option<String>,
     pub expires_at: Option<DateTime<Utc>>,
+    pub ref_code: Option<String>,
+    pub ref_code_expires_at: Option<DateTime<Utc>>,
 }
 
 impl Default for LocalLicenseState {
@@ -43,6 +45,8 @@ impl Default for LocalLicenseState {
             status: LicenseStatus::Inactive,
             license_type: None,
             expires_at: None,
+            ref_code: None,
+            ref_code_expires_at: None,
         }
     }
 }
@@ -80,6 +84,8 @@ pub struct ActivateResponse {
     pub status: String,
     pub license_type: String,
     pub expires_at: Option<DateTime<Utc>>,
+    pub ref_code: Option<String>,
+    pub ref_code_expires_at: Option<DateTime<Utc>>,
 }
 
 // Structure to deserialize API error responses

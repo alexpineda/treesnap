@@ -24,6 +24,8 @@ pub struct DebugLicenseParams {
     status: Option<String>,
     license_type: Option<String>,
     expires_at_offset_days: Option<i64>,
+    expire_ref_code_at_offset_days: Option<i64>,
+    ref_code: Option<String>,
 }
 
 /// Sets the local license state for debugging purposes.
@@ -72,6 +74,16 @@ pub async fn debug_set_license_state(
     if new_license_state.status == LicenseStatus::Activated {
         app_state.usage = LocalUsageStats::default();
         info!("License activated via debug, resetting usage stats.");
+    }
+
+    if let Some(offset_days) = params.expire_ref_code_at_offset_days {
+        let now = Utc::now();
+        let new_expiry = now + ChronoDuration::days(offset_days);
+        new_license_state.ref_code_expires_at = Some(new_expiry);
+    }
+
+    if let Some(ref_code) = params.ref_code {
+        new_license_state.ref_code = Some(ref_code);
     }
 
     app_state.license = new_license_state;

@@ -1,15 +1,47 @@
 import { useState, useEffect } from "react";
-import { X } from "lucide-react";
+import { X, CopyIcon } from "lucide-react";
 import { getVersion, confirm, check, relaunch } from "@/platform";
 import { TreeOption } from "../types";
 import { useLicense } from "../hooks/use-license";
 import { LicenseArea } from "./license/license-area";
 
+// Helper function to check if a date string is in the future
+const isDateInFuture = (dateString: string | null | undefined): boolean => {
+  if (!dateString) return false;
+  try {
+    const expiryDate = new Date(dateString);
+    return expiryDate > new Date();
+  } catch (e) {
+    console.error("Error parsing date:", e);
+    return false; // Treat invalid dates as expired
+  }
+};
+
 export const Settings = ({ onClose }: { onClose: () => void }) => {
   const [treeOption, setTreeOption] = useState<TreeOption>("include");
   const [showActivationForm, setShowActivationForm] = useState(false);
   const [appVersion, setAppVersion] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const license = useLicense();
+
+  // Helper function to copy text to clipboard
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000); // Hide message after 2 seconds
+      },
+      (err) => {
+        console.error("Could not copy text: ", err);
+        alert("Failed to copy link."); // Provide feedback on failure
+      }
+    );
+  };
+
+  // Check if the referral code is active
+  const isRefCodeActive =
+    license.localLicenseState?.refCode &&
+    isDateInFuture(license.localLicenseState.refCodeExpiresAt);
 
   useEffect(() => {
     getVersion()
@@ -18,6 +50,15 @@ export const Settings = ({ onClose }: { onClose: () => void }) => {
       })
       .catch(console.error);
   }, []);
+
+  const expiresInDays =
+    isRefCodeActive &&
+    license.localLicenseState?.refCodeExpiresAt &&
+    Math.floor(
+      (new Date(license.localLicenseState.refCodeExpiresAt).getTime() -
+        new Date().getTime()) /
+        (1000 * 60 * 60 * 24)
+    );
 
   const handleCheckForUpdates = async () => {
     if (license.localLicenseState?.status === "expired") {
@@ -201,6 +242,75 @@ export const Settings = ({ onClose }: { onClose: () => void }) => {
               <LicenseArea showActivationUnderLimit={true} />
             )}
           </div>
+        )}
+
+        {/* ───────────────── Referral card ───────────────── */}
+        {isRefCodeActive && (
+          <>
+            <hr className="border-gray-600" />
+            <div className="space-y-3">
+              <h3 className="text-base font-medium mb-2 text-gray-200">
+                Refer a Friend
+              </h3>
+              <div className="w-full">
+                <div className="relative rounded-lg bg-gradient-to-br from-indigo-500 to-violet-700 p-[1.5px] shadow-md">
+                  <div className="rounded-[inherit] bg-gray-700 backdrop-blur-sm p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-100">
+                        Share & friends save&nbsp;
+                        <span className="inline-flex items-center gap-1 text-indigo-300">
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M22 12h-4l-3 9-4-18-3 9H2" />
+                          </svg>
+                          20% off
+                        </span>
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        You'll earn&nbsp;<b>+1 seat</b>&nbsp;after 3 purchases.
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        Expires in&nbsp;
+                        <b>{expiresInDays}</b> days
+                      </p>
+                    </div>
+
+                    <div className="sm:w-auto w-full">
+                      <button
+                        onClick={() => {
+                          copyToClipboard(
+                            `https://reposnap.io/?ref=${license.localLicenseState?.refCode}`
+                          );
+                        }}
+                        className="cursor-pointer group w-full inline-flex items-center justify-center gap-2
+                                 rounded-md bg-indigo-600 py-1.5 px-3 text-white text-sm
+                                 hover:bg-indigo-500 active:scale-[.98] transition"
+                      >
+                        <span className="truncate">
+                          reposnap.io/?ref=
+                          <b>{license.localLicenseState?.refCode}</b>
+                        </span>
+                        <CopyIcon className="w-4 h-4 flex-shrink-0 group-active:scale-95 transition" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <p
+                  className={`mt-2 text-center text-sm text-gray-400 transition-opacity ${
+                    copied ? "opacity-100" : "opacity-0"
+                  }`}
+                >
+                  Link copied!
+                </p>
+              </div>
+            </div>
+          </>
         )}
 
         <hr className="border-gray-600" />

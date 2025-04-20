@@ -30,6 +30,8 @@ export interface LocalLicenseState {
   status: "inactive" | "activated" | "expired";
   licenseType?: "basic" | "standard" | "team";
   expiresAt?: string | null;
+  refCode?: string | null;
+  refCodeExpiresAt?: string | null;
 }
 
 export interface ApiError {

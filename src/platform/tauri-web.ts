@@ -283,6 +283,8 @@ export interface DebugLicenseParams {
   status?: LocalLicenseState["status"];
   licenseType?: LocalLicenseState["licenseType"];
   expiresAtOffsetDays?: number;
+  expireRefCodeAtOffsetDays?: number;
+  refCode?: string;
 }
 
 export const debugSetLicenseState = async (

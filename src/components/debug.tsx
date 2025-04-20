@@ -21,6 +21,10 @@ export const DebugLicenseControls = () => {
   const [expiryOffset, setExpiryOffset] = useState<number | undefined>(
     undefined
   );
+  const [refCode, setRefCode] = useState<string | undefined>(undefined);
+  const [refCodeExpiryOffset, setRefCodeExpiryOffset] = useState<
+    number | undefined
+  >(undefined);
   const [usageCount, setUsageCount] = useState<number | undefined>(undefined);
   const [localState, setLocalState] = useState<LocalLicenseState | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -55,6 +59,8 @@ export const DebugLicenseControls = () => {
       status: status,
       licenseType: licenseType,
       expiresAtOffsetDays: expiryOffset,
+      expireRefCodeAtOffsetDays: refCodeExpiryOffset,
+      refCode: refCode,
     };
     const success = await setLicenseState(params);
     if (success) {
@@ -247,6 +253,39 @@ export const DebugLicenseControls = () => {
               {isLoading ? "Adding..." : "Add Entries"}
             </button>
           </div>
+        </div>
+
+        <div className="space-y-2 border p-3 rounded">
+          <h4 className="font-semibold text-gray-700">Set Referral Code</h4>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              type="text"
+              placeholder="Referral Code"
+              value={refCode}
+              onChange={(e) => setRefCode(e.target.value)}
+              className="w-full p-2 border border-gray-300 rounded shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+            />
+            <input
+              type="number"
+              placeholder="Expiry Offset (days)"
+              value={refCodeExpiryOffset}
+              onChange={(e) =>
+                setRefCodeExpiryOffset(
+                  e.target.value === ""
+                    ? undefined
+                    : parseInt(e.target.value, 10)
+                )
+              }
+              className="w-full p-2 border border-gray-300 rounded shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+            />
+          </div>
+          <button
+            onClick={handleSetLicense}
+            disabled={isLoading}
+            className="mt-2 px-3 py-1.5 text-sm font-medium rounded shadow-sm text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isLoading ? "Setting..." : "Set Referral Code"}
+          </button>
         </div>
       </div>
       <div className="mt-4 pt-4 border-t border-gray-200">
