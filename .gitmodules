@@ -1,0 +1,3 @@
+[submodule "src/platform/demo/repos/nanoid"]
+	path = src/platform/demo/repos/nanoid
+	url = https://github.com/ai/nanoid

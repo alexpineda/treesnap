@@ -11,7 +11,9 @@ import {
   DEMO_WORKSPACE_PATH,
   createDemoFileTree,
   DEMO_FILE_TOKENS,
-} from "./demo/demo-files"; // Import demo data
+  DEMO_FILE_TOKENS_COPY_TO_CLIPBOARD,
+} from "./demo/demo-repo";
+import { renderAsciiTree } from "./demo/render-ascii-tree";
 
 // --- Basic App Info & Control ---
 
@@ -89,7 +91,7 @@ export const getFileTree = async (
   void withTokensSync;
   console.log(`WEB SHIM: getFileTree('${dirPath}') called.`);
   if (dirPath === DEMO_WORKSPACE_PATH) {
-    return Promise.resolve(createDemoFileTree());
+    return Promise.resolve(createDemoFileTree(dirPath));
   }
   console.warn(
     `WEB SHIM: getFileTree called with non-demo path ('${dirPath}'), returning empty tree.`
@@ -107,7 +109,7 @@ export const openWorkspace = async (
   console.log(`WEB SHIM: openWorkspace('${dirPath}') called.`);
   if (dirPath === DEMO_WORKSPACE_PATH) {
     return Promise.resolve({
-      tree: createDemoFileTree(),
+      tree: createDemoFileTree(dirPath),
       error: null,
     });
   }
@@ -135,13 +137,23 @@ export const copyFilesWithTreeToClipboard = async (
   selectedFilePaths: string[],
   treeOption: TreeOption
 ): Promise<void> => {
-  void dirPath;
-  void selectedFilePaths;
-  void treeOption;
+  void treeOption; // Acknowledge unused parameter
 
-  console.warn(`WEB SHIM: copyFilesWithTreeToClipboard called, not supported.`);
-  alert("Copying files is not supported in the web demo.");
-  return Promise.resolve();
+  // Map the selected file paths to the format expected by renderAsciiTree.
+  // In a real scenario, you'd fetch token counts here.
+  const filesForTree = selectedFilePaths.map((path) => ({
+    path,
+    // tokenCount: undefined, // Or fetch actual counts if available
+  }));
+
+  const tree = renderAsciiTree(filesForTree, dirPath);
+
+  // TODO: In a real scenario, you would fetch file contents here
+  // and concatenate them with the tree.
+  const textToCopy = `${tree}\n\n${DEMO_FILE_TOKENS_COPY_TO_CLIPBOARD}`;
+
+  await navigator.clipboard.writeText(textToCopy);
+  // No return needed for Promise<void>
 };
 
 // --- Recent Workspaces (Now includes Demo) ---
@@ -203,9 +215,7 @@ export class TauriApiError extends Error {
 export const activateLicense = async (
   licenseKey: string
 ): Promise<LicenseStateResponse> => {
-  console.warn(
-    `WEB SHIM: activateLicense('${licenseKey}') called, simulating failure.`
-  );
+  void licenseKey;
   // Simulate API call delay
   await new Promise((resolve) => setTimeout(resolve, 500));
   return Promise.resolve({
@@ -234,7 +244,6 @@ export const getLocalLicenseState = async (): Promise<LicenseStateResponse> => {
 export const checkWorkspaceLimit = async (): Promise<{
   error: TauriApiErrorInternal | null;
 }> => {
-  console.log("WEB SHIM: checkWorkspaceLimit called (always passes).");
   return Promise.resolve({ error: null });
 };
 
@@ -249,20 +258,19 @@ export interface DebugLicenseParams {
 export const debugSetLicenseState = async (
   params: DebugLicenseParams
 ): Promise<{ error: TauriApiError | null }> => {
-  console.warn("WEB SHIM: debugSetLicenseState called (no-op).", params);
+  void params;
   return Promise.resolve({ error: null });
 };
 
 export const debugClearLicenseState = async (): Promise<{
   error: TauriApiError | null;
 }> => {
-  console.warn("WEB SHIM: debugClearLicenseState called (no-op).");
   return Promise.resolve({ error: null });
 };
 
 export const debugAddUsageEntries = async (
   count: number
 ): Promise<{ error: TauriApiError | null }> => {
-  console.warn(`WEB SHIM: debugAddUsageEntries(${count}) called (no-op).`);
+  void count;
   return Promise.resolve({ error: null });
 };

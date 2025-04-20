@@ -10,10 +10,19 @@ import type { FileTreeNode } from "../../types";
  *
  * Put your OSS repo under ./demo-repos/<name>  (any folder inside src or public)
  */
-const modules = import.meta.glob("/demo-repos/nanoid/**", {
-  as: "raw",
-  eager: true,
-}) as Record<string, string>;
+
+const ROOT_PATH = "./repos";
+export const DEMO_WORKSPACE_PATH = "./repos/nanoid";
+const workspaces: Record<string, Record<string, string>> = {
+  "./repos/nanoid": import.meta.glob("./repos/nanoid/**", {
+    as: "raw",
+    eager: true,
+  }) as Record<string, string>,
+};
+// const modules = import.meta.glob("./repos/nanoid/**", {
+//   as: "raw",
+//   eager: true,
+// }) as Record<string, string>;
 
 /** crude “token” count = number of whitespace‑separated words */
 const countTokens = (text: string) => text.trim().split(/\s+/).length;
@@ -45,7 +54,6 @@ export function buildFileTree(
       list.push(node);
     }
     if (isDir) insert(parts, idx + 1, node.children!, fullPath, tokens);
-    else node.tokenCount = tokens;
   };
 
   const tree: FileTreeNode[] = [];
@@ -71,16 +79,33 @@ export function buildFileTree(
 }
 
 /* ---------- PUBLIC API USED BY THE APP ---------- */
+let _workspace: Record<string, string> | null = null;
 
-export const DEMO_WORKSPACE_PATH = "/demo-repos/nanoid";
-const entries = Object.entries(modules);
+const getWorkspace = (workspacePath: string) => {
+  if (!_workspace) {
+    _workspace = workspaces[workspacePath];
+  }
+  return _workspace;
+};
+
+const getEntries = (workspacePath: string) => {
+  return Object.entries(getWorkspace(workspacePath));
+};
+
+const entries = Object.entries(workspaces[DEMO_WORKSPACE_PATH]);
 
 export const DEMO_FILE_TOKENS: Record<string, number> = Object.fromEntries(
   entries.map(([p, src]) => [p, countTokens(src)])
 );
 
-export const createDemoFileTree = () =>
-  buildFileTree(DEMO_WORKSPACE_PATH, entries);
+export const createDemoFileTree = (workspacePath: string) => {
+  const workspace = workspaces[workspacePath];
+  if (!workspace) {
+    alert(`Workspace ${workspacePath} not found`);
+    return [];
+  }
+  return buildFileTree(ROOT_PATH, entries);
+};
 
 export const DEMO_FILE_TOKENS_COPY_TO_CLIPBOARD = entries
   .map(([p]) => p)

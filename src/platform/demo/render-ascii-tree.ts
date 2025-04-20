@@ -1,62 +1,95 @@
 // utils/demo-export.ts -------------------------------------------------
 
 /**
- * Render a minimal ASCII tree for the subset of files we’re exporting.
+ * Render a minimal ASCII tree for the subset of files we're exporting.
  *      .
  *      ├── src
- *      │   └── index.ts  (123 tokens)
- *      └── package.json  (17 tokens)
+ *      │   └── index.ts  (123 tokens)
+ *      └── package.json  (17 tokens)
  */
+
+// Define the Node structure used internally
+type Node = {
+  name: string;
+  children?: Record<string, Node>;
+  tokens?: number; // Keep token info if available
+  isDir: boolean;
+};
+
+// Recursive helper function to render the tree
+function renderNode(node: Node, prefix = "", isLast = true): string {
+  const lines: string[] = [];
+  const connector = isLast ? "└── " : "├── ";
+  const tokenSuffix =
+    node.tokens !== undefined ? `  (${node.tokens} tokens)` : "";
+
+  lines.push(
+    prefix + connector + node.name + (node.isDir ? "/" : "") + tokenSuffix
+  );
+
+  if (node.children) {
+    const childPrefix = prefix + (isLast ? "    " : "│   ");
+    const entries = Object.values(node.children).sort((a, b) =>
+      a.name.localeCompare(b.name)
+    ); // Sort children alphabetically
+
+    entries.forEach((child, idx) => {
+      lines.push(
+        ...renderNode(child, childPrefix, idx === entries.length - 1).split(
+          "\n"
+        )
+      );
+    });
+  }
+
+  return lines.filter(Boolean).join("\n"); // Filter out potential empty lines
+}
+
 export function renderAsciiTree(
   files: { path: string; tokenCount?: number }[],
   rootDir: string
 ): string {
-  // normalise → relative paths
-  const rels = files.map((f) => ({
-    parts: f.path
-      .replace(rootDir, "")
-      .replace(/^[/\\]/, "")
-      .split(/[/\\]/),
-    path: f.path,
-    tokens: f.tokenCount ?? 0,
-  }));
+  // Build the nested object tree
+  const root: Node = { name: ".", isDir: true };
 
-  // build a nested object tree
-  type Node = {
-    name: string;
-    children?: Record<string, Node>;
-    tokens?: number;
-  };
-  const root: Node = { name: "." };
+  for (const file of files) {
+    // Normalize path relative to rootDir
+    let relativePath = file.path.replace(rootDir, "");
+    // Remove leading slash (either / or \)
+    if (relativePath.startsWith("/") || relativePath.startsWith("\\")) {
+      relativePath = relativePath.substring(1);
+    }
+    if (!relativePath) continue; // Skip if it's the root directory itself
 
-  for (const { parts, tokens } of rels) {
-    let cur = root;
-    parts.forEach((seg, i) => {
-      cur.children ??= {};
-      cur = cur.children[seg] ??= { name: seg };
-      if (i === parts.length - 1) cur.tokens = tokens;
+    const parts = relativePath.split(/[\\/]/); // Split by / or \
+    let current = root;
+
+    parts.forEach((part, i) => {
+      current.children ??= {};
+      const isLastPart = i === parts.length - 1;
+      if (!current.children[part]) {
+        current.children[part] = { name: part, isDir: !isLastPart };
+      }
+      // Update isDir flag if we encounter the same name as a directory later
+      current.children[part].isDir =
+        current.children[part].isDir || !isLastPart;
+
+      current = current.children[part];
+      if (isLastPart) {
+        current.tokens = file.tokenCount; // Assign token count to the file node
+      }
     });
   }
 
-  // DFS printer
-  const lines: string[] = [];
-  const walk = (node: Node, prefix = "", isLast = true) => {
-    if (node !== root) {
-      const connector = isLast ? "└── " : "├── ";
-      const tokenSuffix =
-        node.tokens !== undefined ? `  (${node.tokens} tokens)` : "";
-      lines.push(prefix + connector + node.name + tokenSuffix);
-      prefix += isLast ? "    " : "│   ";
-    }
-    if (node.children) {
-      const entries = Object.values(node.children);
-      entries.forEach((child, idx) =>
-        walk(child, prefix, idx === entries.length - 1)
-      );
-    }
-  };
-  walk(root);
-  return lines.join("\n");
+  // Render the tree starting from the root's children
+  const rootEntries = Object.values(root.children ?? {}).sort((a, b) =>
+    a.name.localeCompare(b.name)
+  );
+  const treeLines = rootEntries.map((node, idx) =>
+    renderNode(node, "", idx === rootEntries.length - 1)
+  );
+
+  return ".\n" + treeLines.join("\n");
 }
 
 /** produces the final blob we put on the clipboard */
