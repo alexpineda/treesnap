@@ -138,8 +138,6 @@ export const copyFilesWithTreeToClipboard = async (
 ): Promise<void> => {
   void treeOption; // Acknowledge unused parameter
 
-  // Map the selected file paths to the format expected by renderAsciiTree.
-  // In a real scenario, you'd fetch token counts here.
   const filesForTree = selectedFilePaths.map((path) => ({
     path,
     // tokenCount: undefined, // Or fetch actual counts if available
@@ -147,8 +145,45 @@ export const copyFilesWithTreeToClipboard = async (
 
   const tree = buildDemoExportText(dirPath, filesForTree);
 
-  await navigator.clipboard.writeText(tree);
-  // No return needed for Promise<void>
+  // Check if running inside an iframe
+  const isInsideIframe = window.self !== window.top;
+
+  if (isInsideIframe) {
+    // Running in iframe: Send message to the parent window (your main site)
+    console.log("Attempting postMessage to parent");
+    const targetOrigin = "https://www.reposnap.io";
+    try {
+      // Make sure the parent window exists and has postMessage
+      if (window.parent && typeof window.parent.postMessage === "function") {
+        window.parent.postMessage(
+          { type: "copyToClipboard", text: tree },
+          targetOrigin
+        );
+        // Optional: Show success message in the demo UI
+        console.log("Message posted to parent for clipboard write.");
+      } else {
+        console.error("Cannot access parent window or postMessage function.");
+        // Fallback or error message if parent communication isn't possible
+        alert("Copy is not supported in this browser.");
+      }
+    } catch (error) {
+      console.error("Error posting message to parent:", error);
+      // Provide feedback in the demo UI
+      alert("Copy is not supported in this browser.");
+    }
+  } else {
+    // Running standalone (new tab): Use navigator.clipboard directly
+    console.log("Attempting direct clipboard write");
+    try {
+      await navigator.clipboard.writeText(tree);
+      // Provide feedback in the demo UI
+      alert("Copied to clipboard!");
+    } catch (err) {
+      console.error("Failed to write directly to clipboard:", err);
+      // Provide feedback in the demo UI
+      alert("Copy is not supported in this browser.");
+    }
+  }
 };
 
 // --- Recent Workspaces (Now includes Demo) ---
