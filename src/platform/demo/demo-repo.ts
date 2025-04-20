@@ -80,6 +80,7 @@ export function buildFileTree(
 
 /* ---------- PUBLIC API USED BY THE APP ---------- */
 let _workspace: Record<string, string> | null = null;
+let _fileTokens: Record<string, number> | null = null;
 
 const getWorkspace = (workspacePath: string) => {
   if (!_workspace) {
@@ -88,15 +89,19 @@ const getWorkspace = (workspacePath: string) => {
   return _workspace;
 };
 
-const getEntries = (workspacePath: string) => {
-  return Object.entries(getWorkspace(workspacePath));
+export const getEntries = () => {
+  return Object.entries(_workspace!);
 };
 
-const entries = Object.entries(workspaces[DEMO_WORKSPACE_PATH]);
+const calcDemoFileTokens = (): Record<string, number> =>
+  Object.fromEntries(getEntries().map(([p, src]) => [p, countTokens(src)]));
 
-export const DEMO_FILE_TOKENS: Record<string, number> = Object.fromEntries(
-  entries.map(([p, src]) => [p, countTokens(src)])
-);
+export const getDemoFileTokens = () => {
+  if (!_fileTokens) {
+    _fileTokens = calcDemoFileTokens();
+  }
+  return _fileTokens;
+};
 
 export const createDemoFileTree = (workspacePath: string) => {
   const workspace = workspaces[workspacePath];
@@ -104,9 +109,7 @@ export const createDemoFileTree = (workspacePath: string) => {
     alert(`Workspace ${workspacePath} not found`);
     return [];
   }
-  return buildFileTree(ROOT_PATH, entries);
+  _workspace = workspace;
+  _fileTokens = getDemoFileTokens();
+  return buildFileTree(ROOT_PATH, getEntries());
 };
-
-export const DEMO_FILE_TOKENS_COPY_TO_CLIPBOARD = entries
-  .map(([p]) => p)
-  .join("\n");

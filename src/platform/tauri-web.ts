@@ -10,10 +10,9 @@ import { type ConfirmDialogOptions } from "@tauri-apps/plugin-dialog";
 import {
   DEMO_WORKSPACE_PATH,
   createDemoFileTree,
-  DEMO_FILE_TOKENS,
-  DEMO_FILE_TOKENS_COPY_TO_CLIPBOARD,
+  getDemoFileTokens,
 } from "./demo/demo-repo";
-import { renderAsciiTree } from "./demo/render-ascii-tree";
+import { buildDemoExportText, renderAsciiTree } from "./demo/render-ascii-tree";
 
 // --- Basic App Info & Control ---
 
@@ -68,7 +67,7 @@ export const calculateFileTokens = async (
   console.log(`WEB SHIM: calculateFileTokens('${filePath}')`);
   // Simulate async operation with a delay
   await new Promise((resolve) => setTimeout(resolve, 20)); // Faster delay
-  return Promise.resolve(DEMO_FILE_TOKENS[filePath] ?? 0);
+  return Promise.resolve(getDemoFileTokens()[filePath] ?? 0);
 };
 
 // Return demo token counts for requested files
@@ -79,7 +78,7 @@ export const calculateTokensForFiles = async (
   // Simulate async operation with a delay
   await new Promise((resolve) => setTimeout(resolve, 50)); // Faster delay
   const tokenMap: Record<string, number> = {};
-  filePaths.forEach((p) => (tokenMap[p] = DEMO_FILE_TOKENS[p] ?? 0));
+  filePaths.forEach((p) => (tokenMap[p] = getDemoFileTokens()[p] ?? 0));
   return Promise.resolve(tokenMap);
 };
 
@@ -146,13 +145,9 @@ export const copyFilesWithTreeToClipboard = async (
     // tokenCount: undefined, // Or fetch actual counts if available
   }));
 
-  const tree = renderAsciiTree(filesForTree, dirPath);
+  const tree = buildDemoExportText(dirPath, filesForTree);
 
-  // TODO: In a real scenario, you would fetch file contents here
-  // and concatenate them with the tree.
-  const textToCopy = `${tree}\n\n${DEMO_FILE_TOKENS_COPY_TO_CLIPBOARD}`;
-
-  await navigator.clipboard.writeText(textToCopy);
+  await navigator.clipboard.writeText(tree);
   // No return needed for Promise<void>
 };
 
