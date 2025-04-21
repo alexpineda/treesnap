@@ -82,13 +82,6 @@ export function buildFileTree(
 let _workspace: Record<string, string> | null = null;
 let _fileTokens: Record<string, number> | null = null;
 
-const getWorkspace = (workspacePath: string) => {
-  if (!_workspace) {
-    _workspace = workspaces[workspacePath];
-  }
-  return _workspace;
-};
-
 export const getEntries = () => {
   return Object.entries(_workspace!);
 };

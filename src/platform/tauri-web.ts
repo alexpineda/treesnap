@@ -12,7 +12,7 @@ import {
   createDemoFileTree,
   getDemoFileTokens,
 } from "./demo/demo-repo";
-import { buildDemoExportText, renderAsciiTree } from "./demo/render-ascii-tree";
+import { buildDemoExportText } from "./demo/render-ascii-tree";
 
 // --- Basic App Info & Control ---
 
