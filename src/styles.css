@@ -1,0 +1,7 @@
+.file-row {
+  padding-left: calc(var(--depth) * 16px);
+  display: grid;
+  grid-template-columns: 14px 20px 1fr auto; /* icon+label get the 1fr */
+  column-gap: 0.5rem;
+  align-items: center;
+}

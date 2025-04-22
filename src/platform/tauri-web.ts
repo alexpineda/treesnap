@@ -277,6 +277,9 @@ export const checkWorkspaceLimit = async (): Promise<{
   return Promise.resolve({ error: null });
 };
 
+export const clearCache = async () => {
+  console.log("no-op clear cache");
+};
 // --- Debug License Stubs (No-op) ---
 
 export interface DebugLicenseParams {

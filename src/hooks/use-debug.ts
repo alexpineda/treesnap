@@ -5,6 +5,7 @@ import {
   debugAddUsageEntries,
   DebugLicenseParams,
   TauriApiError,
+  clearCache as clearCachePlatform,
 } from "@/platform";
 
 /**
@@ -52,10 +53,15 @@ export const useDebug = () => {
     return _executeDebugCommand(() => debugAddUsageEntries(count));
   };
 
+  const clearCache = async () => {
+    return clearCachePlatform();
+  };
+
   return {
     setLicenseState,
     clearLicenseState,
     addUsageEntries,
+    clearCache,
     isLoading,
     error,
   };

@@ -12,7 +12,7 @@ import { TopBar } from "./components/top-bar";
 import { useRecentWorkspaces } from "./hooks/use-recent-workspaces";
 import { useWorkspace } from "./hooks/use-workspace";
 import { Settings } from "./components/settings";
-import { calculateFileTokens, openDirectoryDialog } from "@/platform";
+import { calculateTokensForFiles, openDirectoryDialog } from "@/platform";
 import { LicenseArea } from "./components/license/license-area";
 import { DebugLicenseControls } from "./components/debug";
 import { useLicense } from "./hooks/use-license";
@@ -57,55 +57,35 @@ function App() {
       return;
     }
 
-    try {
-      // First sum up all files that already have token counts
-      let total = workspace.selectedFiles.reduce((sum, file) => {
-        if (!file.is_directory && file.tokenCount !== undefined) {
-          return sum + file.tokenCount;
-        }
-        return sum;
-      }, 0);
+    // 1) sum whatever we already have
+    let running = workspace.selectedFiles.reduce(
+      (sum, f) => (!f.is_directory && f.tokenCount ? sum + f.tokenCount : sum),
+      0
+    );
 
-      // Then calculate tokens for files that don't have them yet
-      const filesNeedingCalculation = workspace.selectedFiles.filter(
-        (file) =>
-          !file.is_directory &&
-          (file.tokenCount === undefined || file.isLoading)
+    // 2) collect files still missing counts
+    const pending = workspace.selectedFiles.filter(
+      (f) => !f.is_directory && (f.tokenCount === undefined || f.isLoading)
+    );
+
+    const BATCH = 25; // any size you like
+    for (let i = 0; i < pending.length; i += BATCH) {
+      const slice = pending.slice(i, i + BATCH);
+      const paths = slice.map((f) => f.path);
+
+      const tokenMap = await calculateTokensForFiles(paths); // ONE IPC per batch
+
+      // update selection → clears per‑file spinners
+      workspace.setSelectedFiles((prev) =>
+        prev.map((f) =>
+          tokenMap[f.path] !== undefined
+            ? { ...f, tokenCount: tokenMap[f.path], isLoading: false }
+            : f
+        )
       );
 
-      if (filesNeedingCalculation.length > 0) {
-        // Calculate tokens in batches of 5
-        const batchSize = 5;
-        for (let i = 0; i < filesNeedingCalculation.length; i += batchSize) {
-          const batch = filesNeedingCalculation.slice(i, i + batchSize);
-          const counts = await Promise.all(
-            batch.map((file) => calculateFileTokens(file.path))
-          );
-
-          // Update the selected files with new token counts
-          workspace.setSelectedFiles((prev) =>
-            prev.map((file) => {
-              const batchIndex = batch.findIndex((f) => f.path === file.path);
-              if (batchIndex !== -1) {
-                return {
-                  ...file,
-                  tokenCount: counts[batchIndex],
-                  isLoading: false,
-                };
-              }
-              return file;
-            })
-          );
-
-          // Add to total
-          total += counts.reduce((sum, count) => sum + count, 0);
-          setTotalTokens(total);
-        }
-      }
-
-      setTotalTokens(total);
-    } catch (err) {
-      console.error("Error calculating tokens:", err);
+      running += Object.values(tokenMap).reduce((s, n) => s + n, 0);
+      setTotalTokens(running); // progressive total
     }
   };
 

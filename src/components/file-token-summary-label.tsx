@@ -24,7 +24,7 @@ export const FileTokenSummaryLabel = ({
           {formatTokens(totalTokens)} tokens
         </span>
         {hasLoadingFiles && (
-          <span className="animate-pulse flex-shrink-0">
+          <span className="animate-pulse flex-shrink-0 text-white">
             <Loader2 className="w-4 h-4 animate-spin" />
           </span>
         )}

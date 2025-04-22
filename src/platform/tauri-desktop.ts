@@ -58,7 +58,7 @@ export const calculateFileTokens = async (filePath: string) => {
 export const calculateTokensForFiles = async (filePaths: string[]) => {
   const tokenMap = await invoke<Record<string, number>>(
     "calculate_tokens_for_files",
-    { file_paths: filePaths }
+    { filePaths: filePaths }
   );
   return tokenMap;
 };
@@ -228,6 +228,10 @@ export const checkWorkspaceLimit = async (): Promise<{
     const { error: apiError } = createErrorResponse(error);
     return { error: apiError };
   }
+};
+
+export const clearCache = async () => {
+  await invoke<void>("clear_cache");
 };
 
 // --- Debug License Commands (DEV ONLY) ---

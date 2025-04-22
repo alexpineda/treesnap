@@ -134,6 +134,16 @@ async fn close_workspace(
     watcher_service::stop_watcher_internal(&watcher_state.0)
 }
 
+/// Clears the token calculation cache.
+#[tauri::command]
+async fn clear_cache(
+    app_handle: AppHandle,
+    cache_state: State<'_, cache_service::CacheState>,
+) -> Result<(), String> {
+    info!("Clearing cache via Tauri command...");
+    cache_service::clear_cache_internal(&app_handle, &cache_state)
+}
+
 // Define the LicenseClient state struct here as it's managed by the builder
 pub struct LicenseClient(Mutex<Client>);
 
@@ -300,6 +310,7 @@ pub fn run() {
             check_workspace_limit,
             watcher_service::start_watching_command,
             watcher_service::stop_watching_command,
+            clear_cache,
             // Add debug handlers only in debug builds
             #[cfg(debug_assertions)]
             license_debug::debug_set_license_state,

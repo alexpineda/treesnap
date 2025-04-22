@@ -150,3 +150,60 @@ pub fn update_cache(
     cache_guard.insert(path, entry);
     Ok(())
 }
+
+/// Clears both the in-memory cache and the persisted cache file.
+pub fn clear_cache_internal(
+    app_handle: &AppHandle,
+    cache_state: &State<'_, CacheState>,
+) -> Result<(), String> {
+    info!("Clearing token cache...");
+
+    // Clear in-memory cache
+    {
+        let mut cache_guard = cache_state
+            .0
+            .lock()
+            .map_err(|_| "Failed to lock cache mutex for clearing".to_string())?;
+        cache_guard.clear();
+        info!("In-memory cache cleared.");
+    } // Mutex guard dropped here
+
+    // Clear persisted cache file
+    let path = Path::new(CACHE_STORE_FILENAME);
+    match app_handle.store(path) {
+        Ok(store) => {
+            if store.has("token_cache") {
+                store.delete("token_cache");
+                match store.save() {
+                    Ok(_) => info!("Persisted cache key 'token_cache' cleared."),
+                    Err(e) => {
+                        // Log error but don't necessarily fail the whole operation
+                        error!("Failed to save store after deleting cache key: {:?}", e);
+                    }
+                }
+            } else {
+                info!("No persisted cache key 'token_cache' found to clear.");
+            }
+
+            // Optionally, you could try deleting the entire store file,
+            // but tauri-plugin-store might recreate it. Deleting the key is safer.
+            // if path.exists() {
+            //     match fs::remove_file(path) {
+            //         Ok(_) => info!("Cache store file deleted: {}", path.display()),
+            //         Err(e) => error!("Failed to delete cache store file: {}", e), // Log error but proceed
+            //     }
+            // }
+        }
+        Err(e) => {
+            // Log error, but don't fail if we couldn't access the store,
+            // maybe it just didn't exist yet.
+            error!(
+                "Failed to access store file ({}) for clearing: {}. In-memory cache was still cleared.",
+                path.display(),
+                e
+            );
+        }
+    }
+
+    Ok(())
+}

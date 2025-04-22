@@ -113,8 +113,6 @@ export const FileTree = ({
     onFoldersExpandedOrCollapsed(newSet);
   };
 
-  const hasFolders = nodes.some((node) => node.is_directory);
-
   return nodes.map((node) => {
     const isFolder = node.is_directory;
     const isExpanded = expandedFolders.has(node.path);
@@ -128,38 +126,27 @@ export const FileTree = ({
     return (
       <div
         key={node.path}
-        // style={{ marginLeft: `${level * 8}px` }}
-        style={{ marginLeft: `calc(var(--spacing) * ${level})` }}
         data-level={level}
+        // style={{ marginLeft: `${level * 16}px` }}
       >
-        <div className="flex items-center text-sm gap-2 overflow-hidden">
-          {isFolder && (
+        <div
+          className="file-row text-sm overflow-hidden"
+          style={{ "--depth": level } as React.CSSProperties}
+        >
+          {isFolder ? (
             <FolderToggle
-              className="pl-4 py-1"
+              className="py-1"
               isExpanded={isExpanded}
               onClick={() => toggleFolder(node.path)}
             />
+          ) : (
+            <span />
           )}
-          {/* {!isFolder && (
-            <div
-              className={classNames({
-                "w-6": hasFolders,
-                "w-3": !hasFolders,
-              })}
-            />
-          )} */}
           <CustomCheckbox
             checked={isFolder ? selectionState === "all" : isSelected}
             indeterminate={isFolder && selectionState === "partial"}
             onChange={() => handleFileSelect(node)}
-            className={classNames("flex-shrink-0 py-1", {})}
-            style={{
-              marginLeft: !isFolder
-                ? !hasFolders
-                  ? `calc(var(--spacing) * 4 + 14px)`
-                  : "calc(var(--spacing)*4)"
-                : "0",
-            }}
+            className="py-1"
           />
 
           <FileIconAndLabel
