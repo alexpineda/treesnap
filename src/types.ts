@@ -1,5 +1,5 @@
 import type { Workspace } from "./hooks/use-workspace";
-
+import type { TauriApiError } from "./platform/shared";
 export type { Workspace };
 export interface FileTreeNode {
   name: string;
@@ -43,4 +43,12 @@ export interface ApplicationSettings {
   schemaVersion: number;
   appVersion: string;
   treeOption: TreeOption;
+}
+
+export interface WorkspaceLimitStatus {
+  allowed: boolean;
+  used: number;
+  limit: number;
+  // client side only
+  error: TauriApiError | null;
 }

@@ -13,17 +13,18 @@ import { useRecentWorkspaces } from "./hooks/use-recent-workspaces";
 import { useWorkspace } from "./hooks/use-workspace";
 import { Settings } from "./components/settings";
 import { calculateTokensForFiles, openDirectoryDialog } from "@/platform";
-import { LicenseArea } from "./components/license/license-area";
 import { DebugLicenseControls } from "./components/debug";
 import { useLicense } from "./hooks/use-license";
 import { useApplicationSettings } from "./hooks/use-application-settings";
+import { WorkspaceLimitBanner } from "./components/license/workspace-limit-banner";
+import { UpdateAvailable } from "./components/license/update-available";
 
 function App() {
   const [totalTokens, setTotalTokens] = useState(0);
   const [isShowingSettings, setIsShowingSettings] = useState(false);
   const { recentWorkspaces, addToRecentWorkspaces } = useRecentWorkspaces();
   const workspace = useWorkspace(addToRecentWorkspaces);
-  const { workspaceLimitError, localLicenseState } = useLicense();
+  const { workspaceLimitStatus, localLicenseState } = useLicense();
   const { settings, saveSettings } = useApplicationSettings();
 
   useEffect(() => {
@@ -121,7 +122,7 @@ function App() {
 
   // Calculate if the quick open button should be shown
   const showQuickOpenButton = !(
-    localLicenseState?.status === "inactive" && workspaceLimitError
+    localLicenseState?.status === "inactive" && workspaceLimitStatus?.allowed
   );
 
   if (!settings) {
@@ -141,6 +142,13 @@ function App() {
   return (
     <div className="flex h-screen flex-col bg-gray-900">
       <div className="flex flex-1 overflow-hidden">
+        {isShowingSettings && (
+          <Settings
+            settings={settings}
+            onClose={() => setIsShowingSettings(!isShowingSettings)}
+            onSave={saveSettings}
+          />
+        )}
         <PanelGroup direction="horizontal" className="flex-1">
           {/* File Navigation Sidebar */}
           <Panel
@@ -254,72 +262,64 @@ function App() {
                     </div>
                   </div> */}
 
-                  {isShowingSettings ? (
-                    <Settings
-                      settings={settings}
-                      onClose={() => setIsShowingSettings(!isShowingSettings)}
-                      onSave={saveSettings}
-                    />
-                  ) : (
-                    <div className="flex-1 overflow-y-auto px-4">
-                      <div className="flex flex-col gap-4 h-full">
-                        <PanelGroup direction="vertical" className="flex-1">
-                          <Panel defaultSize={25} className="overflow-y-auto">
-                            <SelectionSummary
-                              selectedFiles={workspace.selectedFiles}
-                              dir={workspace.workspacePath}
-                              totalTokens={totalTokens}
-                              groupByDirectory={true}
-                              onSorted={(files) => {
-                                workspace.setSelectedFiles(files);
-                              }}
-                              onDeselect={(file) => {
-                                if (file.is_directory) {
-                                  // If it's a directory header, deselect all files in that directory
-                                  const dirPath = file.path.replace(
-                                    "_header",
-                                    ""
-                                  );
-                                  const normalizedDirPath = dirPath.startsWith(
-                                    "/"
-                                  )
-                                    ? dirPath
-                                    : `/${dirPath}`;
-                                  workspace.setSelectedFiles((prev) =>
-                                    prev.filter((f) => {
-                                      // Skip directory headers
-                                      if (f.is_directory) return true;
-                                      // Check if file is in the directory
-                                      const fileDir = f.path.substring(
-                                        0,
-                                        f.path.lastIndexOf("/")
-                                      );
-                                      return !fileDir.startsWith(
-                                        normalizedDirPath
-                                      );
-                                    })
-                                  );
-                                } else {
-                                  // If it's a file, just deselect that file
-                                  workspace.setSelectedFiles((prev) =>
-                                    prev.filter((f) => f.path !== file.path)
-                                  );
-                                }
-                              }}
-                            />
-                          </Panel>
-                          <PanelResizeHandle className="h-1 bg-gray-700 hover:bg-gray-700 transition-colors" />
-                          <Panel defaultSize={75}>
-                            <TreeMap
-                              selectedFiles={workspace.selectedFiles}
-                              totalTokens={totalTokens}
-                              className="flex-1"
-                            />
-                          </Panel>
-                        </PanelGroup>
-                      </div>
+                  <div className="flex-1 overflow-y-auto px-4">
+                    <div className="flex flex-col gap-4 h-full">
+                      <PanelGroup direction="vertical" className="flex-1">
+                        <Panel defaultSize={25} className="overflow-y-auto">
+                          <SelectionSummary
+                            selectedFiles={workspace.selectedFiles}
+                            dir={workspace.workspacePath}
+                            totalTokens={totalTokens}
+                            groupByDirectory={true}
+                            onSorted={(files) => {
+                              workspace.setSelectedFiles(files);
+                            }}
+                            onDeselect={(file) => {
+                              if (file.is_directory) {
+                                // If it's a directory header, deselect all files in that directory
+                                const dirPath = file.path.replace(
+                                  "_header",
+                                  ""
+                                );
+                                const normalizedDirPath = dirPath.startsWith(
+                                  "/"
+                                )
+                                  ? dirPath
+                                  : `/${dirPath}`;
+                                workspace.setSelectedFiles((prev) =>
+                                  prev.filter((f) => {
+                                    // Skip directory headers
+                                    if (f.is_directory) return true;
+                                    // Check if file is in the directory
+                                    const fileDir = f.path.substring(
+                                      0,
+                                      f.path.lastIndexOf("/")
+                                    );
+                                    return !fileDir.startsWith(
+                                      normalizedDirPath
+                                    );
+                                  })
+                                );
+                              } else {
+                                // If it's a file, just deselect that file
+                                workspace.setSelectedFiles((prev) =>
+                                  prev.filter((f) => f.path !== file.path)
+                                );
+                              }
+                            }}
+                          />
+                        </Panel>
+                        <PanelResizeHandle className="h-1 bg-gray-700 hover:bg-gray-700 transition-colors" />
+                        <Panel defaultSize={75}>
+                          <TreeMap
+                            selectedFiles={workspace.selectedFiles}
+                            totalTokens={totalTokens}
+                            className="flex-1"
+                          />
+                        </Panel>
+                      </PanelGroup>
                     </div>
-                  )}
+                  </div>
                 </>
               )}
               {workspace.status === "not-loaded" && (
@@ -341,10 +341,16 @@ function App() {
                       </div>
                     </div>
                   ) : (
-                    <>
-                      <LicenseArea />
+                    <div className="flex flex-col gap-4">
+                      {workspaceLimitStatus && (
+                        <WorkspaceLimitBanner
+                          workspaceLimitStatus={workspaceLimitStatus}
+                          onActivate={() => setIsShowingSettings(true)}
+                        />
+                      )}
+                      {workspaceLimitStatus?.allowed && <UpdateAvailable />}
                       <DebugLicenseControls />
-                    </>
+                    </div>
                   )}
                 </div>
               )}

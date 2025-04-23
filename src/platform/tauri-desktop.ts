@@ -6,6 +6,7 @@ import {
   RecentWorkspace,
   LocalLicenseState,
   ApplicationSettings,
+  WorkspaceLimitStatus,
 } from "../types";
 import { Store, load } from "@tauri-apps/plugin-store";
 import {
@@ -24,6 +25,14 @@ import {
   type Event,
   type UnlistenFn,
 } from "@tauri-apps/api/event";
+import {
+  isTauriApiError,
+  LicenseStateResponse,
+  TauriApiErrorInternal,
+  TauriApiError,
+} from "./shared";
+
+export { TauriApiError };
 
 export const listen = <T>(
   event: string,
@@ -131,35 +140,6 @@ export const openDirectoryDialog = async () => {
 };
 
 // --- License Service Functions ---
-type TauriApiErrorInternal = {
-  code: string;
-  message: string;
-};
-
-type LicenseStateResponse = {
-  state: LocalLicenseState | null;
-  error: TauriApiError | null;
-};
-
-export class TauriApiError extends Error {
-  constructor(message: string, public code: string) {
-    super(message);
-  }
-  static fromInternal(error: TauriApiErrorInternal): TauriApiError {
-    return new TauriApiError(error.message, error.code);
-  }
-}
-
-function isTauriApiError(error: any): error is TauriApiErrorInternal {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    typeof error.code === "string" &&
-    "message" in error &&
-    typeof error.message === "string"
-  );
-}
 
 function createErrorResponse(error: unknown): LicenseStateResponse {
   console.error(error);
@@ -217,17 +197,20 @@ export const getLocalLicenseState = async (): Promise<LicenseStateResponse> => {
   }
 };
 
-export const checkWorkspaceLimit = async (): Promise<{
-  error: TauriApiErrorInternal | null;
-}> => {
+export const checkWorkspaceLimit = async (): Promise<WorkspaceLimitStatus> => {
   try {
     // Rust returns Ok(()) which serializes to null on success
-    await invoke<void>("check_workspace_limit");
-    return { error: null };
+    const status = await invoke<WorkspaceLimitStatus>("check_workspace_limit");
+    return status;
   } catch (error) {
     // On Err(ApiError), the promise rejects with the ApiError object
     const { error: apiError } = createErrorResponse(error);
-    return { error: apiError };
+    return {
+      allowed: false,
+      used: 0,
+      limit: 0,
+      error: apiError,
+    };
   }
 };
 

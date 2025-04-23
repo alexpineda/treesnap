@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useEffect } from "react";
 import { confirm } from "@/platform";
 import { useLicense } from "../../hooks/use-license";
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 export const LicenseArea = ({
   showActivationUnderLimit = false,
@@ -13,7 +14,7 @@ export const LicenseArea = ({
     error,
     activate,
     refreshStatus,
-    workspaceLimitError,
+    workspaceLimitStatus,
     successfulActivation,
   } = useLicense();
   const [licenseKeyInput, setLicenseKeyInput] = useState("");
@@ -78,10 +79,9 @@ export const LicenseArea = ({
     }
 
     if (localLicenseState.status === "inactive") {
-      if (workspaceLimitError || showActivationUnderLimit) {
+      if (!workspaceLimitStatus?.allowed || showActivationUnderLimit) {
         return (
           <form onSubmit={handleActivate} className="flex flex-col gap-2">
-            <p className="text-sm text-gray-400">{workspaceLimitError}</p>
             <input
               type="text"
               placeholder="Enter your license key"
@@ -104,14 +104,20 @@ export const LicenseArea = ({
             >
               {isLoading ? "Activating..." : "Activate"}
             </button>
-            <button
-              type="button"
-              onClick={refreshStatus}
-              disabled={isLoading}
-              className="text-sm text-blue-500 hover:text-blue-600 disabled:text-gray-400 disabled:cursor-not-allowed"
-            >
-              Refresh Status
-            </button>
+            <p className="text-sm text-gray-400">
+              Need a license?{" "}
+              <a
+                href="#"
+                rel="noopener noreferrer"
+                className="text-blue-400 hover:text-blue-300 underline"
+                onClick={(e) => {
+                  e.preventDefault();
+                  openUrl("https://www.reposnap.io");
+                }}
+              >
+                Purchase here
+              </a>
+            </p>
           </form>
         );
       }

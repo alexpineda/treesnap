@@ -104,3 +104,11 @@ pub struct AppState {
     pub device: LocalDeviceInfo, // Keep device info if needed for future checks
     pub usage: LocalUsageStats,
 }
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WorkspaceLimitStatus {
+    pub allowed: bool, // true = user may open more
+    pub used: usize,   // how many unique workspaces so far
+    pub limit: usize,  // MAX_FREE_WORKSPACES
+}

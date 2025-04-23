@@ -195,9 +195,11 @@ async fn get_local_license_state(
 }
 
 #[tauri::command]
-async fn check_workspace_limit(app_handle: AppHandle) -> Result<(), ApiError> {
+async fn check_workspace_limit(
+    app_handle: AppHandle,
+) -> Result<license::WorkspaceLimitStatus, ApiError> {
     match license::check_workspace_limit_internal(&app_handle).await {
-        Ok(_) => Ok(()),
+        Ok(status) => Ok(status),
         Err(e) => Err(e.into()),
     }
 }
@@ -226,6 +228,7 @@ pub fn run() {
     tracing_subscriber::fmt::init();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(watcher_service::WatcherState(Mutex::new(None)))

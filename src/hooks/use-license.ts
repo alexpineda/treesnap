@@ -4,16 +4,16 @@ import {
   getLocalLicenseState,
   checkWorkspaceLimit,
 } from "@/platform";
-import { LocalLicenseState, ApiError } from "../types";
+import { LocalLicenseState, ApiError, WorkspaceLimitStatus } from "../types";
 
 export const useLicense = () => {
   const [localLicenseState, setLocalLicenseState] =
     useState<LocalLicenseState>();
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<ApiError | null>(null);
-  const [workspaceLimitError, setWorkspaceLimitError] = useState<string | null>(
-    null
-  );
+  const [workspaceLimitStatus, setWorkspaceLimitStatus] =
+    useState<WorkspaceLimitStatus | null>(null);
+
   const [successfulActivation, setSuccessfulActivation] =
     useState<boolean>(false);
 
@@ -34,11 +34,7 @@ export const useLicense = () => {
   useEffect(() => {
     fetchStatus();
     checkWorkspaceLimit().then((res) => {
-      if (res.error) {
-        setWorkspaceLimitError(res.error.message);
-      } else {
-        setWorkspaceLimitError(null);
-      }
+      setWorkspaceLimitStatus(res);
     });
   }, [fetchStatus]);
 
@@ -55,8 +51,8 @@ export const useLicense = () => {
       if (state.status === "activated") {
         setSuccessfulActivation(true);
         // Re-fetch workspace limit now that we're activated
-        const { error: limitErr } = await checkWorkspaceLimit();
-        setWorkspaceLimitError(limitErr ? limitErr.message : null);
+        const status = await checkWorkspaceLimit();
+        setWorkspaceLimitStatus(status);
       }
     }
     setIsLoading(false);
@@ -68,7 +64,7 @@ export const useLicense = () => {
     error,
     activate,
     refreshStatus: fetchStatus, // Expose the fetch function as refresh
-    workspaceLimitError,
+    workspaceLimitStatus,
     successfulActivation,
   };
 };

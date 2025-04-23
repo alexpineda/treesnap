@@ -1,6 +1,5 @@
-import { Copy, FolderOpen, Settings, X, Keyboard } from "lucide-react";
+import { Copy, FolderOpen, Settings, X } from "lucide-react";
 import { basename } from "../utils";
-import { Tooltip } from "react-tooltip";
 import { FileTreeNode, ApplicationSettings } from "../types";
 import { useExport } from "../hooks/use-export";
 
@@ -48,7 +47,7 @@ export const TopBar = ({
             ) : status === "success" ? (
               <div className="text-green-500">✓</div>
             ) : (
-              <Copy size={16} className="text-emerald-400" />
+              <Copy size={16} className="text-blue-400" />
             )}
           </span>
           <span className="ml-2">Export Selection to Clipboard</span>

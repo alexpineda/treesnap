@@ -14,4 +14,4 @@ pub use api::{
     get_local_license_state_internal,
 };
 pub use errors::LicenseError;
-pub use state::LocalLicenseState;
+pub use state::{LocalLicenseState, WorkspaceLimitStatus};

@@ -13,10 +13,10 @@ export const WorkspaceSelector = ({
   recentWorkspaces: RecentWorkspace[];
   setDir: (dir: string) => void;
 }) => {
-  const { workspaceLimitError, localLicenseState } = useLicense();
+  const { workspaceLimitStatus, localLicenseState } = useLicense();
 
   const showButton = !(
-    localLicenseState?.status == "inactive" && workspaceLimitError
+    localLicenseState?.status == "inactive" && !workspaceLimitStatus?.allowed
   );
 
   const isWebDemo = import.meta.env.MODE === "web-demo";

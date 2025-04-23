@@ -14,6 +14,13 @@ import {
   getDemoFileTokens,
 } from "./demo/demo-repo";
 import { buildDemoExportText } from "./demo/render-ascii-tree";
+import {
+  TauriApiError,
+  LicenseStateResponse,
+  TauriApiErrorInternal,
+} from "./shared";
+
+export { TauriApiError };
 
 // --- Basic App Info & Control ---
 
@@ -219,26 +226,6 @@ export const openDirectoryDialog = async (): Promise<string | null> => {
 // --- License Service Stubs ---
 
 // Replicate error structure for consistency
-type TauriApiErrorInternal = {
-  code: string;
-  message: string;
-};
-
-type LicenseStateResponse = {
-  state: LocalLicenseState | null;
-  error: TauriApiError | null;
-};
-
-// Keep the custom error class
-export class TauriApiError extends Error {
-  constructor(message: string, public code: string) {
-    super(message);
-    this.name = "TauriApiError"; // Helpful for debugging
-  }
-  static fromInternal(error: TauriApiErrorInternal): TauriApiError {
-    return new TauriApiError(error.message, error.code);
-  }
-}
 
 // Always return "not_activated" state for demo
 export const activateLicense = async (

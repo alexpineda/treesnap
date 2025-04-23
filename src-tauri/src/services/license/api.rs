@@ -8,7 +8,7 @@ use tracing::{debug, error, info, instrument, warn};
 use super::constants::LICENSE_API_ENDPOINT;
 use super::state::{
     ActivateRequest, ActivateResponse, ApiDeviceInfo, ApiErrorResponse, AppState, LicenseStatus,
-    LocalLicenseState, LocalUsageStats,
+    LocalLicenseState, LocalUsageStats, WorkspaceLimitStatus,
 };
 use reqwest::Client;
 use tauri::{AppHandle, Manager};
@@ -195,21 +195,39 @@ pub async fn check_and_record_workspace_access(
 }
 
 #[instrument(skip(app_handle))]
-pub async fn check_workspace_limit_internal(app_handle: &AppHandle) -> Result<(), LicenseError> {
+pub async fn check_workspace_limit_internal(
+    app_handle: &AppHandle,
+) -> Result<WorkspaceLimitStatus, LicenseError> {
     let machine_id = get_or_create_machine_id(app_handle).await?;
     let app_state = load_encrypted_state::<AppState>(app_handle, &machine_id)?;
 
     if app_state.license.status == LicenseStatus::Activated {
-        return Ok(());
+        return Ok(WorkspaceLimitStatus {
+            allowed: true,
+            used: 0,
+            limit: MAX_FREE_WORKSPACES,
+        });
     }
 
     if app_state.license.status == LicenseStatus::Expired {
-        return Err(LicenseError::LicenseExpired);
+        return Ok(WorkspaceLimitStatus {
+            allowed: true,
+            used: 0,
+            limit: MAX_FREE_WORKSPACES,
+        });
     }
 
     if app_state.usage.unique_workspaces_opened.len() >= MAX_FREE_WORKSPACES {
-        return Err(LicenseError::WorkspaceLimitReached(MAX_FREE_WORKSPACES));
+        return Ok(WorkspaceLimitStatus {
+            allowed: false,
+            used: app_state.usage.unique_workspaces_opened.len(),
+            limit: MAX_FREE_WORKSPACES,
+        });
     }
 
-    Ok(())
+    Ok(WorkspaceLimitStatus {
+        allowed: true,
+        used: app_state.usage.unique_workspaces_opened.len(),
+        limit: MAX_FREE_WORKSPACES,
+    })
 }
