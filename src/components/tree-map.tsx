@@ -8,7 +8,6 @@ import * as Popover from "@radix-ui/react-popover";
 interface TreeMapProps {
   selectedFiles: FileTreeNode[];
   totalTokens: number;
-  onFileClick?: (file: FileTreeNode) => void;
   setSelectedFiles: (files: FileTreeNode[]) => void;
   maxDepth?: number;
   className?: string;
@@ -44,7 +43,6 @@ export const TreeMap = ({
   selectedFiles,
   setSelectedFiles,
   totalTokens,
-  onFileClick,
   className,
 }: TreeMapProps) => {
   const [items, setItems] = useState<TreeMapItem[]>([]);
@@ -137,12 +135,6 @@ export const TreeMap = ({
 
   const handleMouseOut = () => {
     setTooltipInfo(null);
-  };
-
-  const handleClick = (item: TreeMapItem, event: React.MouseEvent) => {
-    if (onFileClick) {
-      onFileClick(item.file);
-    }
   };
 
   const handleDeselect = (itemToDeselect: TreeMapItem) => {
