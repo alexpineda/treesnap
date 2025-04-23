@@ -38,3 +38,9 @@ export interface ApiError {
   code: string;
   message: string;
 }
+
+export interface ApplicationSettings {
+  schemaVersion: number;
+  appVersion: string;
+  treeOption: TreeOption;
+}

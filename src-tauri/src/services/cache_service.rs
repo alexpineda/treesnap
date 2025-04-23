@@ -1,8 +1,10 @@
 use crate::constants::CACHE_STORE_FILENAME;
+use lru::LruCache;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     fs,
+    num::NonZeroUsize,
     path::Path,
     sync::Mutex,
     time::{SystemTime, UNIX_EPOCH},
@@ -18,7 +20,7 @@ pub struct CacheEntry {
     pub token_count: usize,
 }
 
-pub type Cache = HashMap<String, CacheEntry>;
+pub type Cache = LruCache<String, CacheEntry>;
 
 pub struct CacheState(pub Mutex<Cache>);
 
@@ -46,25 +48,30 @@ pub fn load_cache(app_handle: &AppHandle) -> Cache {
     match app_handle.store(path) {
         Ok(store) => {
             if let Some(cache_data) = store.get("token_cache") {
-                match serde_json::from_value::<Cache>(cache_data.clone()) {
-                    Ok(cache) => {
+                match serde_json::from_value::<HashMap<String, CacheEntry>>(cache_data.clone()) {
+                    Ok(loaded_map) => {
+                        let capacity = NonZeroUsize::new(1_000).unwrap();
+                        let mut lru = LruCache::new(capacity);
+                        for (key, value) in loaded_map {
+                            lru.put(key, value);
+                        }
                         info!(
-                            "Token cache loaded successfully with {} entries.",
-                            cache.len()
+                            "Token cache loaded successfully with {} entries (capacity {}).",
+                            lru.len(),
+                            lru.cap().get()
                         );
-                        cache
+                        lru
                     }
                     Err(e) => {
-                        error!(
-                            "Failed to deserialize cache data: {}. Creating new cache.",
-                            e
-                        );
-                        HashMap::new()
+                        error!("Corrupt/legacy cache found ({}). Starting fresh.", e);
+                        store.delete("token_cache");
+                        store.save().ok();
+                        LruCache::new(NonZeroUsize::new(1_000).unwrap())
                     }
                 }
             } else {
                 info!("No 'token_cache' key found in store. Creating new cache.");
-                HashMap::new()
+                LruCache::new(NonZeroUsize::new(1_000).unwrap())
             }
         }
         Err(e) => {
@@ -73,7 +80,7 @@ pub fn load_cache(app_handle: &AppHandle) -> Cache {
                 path.display(),
                 e
             );
-            HashMap::new()
+            LruCache::new(NonZeroUsize::new(1_000).unwrap())
         }
     }
 }
@@ -88,11 +95,16 @@ pub fn save_cache(
 
     match app_handle.store(path) {
         Ok(store) => {
-            let cache_guard = cache_state
-                .0
-                .lock()
-                .map_err(|_| "Failed to lock cache mutex".to_string())?;
-            let cache_data = serde_json::to_value(&*cache_guard)
+            // Convert LruCache to HashMap for serialization
+            let map: HashMap<_, _> = {
+                let guard = cache_state
+                    .0
+                    .lock()
+                    .map_err(|_| "Failed to lock cache mutex for saving")?;
+                guard.iter().map(|(k, v)| (k.clone(), v.clone())).collect()
+            }; // mutex released before heavy work
+
+            let cache_data = serde_json::to_value(map)
                 .map_err(|e| format!("Failed to serialize cache: {}", e))?;
 
             store.set("token_cache".to_string(), cache_data);
@@ -113,7 +125,7 @@ pub fn check_cache(
     current_modified_secs: u64,
     cache_state: &State<'_, CacheState>,
 ) -> Result<Option<usize>, String> {
-    let cache_guard = cache_state
+    let mut cache_guard = cache_state
         .0
         .lock()
         .map_err(|_| "Failed to lock cache mutex".to_string())?;
@@ -147,7 +159,7 @@ pub fn update_cache(
         token_count,
     };
     debug!("Updating cache for file: {}", path);
-    cache_guard.insert(path, entry);
+    cache_guard.put(path, entry);
     Ok(())
 }
 

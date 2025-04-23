@@ -16,6 +16,7 @@ import { calculateTokensForFiles, openDirectoryDialog } from "@/platform";
 import { LicenseArea } from "./components/license/license-area";
 import { DebugLicenseControls } from "./components/debug";
 import { useLicense } from "./hooks/use-license";
+import { useApplicationSettings } from "./hooks/use-application-settings";
 
 function App() {
   const [totalTokens, setTotalTokens] = useState(0);
@@ -23,6 +24,7 @@ function App() {
   const { recentWorkspaces, addToRecentWorkspaces } = useRecentWorkspaces();
   const workspace = useWorkspace(addToRecentWorkspaces);
   const { workspaceLimitError, localLicenseState } = useLicense();
+  const { settings, saveSettings } = useApplicationSettings();
 
   useEffect(() => {
     calculateTotalTokens();
@@ -122,6 +124,20 @@ function App() {
     localLicenseState?.status === "inactive" && workspaceLimitError
   );
 
+  if (!settings) {
+    return (
+      <div className="flex h-screen flex-col bg-gray-900">
+        <div className="flex flex-1 overflow-hidden">
+          <div className="flex flex-col h-full space-y-2">
+            <div className="py-4 border-b border-gray-600 pl-6 pr-4 space-y-1">
+              <h3>Loading settings...</h3>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen flex-col bg-gray-900">
       <div className="flex flex-1 overflow-hidden">
@@ -202,6 +218,7 @@ function App() {
                 <>
                   {/* Git-like top bar */}
                   <TopBar
+                    settings={settings}
                     selectedFiles={workspace.selectedFiles}
                     workspacePath={workspace.workspacePath}
                     handleClose={handleClose}
@@ -239,7 +256,9 @@ function App() {
 
                   {isShowingSettings ? (
                     <Settings
+                      settings={settings}
                       onClose={() => setIsShowingSettings(!isShowingSettings)}
+                      onSave={saveSettings}
                     />
                   ) : (
                     <div className="flex-1 overflow-y-auto px-4">

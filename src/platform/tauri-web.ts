@@ -3,6 +3,7 @@ import {
   FileTreeNode,
   RecentWorkspace,
   LocalLicenseState,
+  ApplicationSettings,
 } from "../types"; // Assuming types are here
 import { type Event, type UnlistenFn } from "@tauri-apps/api/event"; // Keep type imports if needed
 import { type Update } from "@tauri-apps/plugin-updater";
@@ -176,8 +177,6 @@ export const copyFilesWithTreeToClipboard = async (
     console.log("Attempting direct clipboard write");
     try {
       await navigator.clipboard.writeText(tree);
-      // Provide feedback in the demo UI
-      alert("Copied to clipboard!");
     } catch (err) {
       console.error("Failed to write directly to clipboard:", err);
       // Provide feedback in the demo UI
@@ -309,3 +308,31 @@ export const debugAddUsageEntries = async (
   void count;
   return Promise.resolve({ error: null });
 };
+
+// --- Settings Service Stubs ---
+
+// Return default settings for the web demo
+export const getApplicationSettings = async (): Promise<{
+  settings: ApplicationSettings;
+  error: null;
+}> => {
+  console.log("WEB SHIM: getApplicationSettings called.");
+  // Matches the Rust Default implementation
+  const defaultSettings: ApplicationSettings = {
+    schemaVersion: 1,
+    appVersion: "web-demo",
+    treeOption: "include",
+  };
+  return Promise.resolve({ settings: defaultSettings, error: null });
+};
+
+// Settings update is a no-op in the web demo
+export const updateApplicationSettings = async (
+  settings: ApplicationSettings
+): Promise<{ error: TauriApiError | null }> => {
+  void settings; // Mark as unused
+  console.log("WEB SHIM: updateApplicationSettings called (no-op).");
+  return Promise.resolve({ error: null });
+};
+
+// --- End Settings Service Stubs ---

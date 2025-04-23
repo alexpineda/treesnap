@@ -12,6 +12,7 @@ use services::cache_service;
 use services::file_service;
 use services::license;
 use services::license::state::LicenseStatus;
+use services::settings_service;
 use services::token_service;
 use services::tree_service;
 use services::watcher_service;
@@ -29,6 +30,7 @@ use std::sync::Mutex;
 use tauri::{AppHandle, Manager, State, Window};
 // use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use chrono::Utc;
+use domain::application_settings::ApplicationSettings;
 use reqwest::Client;
 use services::license::errors::ApiError;
 use tracing::{error, info};
@@ -200,6 +202,25 @@ async fn check_workspace_limit(app_handle: AppHandle) -> Result<(), ApiError> {
     }
 }
 
+// --- Settings Commands ---
+#[tauri::command]
+async fn get_application_settings(app_handle: AppHandle) -> Result<ApplicationSettings, String> {
+    // Directly return the result, no need for complex error mapping for now
+    Ok(settings_service::load_application_settings_internal(
+        &app_handle,
+    ))
+}
+
+#[tauri::command]
+async fn update_application_settings(
+    app_handle: AppHandle,
+    settings: ApplicationSettings,
+) -> Result<(), String> {
+    // Pass the settings received from the frontend
+    settings_service::save_application_settings_internal(&app_handle, &settings)
+}
+// --- End Settings Commands ---
+
 pub fn run() {
     // Initialize tracing subscriber for logging
     tracing_subscriber::fmt::init();
@@ -308,6 +329,8 @@ pub fn run() {
             activate_license,
             get_local_license_state,
             check_workspace_limit,
+            get_application_settings,
+            update_application_settings,
             watcher_service::start_watching_command,
             watcher_service::stop_watching_command,
             clear_cache,

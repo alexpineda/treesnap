@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { X, CopyIcon } from "lucide-react";
 import { getVersion, confirm, check, relaunch } from "@/platform";
-import { TreeOption } from "../types";
+import { ApplicationSettings } from "../types";
 import { useLicense } from "../hooks/use-license";
 import { LicenseArea } from "./license/license-area";
 
@@ -17,8 +17,15 @@ const isDateInFuture = (dateString: string | null | undefined): boolean => {
   }
 };
 
-export const Settings = ({ onClose }: { onClose: () => void }) => {
-  const [treeOption, setTreeOption] = useState<TreeOption>("include");
+export const Settings = ({
+  onClose,
+  settings,
+  onSave,
+}: {
+  onClose: () => void;
+  settings: ApplicationSettings;
+  onSave: (settings: ApplicationSettings) => void;
+}) => {
   const [showActivationForm, setShowActivationForm] = useState(false);
   const [appVersion, setAppVersion] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -166,8 +173,8 @@ export const Settings = ({ onClose }: { onClose: () => void }) => {
               id="tree-include"
               name="treeOption"
               value="include"
-              checked={treeOption === "include"}
-              onChange={() => setTreeOption("include")}
+              checked={settings.treeOption === "include"}
+              onChange={() => onSave({ ...settings, treeOption: "include" })}
               className="form-radio text-blue-500 bg-gray-700 border-gray-600 mt-1 self-start"
             />
             <label
@@ -183,8 +190,10 @@ export const Settings = ({ onClose }: { onClose: () => void }) => {
               id="tree-include-selected"
               name="treeOption"
               value="include-only-selected"
-              checked={treeOption === "include-only-selected"}
-              onChange={() => setTreeOption("include-only-selected")}
+              checked={settings.treeOption === "include-only-selected"}
+              onChange={() =>
+                onSave({ ...settings, treeOption: "include-only-selected" })
+              }
               className="form-radio text-blue-500 bg-gray-700 border-gray-600 mt-1 self-start"
             />
             <label
@@ -200,8 +209,10 @@ export const Settings = ({ onClose }: { onClose: () => void }) => {
               id="tree-do-not-include"
               name="treeOption"
               value="do-not-include"
-              checked={treeOption === "do-not-include"}
-              onChange={() => setTreeOption("do-not-include")}
+              checked={settings.treeOption === "do-not-include"}
+              onChange={() =>
+                onSave({ ...settings, treeOption: "do-not-include" })
+              }
               className="form-radio text-blue-500 bg-gray-700 border-gray-600 mt-1 self-start"
             />
             <label

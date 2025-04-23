@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileTreeNode } from "../types";
+import { FileTreeNode, ApplicationSettings } from "../types";
 import { copyFilesWithTreeToClipboard } from "@/platform";
 
 type TreeOption = "include" | "include-only-selected" | "do-not-include";
@@ -7,16 +7,20 @@ type TreeOption = "include" | "include-only-selected" | "do-not-include";
 export const useExport = ({
   selectedFiles,
   workspacePath,
+  settings,
 }: {
   selectedFiles: FileTreeNode[];
   workspacePath: string;
+  settings: ApplicationSettings;
 }) => {
   const [status, setStatus] = useState<
     "idle" | "copying" | "success" | "error"
   >("idle");
 
   // New function to handle the copy to clipboard with tree structure
-  const copyExportToClipboard = async (treeOption: TreeOption = "include") => {
+  const copyExportToClipboard = async (
+    treeOption: TreeOption = settings.treeOption
+  ) => {
     setStatus("copying");
     try {
       // Get the paths of all selected files

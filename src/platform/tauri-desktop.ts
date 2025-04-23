@@ -5,6 +5,7 @@ import {
   FileTreeNode,
   RecentWorkspace,
   LocalLicenseState,
+  ApplicationSettings,
 } from "../types";
 import { Store, load } from "@tauri-apps/plugin-store";
 import {
@@ -13,7 +14,7 @@ import {
   confirm as tauriConfirm,
 } from "@tauri-apps/plugin-dialog";
 import {
-  CheckOptions,
+  type CheckOptions,
   check as tauriCheck,
   type Update,
 } from "@tauri-apps/plugin-updater";
@@ -301,3 +302,43 @@ export const debugAddUsageEntries = async (
     return { error: apiError };
   }
 };
+
+// --- Settings Service Functions ---
+
+export const getApplicationSettings = async (): Promise<
+  | { settings: ApplicationSettings; error: null }
+  | { settings: null; error: TauriApiError }
+> => {
+  try {
+    const settings = await invoke<ApplicationSettings>(
+      "get_application_settings"
+    );
+    return { settings, error: null };
+  } catch (error) {
+    const { error: apiError } = createErrorResponse(error);
+    if (!apiError) {
+      return {
+        settings: null,
+        error: new TauriApiError(
+          "Unknown error occurred while fetching settings.",
+          "unknown_settings_error"
+        ),
+      };
+    }
+    return { settings: null, error: apiError };
+  }
+};
+
+export const updateApplicationSettings = async (
+  settings: ApplicationSettings
+): Promise<{ error: TauriApiError | null }> => {
+  try {
+    await invoke<void>("update_application_settings", { settings });
+    return { error: null };
+  } catch (error) {
+    const { error: apiError } = createErrorResponse(error);
+    return { error: apiError };
+  }
+};
+
+// --- End Settings Service Functions ---
