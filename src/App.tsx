@@ -313,6 +313,7 @@ function App() {
                         <Panel defaultSize={75}>
                           <TreeMap
                             selectedFiles={workspace.selectedFiles}
+                            setSelectedFiles={workspace.setSelectedFiles}
                             totalTokens={totalTokens}
                             className="flex-1"
                           />

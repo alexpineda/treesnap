@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { FileTreeNode } from "../types";
 import classNames from "classnames";
 import { formatTokens } from "../utils";
@@ -8,6 +8,7 @@ interface TreeMapProps {
   selectedFiles: FileTreeNode[];
   totalTokens: number;
   onFileClick?: (file: FileTreeNode) => void;
+  setSelectedFiles: (files: FileTreeNode[]) => void;
   maxDepth?: number;
   className?: string;
 }
@@ -30,8 +31,17 @@ type TreeMapLayout = {
   height: number;
 };
 
+// Type for the extension popover state
+type ExtensionPopoverInfo = {
+  extension: string;
+  color: string;
+  x: number;
+  y: number;
+};
+
 export const TreeMap = ({
   selectedFiles,
+  setSelectedFiles,
   totalTokens,
   onFileClick,
   className,
@@ -43,6 +53,15 @@ export const TreeMap = ({
     x: number;
     y: number;
   } | null>(null);
+  const [popoverInfo, setPopoverInfo] = useState<{
+    item: TreeMapItem;
+    x: number;
+    y: number;
+  } | null>(null);
+  const popoverRef = useRef<HTMLDivElement>(null);
+  const [extensionPopoverInfo, setExtensionPopoverInfo] =
+    useState<ExtensionPopoverInfo | null>(null);
+  const extensionPopoverRef = useRef<HTMLDivElement>(null);
 
   // Generate color based on file extension
   const getColorForFile = (fileName: string): string => {
@@ -116,11 +135,59 @@ export const TreeMap = ({
     setTooltipInfo(null);
   };
 
-  const handleClick = (item: TreeMapItem) => {
+  const handleClick = (item: TreeMapItem, event: React.MouseEvent) => {
     if (onFileClick) {
       onFileClick(item.file);
     }
+    setPopoverInfo({
+      item: item,
+      x: event.clientX,
+      y: event.clientY,
+    });
+    event.stopPropagation();
   };
+
+  const handleDeselect = (itemToDeselect: TreeMapItem) => {
+    console.log("deselecting", itemToDeselect);
+    setSelectedFiles(
+      selectedFiles.filter((file) => file.path !== itemToDeselect.path)
+    );
+    setPopoverInfo(null);
+  };
+
+  const handleClickOutside = useCallback(
+    (event: MouseEvent) => {
+      // Close file popover if click is outside
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(event.target as Node)
+      ) {
+        setPopoverInfo(null);
+      }
+      // Close extension popover if click is outside
+      if (
+        extensionPopoverRef.current &&
+        !extensionPopoverRef.current.contains(event.target as Node) &&
+        extensionPopoverInfo // Only check if it's open
+      ) {
+        setExtensionPopoverInfo(null);
+      }
+    },
+    [setPopoverInfo, setExtensionPopoverInfo, extensionPopoverInfo] // Add extensionPopoverInfo dependency
+  );
+
+  useEffect(() => {
+    // Add listener if either popover is open
+    if (popoverInfo || extensionPopoverInfo) {
+      document.addEventListener("mousedown", handleClickOutside);
+    } else {
+      document.removeEventListener("mousedown", handleClickOutside);
+    }
+    // Cleanup listener
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [popoverInfo, extensionPopoverInfo, handleClickOutside]); // Add extensionPopoverInfo
 
   // Update container styling approach
   const containerStyle = {
@@ -209,6 +276,34 @@ export const TreeMap = ({
   // Generate layout
   const layout = createTreemapLayout();
 
+  // Handle clicking a legend item
+  const handleLegendItemClick = (
+    extension: string,
+    color: string,
+    event: React.MouseEvent
+  ) => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    setExtensionPopoverInfo({
+      extension,
+      color,
+      x: event.clientX - rect.left, // Relative to container
+      y: event.clientY - rect.top, // Relative to container
+    });
+    // Prevent triggering other click handlers (like handleClickOutside immediately)
+    event.stopPropagation();
+  };
+
+  // Handle deselecting all files with a specific extension
+  const handleDeselectExtension = (extensionToDeselect: string) => {
+    setSelectedFiles(
+      selectedFiles.filter(
+        (file) => !file.name.toLowerCase().endsWith(extensionToDeselect)
+      )
+    );
+    setExtensionPopoverInfo(null); // Close the popover
+  };
+
   return (
     <div
       className={classNames("w-full flex flex-col p-4", className)}
@@ -247,16 +342,16 @@ export const TreeMap = ({
                 }}
                 onMouseOver={(e) => handleMouseOver(item, e)}
                 onMouseOut={handleMouseOut}
-                onClick={() => handleClick(item)}
+                onClick={(e) => handleClick(item, e)}
               ></div>
             ))}
           </div>
         )}
 
         {/* Tooltip */}
-        {tooltipInfo && (
+        {tooltipInfo && !popoverInfo && (
           <div
-            className="absolute z-100 bg-gray-900 text-white p-2 rounded-md shadow-lg text-xs border border-gray-700"
+            className="absolute z-100 bg-gray-900 text-white p-2 rounded-md shadow-lg text-xs border border-gray-700 pointer-events-none"
             style={{
               top: containerRef.current
                 ? tooltipInfo.y -
@@ -281,11 +376,74 @@ export const TreeMap = ({
             </div>
           </div>
         )}
+
+        {/* File Popover Menu */}
+        {popoverInfo && (
+          <div
+            ref={popoverRef}
+            className="absolute z-110 bg-gray-800 border border-gray-600 text-white rounded-md shadow-lg text-sm"
+            style={{
+              top: containerRef.current
+                ? popoverInfo.y -
+                  containerRef.current.getBoundingClientRect().top
+                : 0,
+              left: containerRef.current
+                ? popoverInfo.x -
+                  containerRef.current.getBoundingClientRect().left
+                : 0,
+            }}
+          >
+            <div className="p-2 border-b border-gray-700">
+              <div className="font-bold">{popoverInfo.item.name}</div>
+              <div className="text-xs text-gray-400">
+                {formatTokens(popoverInfo.item.tokenCount)} tokens
+              </div>
+            </div>
+            <button
+              onClick={() => handleDeselect(popoverInfo.item)}
+              className="block w-full text-left px-3 py-1.5 hover:bg-gray-700 rounded-b-md"
+            >
+              Deselect
+            </button>
+            {/* Add more options here if needed */}
+          </div>
+        )}
+
+        {/* Extension Popover Menu */}
+        {extensionPopoverInfo && (
+          <div
+            ref={extensionPopoverRef}
+            className="absolute z-110 bg-gray-800 border border-gray-600 text-white rounded-md shadow-lg text-sm"
+            style={{
+              // Position relative to the containerRef
+              top: `${extensionPopoverInfo.y + 5}px`, // Add small offset
+              left: `${extensionPopoverInfo.x + 5}px`, // Add small offset
+            }}
+          >
+            <div className="p-2 border-b border-gray-700 flex items-center gap-2">
+              <div
+                className={`w-3 h-3 rounded-sm ${extensionPopoverInfo.color}`}
+              />
+              <span className="font-bold">
+                {extensionPopoverInfo.extension} files
+              </span>
+            </div>
+            <button
+              onClick={() =>
+                handleDeselectExtension(extensionPopoverInfo.extension)
+              }
+              className="block w-full text-left px-3 py-1.5 hover:bg-gray-700 rounded-b-md"
+            >
+              Deselect all ({extensionPopoverInfo.extension})
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Legend */}
-      <div className="mt-2 flex flex-wrap gap-2">
-        <span className="text-gray-400 text-sm ml-6 flex flex-wrap gap-3">
+      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+        <div className="text-gray-400 text-sm flex flex-wrap gap-x-3 gap-y-1 items-center">
+          Legend:
           {(() => {
             const extensionMap = new Map<string, string>();
             items.forEach((f) => {
@@ -296,14 +454,20 @@ export const TreeMap = ({
             });
             return Array.from(extensionMap.entries()).map(
               ([extension, color]) => (
-                <span key={extension} className="flex items-center">
-                  <div className={`w-3 h-3 rounded-sm ${color}`} />
-                  <span className="text-gray-300">{extension}</span>
-                </span>
+                <button // Changed span to button for clickability
+                  key={extension}
+                  className="flex items-center gap-1 cursor-pointer hover:bg-gray-700 p-0.5 rounded"
+                  onClick={(e) => handleLegendItemClick(extension, color, e)}
+                >
+                  <div
+                    className={`w-3 h-3 rounded-sm ${color} flex-shrink-0`}
+                  />
+                  <span className="text-gray-300 text-xs">{extension}</span>
+                </button>
               )
             );
           })()}
-        </span>
+        </div>
       </div>
     </div>
   );
