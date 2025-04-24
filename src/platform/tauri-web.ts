@@ -37,6 +37,11 @@ import {
 
 export { TauriApiError, __WEB_DEMO__, RepoSizeCapError };
 
+import posthog from "posthog-js";
+
+posthog.init("phc_qULc3RcdX6l4JactmU0Izknzzhk7kr3OLKCtMgmfxX3", {
+  api_host: "https://us.i.posthog.com",
+});
 // --- Basic App Info & Control ---
 
 // Simple no-op listener returning a no-op unlistener
