@@ -30,9 +30,10 @@ import {
   LicenseStateResponse,
   TauriApiErrorInternal,
   TauriApiError,
+  __WEB_DEMO__,
 } from "./shared";
 
-export { TauriApiError };
+export { TauriApiError, __WEB_DEMO__ };
 
 export const listen = <T>(
   event: string,

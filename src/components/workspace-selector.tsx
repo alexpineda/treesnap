@@ -3,6 +3,7 @@ import { RecentWorkspace } from "../types";
 import { basename } from "../utils";
 import { useLicense } from "../hooks/use-license";
 import classNames from "classnames";
+import { __WEB_DEMO__ } from "@/platform";
 // Render workspace selector view when no directory is selected
 export const WorkspaceSelector = ({
   handleChooseDirectory,
@@ -19,8 +20,6 @@ export const WorkspaceSelector = ({
     localLicenseState?.status == "inactive" && !workspaceLimitStatus?.allowed
   );
 
-  const isWebDemo = import.meta.env.MODE === "web-demo";
-
   return (
     <div className="flex flex-col items-center justify-center h-full bg-gray-800 text-white px-10 text-center">
       <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -29,7 +28,7 @@ export const WorkspaceSelector = ({
       </h2>
       <p className="text-sm my-2.5 mb-5">
         Open a folder to start analyzing your codebase.
-        {isWebDemo && (
+        {__WEB_DEMO__ && (
           <p className="text-gray-400 text-sm">
             (This is a demo version, so you can't open a custom folder.)
           </p>
@@ -42,9 +41,9 @@ export const WorkspaceSelector = ({
             onClick={handleChooseDirectory}
             className={classNames(
               "flex items-center gap-2 bg-gray-700 text-white border border-gray-600 px-4 py-2 rounded cursor-pointer",
-              isWebDemo && "opacity-50 cursor-not-allowed"
+              __WEB_DEMO__ && "opacity-50 cursor-not-allowed"
             )}
-            disabled={isWebDemo}
+            disabled={__WEB_DEMO__}
           >
             <FolderOpenIcon className="w-4 h-4" /> Open Folder
           </button>

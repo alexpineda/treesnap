@@ -18,9 +18,10 @@ import {
   TauriApiError,
   LicenseStateResponse,
   TauriApiErrorInternal,
+  __WEB_DEMO__,
 } from "./shared";
 
-export { TauriApiError };
+export { TauriApiError, __WEB_DEMO__ };
 
 // --- Basic App Info & Control ---
 

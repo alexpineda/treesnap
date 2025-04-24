@@ -1,5 +1,7 @@
 import { LocalLicenseState } from "../types";
 
+export const __WEB_DEMO__ = import.meta.env.MODE === "web-demo";
+
 export type TauriApiErrorInternal = {
   code: string;
   message: string;

@@ -18,6 +18,7 @@ import { useLicense } from "./hooks/use-license";
 import { useApplicationSettings } from "./hooks/use-application-settings";
 import { WorkspaceLimitBanner } from "./components/license/workspace-limit-banner";
 import { UpdateAvailable } from "./components/license/update-available";
+import { __WEB_DEMO__ } from "@/platform";
 
 function App() {
   const [totalTokens, setTotalTokens] = useState(0);
@@ -231,7 +232,7 @@ function App() {
                     workspacePath={workspace.workspacePath}
                     handleClose={handleClose}
                     onSettingsClick={() => {
-                      if (import.meta.env.MODE === "web-demo") {
+                      if (__WEB_DEMO__) {
                         alert("Settings are not available in demo mode");
                         return;
                       }
