@@ -31,3 +31,10 @@ export function isTauriApiError(error: any): error is TauriApiErrorInternal {
     typeof error.message === "string"
   );
 }
+
+export class RepoSizeCapError extends Error {
+  constructor(public files: number, public bytes: number) {
+    console.log("RepoSizeCapError", files, bytes);
+    super("Repo too large for web version");
+  }
+}

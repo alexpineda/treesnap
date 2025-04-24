@@ -4,6 +4,7 @@ import {
   RecentWorkspace,
   LocalLicenseState,
   ApplicationSettings,
+  WorkspaceLimitStatus,
 } from "../types"; // Assuming types are here
 import { type Event, type UnlistenFn } from "@tauri-apps/api/event"; // Keep type imports if needed
 import { type Update } from "@tauri-apps/plugin-updater";
@@ -19,9 +20,17 @@ import {
   LicenseStateResponse,
   TauriApiErrorInternal,
   __WEB_DEMO__,
+  RepoSizeCapError,
 } from "./shared";
+import {
+  registerWorkspace,
+  get as getVfs,
+  isVfsPath,
+  unregister,
+  VFS_PREFIX,
+} from "./demo/virtual-fs"; // Adjusted path if needed
 
-export { TauriApiError, __WEB_DEMO__ };
+export { TauriApiError, __WEB_DEMO__, RepoSizeCapError };
 
 // --- Basic App Info & Control ---
 
@@ -64,50 +73,85 @@ export const confirm = (
 
 // Return a fixed version string for the web demo
 export const getVersion = (): Promise<string> => {
-  return Promise.resolve("web-demo");
+  return Promise.resolve(import.meta.env.VITE_APP_VERSION);
 };
 
-// --- File & Token Operations (Now with Demo Data) ---
+// --- File & Token Operations (Now with Demo Data & VFS) ---
 
-// Return demo token count or 0
+// Return demo token count or 0, VFS file content access is implicit via getFileTree
 export const calculateFileTokens = async (
   filePath: string
 ): Promise<number> => {
   console.log(`WEB SHIM: calculateFileTokens('${filePath}')`);
-  // Simulate async operation with a delay
+
+  if (isVfsPath(filePath)) {
+    // Token calculation for VFS happens during registration or when getFileTree is called
+    // For individual file calls post-registration, we'd need a way to look up pre-calculated tokens
+    // This depends on how calculateTokensForFiles is structured. Let's assume it handles VFS.
+    console.warn(
+      `WEB SHIM: calculateFileTokens for VFS path '${filePath}' - relying on batch calculation.`
+    );
+    // We could potentially look it up if needed, but often batch calc is sufficient
+    const [id] = filePath.split("/").slice(0, 1);
+    const ws = getVfs(id);
+    const relativePath = filePath.replace(id + "/", "");
+    return Promise.resolve(ws?.tokens[relativePath] ?? 0);
+  }
+
+  // Fallback for demo data
   await new Promise((resolve) => setTimeout(resolve, 20)); // Faster delay
   return Promise.resolve(getDemoFileTokens()[filePath] ?? 0);
 };
 
-// Return demo token counts for requested files
+// Return demo token counts or VFS token counts
 export const calculateTokensForFiles = async (
   filePaths: string[]
 ): Promise<Record<string, number>> => {
   console.log(`WEB SHIM: calculateTokensForFiles called.`);
-  // Simulate async operation with a delay
+  // assume all paths share same prefix if VFS
+  if (filePaths.length && isVfsPath(filePaths[0])) {
+    const id = filePaths[0].substring(
+      0,
+      filePaths[0].indexOf("/", VFS_PREFIX.length)
+    ); // Extract "fs://<uuid>"
+    const ws = getVfs(id);
+    if (!ws) return {};
+    return Object.fromEntries(
+      filePaths.map((p) => {
+        const relativePath = p.replace(id + "/", "");
+        return [p, ws.tokens[relativePath] ?? 0];
+      })
+    );
+  }
+  // demo fallback
   await new Promise((resolve) => setTimeout(resolve, 50)); // Faster delay
   const tokenMap: Record<string, number> = {};
   filePaths.forEach((p) => (tokenMap[p] = getDemoFileTokens()[p] ?? 0));
   return Promise.resolve(tokenMap);
 };
 
-// Return demo tree if path matches, else empty
+// Return demo tree, VFS tree, or empty
 export const getFileTree = async (
   dirPath: string,
   withTokensSync = false // This flag is ignored in web shim
 ): Promise<FileTreeNode[]> => {
   void withTokensSync;
   console.log(`WEB SHIM: getFileTree('${dirPath}') called.`);
-  if (dirPath === DEMO_WORKSPACE_PATH) {
+
+  if (isVfsPath(dirPath)) {
+    const ws = getVfs(dirPath);
+    return Promise.resolve(ws?.tree ?? []);
+  } else if (dirPath === DEMO_WORKSPACE_PATH) {
     return Promise.resolve(createDemoFileTree(dirPath));
   }
+
   console.warn(
-    `WEB SHIM: getFileTree called with non-demo path ('${dirPath}'), returning empty tree.`
+    `WEB SHIM: getFileTree called with unknown path ('${dirPath}'), returning empty tree.`
   );
   return Promise.resolve([]);
 };
 
-// Open the demo workspace or return error
+// Open the demo workspace or VFS workspace
 export const openWorkspace = async (
   dirPath: string
 ): Promise<{
@@ -115,27 +159,44 @@ export const openWorkspace = async (
   error: TauriApiErrorInternal | null;
 }> => {
   console.log(`WEB SHIM: openWorkspace('${dirPath}') called.`);
-  if (dirPath === DEMO_WORKSPACE_PATH) {
+
+  if (isVfsPath(dirPath)) {
+    const ws = getVfs(dirPath);
+    if (ws) {
+      return Promise.resolve({ tree: ws.tree, error: null });
+    } else {
+      console.error(`WEB SHIM: VFS workspace '${dirPath}' not found.`);
+      return Promise.resolve({
+        tree: null,
+        error: { code: "vfs_missing", message: "Workspace not found." },
+      });
+    }
+  } else if (dirPath === DEMO_WORKSPACE_PATH) {
     return Promise.resolve({
       tree: createDemoFileTree(dirPath),
       error: null,
     });
   }
+
   console.warn(
-    `WEB SHIM: openWorkspace called with non-demo path ('${dirPath}'), returning error.`
+    `WEB SHIM: openWorkspace called with non-demo/non-VFS path ('${dirPath}'), returning error.`
   );
   return Promise.resolve({
     tree: null,
     error: {
       code: "web_unsupported",
-      message: `Opening local directories (${dirPath}) is not supported in the web demo. Only the demo project is available.`,
+      message: `Opening unsupported path (${dirPath}). Only the demo project or selected local folders are available.`,
     },
   });
 };
 
-// No-op for closing workspace
-export const closeWorkspace = async (): Promise<void> => {
-  console.log("WEB SHIM: closeWorkspace() called (no-op).");
+// Close workspace - unregister if VFS
+export const closeWorkspace = async (workspacePath: string): Promise<void> => {
+  console.log(`WEB SHIM: closeWorkspace('${workspacePath}') called.`);
+  if (isVfsPath(workspacePath)) {
+    unregister(workspacePath);
+    console.log(`WEB SHIM: Unregistered VFS workspace '${workspacePath}'.`);
+  }
   return Promise.resolve();
 };
 
@@ -147,12 +208,38 @@ export const copyFilesWithTreeToClipboard = async (
 ): Promise<void> => {
   void treeOption; // Acknowledge unused parameter
 
-  const filesForTree = selectedFilePaths.map((path) => ({
-    path,
-    // tokenCount: undefined, // Or fetch actual counts if available
-  }));
+  let exportText = "";
 
-  const tree = buildDemoExportText(dirPath, filesForTree);
+  if (isVfsPath(dirPath)) {
+    const ws = getVfs(dirPath);
+    if (!ws) {
+      console.error(
+        `WEB SHIM: Cannot copy, VFS workspace '${dirPath}' not found.`
+      );
+      alert("Error: Could not find workspace data to copy.");
+      return;
+    }
+    const filesForTree = selectedFilePaths.map((p) => {
+      const relativePath = p.replace(dirPath + "/", "");
+      return {
+        path: p, // Keep the full path for the tree builder? Or relative? Depends on buildDemoExportText
+        tokenCount: ws.tokens[relativePath],
+      };
+    });
+    // Assuming buildDemoExportText needs the root path and file info {path, tokenCount}
+    // We might need to adjust paths depending on how buildDemoExportText consumes them
+    exportText = buildDemoExportText(dirPath, filesForTree);
+  } else if (dirPath === DEMO_WORKSPACE_PATH) {
+    const filesForTree = selectedFilePaths.map((path) => ({
+      path,
+      tokenCount: getDemoFileTokens()[path] ?? 0, // Get demo tokens
+    }));
+    exportText = buildDemoExportText(dirPath, filesForTree);
+  } else {
+    console.error(`WEB SHIM: Cannot copy, unsupported path type '${dirPath}'.`);
+    alert("Error: Cannot copy data for this workspace type.");
+    return;
+  }
 
   // Check if running inside an iframe
   const isInsideIframe = window.self !== window.top;
@@ -165,7 +252,7 @@ export const copyFilesWithTreeToClipboard = async (
       // Make sure the parent window exists and has postMessage
       if (window.parent && typeof window.parent.postMessage === "function") {
         window.parent.postMessage(
-          { type: "copyToClipboard", text: tree },
+          { type: "copyToClipboard", text: exportText },
           targetOrigin
         );
         // Optional: Show success message in the demo UI
@@ -184,7 +271,7 @@ export const copyFilesWithTreeToClipboard = async (
     // Running standalone (new tab): Use navigator.clipboard directly
     console.log("Attempting direct clipboard write");
     try {
-      await navigator.clipboard.writeText(tree);
+      await navigator.clipboard.writeText(exportText);
     } catch (err) {
       console.error("Failed to write directly to clipboard:", err);
       // Provide feedback in the demo UI
@@ -215,13 +302,44 @@ export const saveRecentWorkspaces = async (
   return Promise.resolve();
 };
 
-// Cannot open native directory dialog
+// Use File System Access API for directory dialog
 export const openDirectoryDialog = async (): Promise<string | null> => {
-  console.warn("WEB SHIM: openDirectoryDialog called, not supported.");
-  alert(
-    "Opening local directories directly is not supported in this demo. Please use the provided 'Demo Project'."
-  );
-  return Promise.resolve(null);
+  if (!window.showDirectoryPicker) {
+    alert(
+      "Opening local folders requires a browser that supports the File System Access API (like Chrome, Edge, or Opera)."
+    );
+    return Promise.resolve(null);
+  }
+  try {
+    const handle = await window.showDirectoryPicker();
+    // Register the handle and get the VFS ID
+    const workspaceId = await registerWorkspace(handle); // This now returns "fs://<uuid>"
+    return Promise.resolve(workspaceId);
+  } catch (err: any) {
+    // Handle user cancellation gracefully
+    if (err?.name === "AbortError") {
+      console.log("WEB SHIM: Directory picker cancelled by user.");
+      return Promise.resolve(null);
+    }
+
+    if (err instanceof RepoSizeCapError) {
+      throw err;
+    }
+
+    // Handle potential errors from registerWorkspace (e.g., size limits)
+    if (err.message?.includes("exceeded")) {
+      // Basic check for size errors
+      alert(`Error opening directory: ${err.message}`);
+      return Promise.resolve(null);
+    }
+    console.error("WEB SHIM: Error using showDirectoryPicker:", err);
+    alert(
+      `An unexpected error occurred while trying to open the directory: ${
+        err.message || err
+      }`
+    );
+    return Promise.resolve(null); // Return null on other errors too
+  }
 };
 
 // --- License Service Stubs ---
@@ -258,10 +376,8 @@ export const getLocalLicenseState = async (): Promise<LicenseStateResponse> => {
 };
 
 // Workspace limit check always passes in web demo (as opening is blocked anyway)
-export const checkWorkspaceLimit = async (): Promise<{
-  error: TauriApiErrorInternal | null;
-}> => {
-  return Promise.resolve({ error: null });
+export const checkWorkspaceLimit = async (): Promise<WorkspaceLimitStatus> => {
+  return Promise.resolve({ allowed: true, used: 0, limit: 0, error: null });
 };
 
 export const clearCache = async () => {

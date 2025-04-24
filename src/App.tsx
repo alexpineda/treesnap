@@ -19,6 +19,8 @@ import { useApplicationSettings } from "./hooks/use-application-settings";
 import { WorkspaceLimitBanner } from "./components/license/workspace-limit-banner";
 import { UpdateAvailable } from "./components/license/update-available";
 import { __WEB_DEMO__ } from "@/platform";
+import { RepoSizeCapError } from "@/platform";
+import { WebLimitBanner } from "./components/license/web-limit-banner";
 
 function App() {
   const [totalTokens, setTotalTokens] = useState(0);
@@ -27,6 +29,9 @@ function App() {
   const workspace = useWorkspace(addToRecentWorkspaces);
   const { workspaceLimitStatus, localLicenseState } = useLicense();
   const { settings, saveSettings } = useApplicationSettings();
+  const [webLimitError, setWebLimitError] = useState<RepoSizeCapError | null>(
+    null
+  );
 
   useEffect(() => {
     calculateTotalTokens();
@@ -104,7 +109,11 @@ function App() {
         await workspace.loadWorkspace(selected as string);
         resetStates();
       }
+      setWebLimitError(null);
     } catch (err) {
+      if (err instanceof RepoSizeCapError) {
+        setWebLimitError(err);
+      }
       //TODO toast error
       console.error("Error opening directory:", err);
     }
@@ -328,19 +337,12 @@ function App() {
                 <div className="flex flex-1 w-full items-center justify-center">
                   {import.meta.env.MODE === "web-demo" ? (
                     <div className="flex flex-col items-center justify-center">
-                      <div>
-                        <p className="font-bold text-gray-300">
-                          This is a limited web demo version.
-                        </p>{" "}
-                        <a
-                          href="https://www.reposnap.io/download"
-                          target="_blank"
-                          className="text-blue-500 underline"
-                        >
-                          Click here to download the full desktop version for
-                          full functionality.
-                        </a>
-                      </div>
+                      {webLimitError && (
+                        <WebLimitBanner
+                          files={webLimitError.files}
+                          bytes={webLimitError.bytes}
+                        />
+                      )}
                     </div>
                   ) : (
                     <div className="flex flex-col gap-4">

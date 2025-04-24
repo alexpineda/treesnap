@@ -20,6 +20,8 @@ export const WorkspaceSelector = ({
     localLicenseState?.status == "inactive" && !workspaceLimitStatus?.allowed
   );
 
+  console.log("workspaceLimitStatus", workspaceLimitStatus);
+
   return (
     <div className="flex flex-col items-center justify-center h-full bg-gray-800 text-white px-10 text-center">
       <h2 className="text-2xl font-bold flex items-center gap-2">
@@ -28,11 +30,6 @@ export const WorkspaceSelector = ({
       </h2>
       <p className="text-sm my-2.5 mb-5">
         Open a folder to start analyzing your codebase.
-        {__WEB_DEMO__ && (
-          <p className="text-gray-400 text-sm">
-            (This is a demo version, so you can't open a custom folder.)
-          </p>
-        )}
       </p>
 
       <div className="flex flex-wrap gap-2.5">
@@ -40,10 +37,8 @@ export const WorkspaceSelector = ({
           <button
             onClick={handleChooseDirectory}
             className={classNames(
-              "flex items-center gap-2 bg-gray-700 text-white border border-gray-600 px-4 py-2 rounded cursor-pointer",
-              __WEB_DEMO__ && "opacity-50 cursor-not-allowed"
+              "flex items-center gap-2 bg-gray-700 text-white border border-gray-600 px-4 py-2 rounded cursor-pointer"
             )}
-            disabled={__WEB_DEMO__}
           >
             <FolderOpenIcon className="w-4 h-4" /> Open Folder
           </button>

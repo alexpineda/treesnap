@@ -31,9 +31,10 @@ import {
   TauriApiErrorInternal,
   TauriApiError,
   __WEB_DEMO__,
+  RepoSizeCapError,
 } from "./shared";
 
-export { TauriApiError, __WEB_DEMO__ };
+export { TauriApiError, __WEB_DEMO__, RepoSizeCapError };
 
 export const listen = <T>(
   event: string,
