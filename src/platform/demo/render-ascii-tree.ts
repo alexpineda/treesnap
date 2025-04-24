@@ -22,8 +22,9 @@ type Node = {
 function renderNode(node: Node, prefix = "", isLast = true): string {
   const lines: string[] = [];
   const connector = isLast ? "└── " : "├── ";
-  const tokenSuffix =
-    node.tokens !== undefined ? `  (${node.tokens} tokens)` : "";
+  const tokenSuffix = "";
+  //TODO add as setting option
+  // node.tokens !== undefined ? `  (${node.tokens} tokens)` : "";
 
   lines.push(
     prefix + connector + node.name + (node.isDir ? "/" : "") + tokenSuffix

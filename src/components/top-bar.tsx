@@ -50,7 +50,9 @@ export const TopBar = ({
               <Copy size={16} className="text-blue-400" />
             )}
           </span>
-          <span className="ml-2">Export Selection to Clipboard</span>
+          <span className="ml-2 text-gray-300">
+            Export Selection to Clipboard
+          </span>
         </div>
       </div>
 

@@ -14,7 +14,11 @@ import {
   createDemoFileTree,
   getDemoFileTokens,
 } from "./demo/demo-repo";
-import { buildDemoExportText } from "./demo/render-ascii-tree";
+import {
+  renderAsciiTree,
+  detectBinary,
+  buildDemoExportText,
+} from "./demo/render-ascii-tree";
 import {
   TauriApiError,
   LicenseStateResponse,
@@ -27,8 +31,9 @@ import {
   get as getVfs,
   isVfsPath,
   unregister,
+  getDisplayName,
   VFS_PREFIX,
-} from "./demo/virtual-fs"; // Adjusted path if needed
+} from "./demo/virtual-fs";
 
 export { TauriApiError, __WEB_DEMO__, RepoSizeCapError };
 
@@ -221,18 +226,41 @@ export const copyFilesWithTreeToClipboard = async (
       alert("Error: Could not find workspace data to copy.");
       return;
     }
-    const filesForTree = selectedFilePaths.map((p) => {
-      const relativePath = p.replace(dirPath + "/", "");
-      return {
-        path: p, // Keep the full path for the tree builder? Or relative? Depends on buildDemoExportText
-        tokenCount: ws.tokens[relativePath],
-      };
-    });
+    /* ---------- reuse demo helpers so format is identical ---------- */
+    const rootLabel =
+      getDisplayName(dirPath) ?? dirPath.replace(VFS_PREFIX, "");
 
-    console.log("filesForTree", filesForTree);
-    // Assuming buildDemoExportText needs the root path and file info {path, tokenCount}
-    // We might need to adjust paths depending on how buildDemoExportText consumes them
-    exportText = buildDemoExportText(dirPath, filesForTree);
+    // 1) tree data
+    const treeInput = selectedFilePaths.map((p) => {
+      const rel = p.replace(dirPath + "/", "");
+      return { path: `${rootLabel}/${rel}`, tokenCount: ws.tokens[rel] };
+    });
+    const asciiTree = renderAsciiTree(treeInput, rootLabel);
+
+    // 2) file blocks
+    const fileBlocks = await Promise.all(
+      selectedFilePaths.map(async (fullPath) => {
+        const rel = fullPath.replace(dirPath + "/", "");
+        const pretty = `${rootLabel}/${rel}`;
+        const ext = rel.split(".").pop() ?? "";
+
+        const fileObj = ws.files.find(
+          (f) => `${dirPath}/${f.webkitRelativePath || f.name}` === fullPath
+        );
+
+        if (!fileObj || detectBinary(rel)) {
+          return `File: ${pretty}\n\`\`\`${ext}\n[Binary file]\n\`\`\``;
+        }
+
+        return `File: ${pretty}\n\`\`\`${ext}\n${await fileObj.text()}\n\`\`\``;
+      })
+    );
+
+    // 3) final blob   —   do **NOT** stringify; raw new-lines keep formatting
+    exportText =
+      `<file_map>\n${asciiTree}\n\n</file_map>\n\n` +
+      `<file_contents>\n${fileBlocks.join("\n\n")}\n</file_contents>`;
+    /* --------- end changes --------- */
   } else if (dirPath === DEMO_WORKSPACE_PATH) {
     const filesForTree = selectedFilePaths.map((path) => ({
       path,
