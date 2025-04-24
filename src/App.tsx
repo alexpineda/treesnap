@@ -20,9 +20,9 @@ import { WorkspaceLimitBanner } from "./components/license/workspace-limit-banne
 import { UpdateAvailable } from "./components/license/update-available";
 import { __WEB_DEMO__ } from "@/platform";
 import { RepoSizeCapError } from "@/platform";
-import { WebLimitBanner } from "./components/license/web-limit-banner";
 import { EmptyStateWeb } from "./components/empty-state/empty-state-web";
 import { TopBanner } from "./components/empty-state/top-banner-web";
+import { SizeCapBanner } from "./components/empty-state/size-cap-banner-web";
 function App() {
   const [totalTokens, setTotalTokens] = useState(0);
   const [isShowingSettings, setIsShowingSettings] = useState(false);
@@ -340,11 +340,14 @@ function App() {
                   {import.meta.env.MODE === "web-demo" ? (
                     <div className="flex flex-col items-center justify-center">
                       {webLimitError && (
-                        <WebLimitBanner
+                        <SizeCapBanner
                           files={webLimitError.files}
-                          bytes={webLimitError.bytes}
+                          sizeMB={Math.round(webLimitError.bytes / 1024 / 1024)}
+                          show={true}
+                          onClose={() => setWebLimitError(null)}
                         />
                       )}
+
                       <EmptyStateWeb />
                     </div>
                   ) : (
