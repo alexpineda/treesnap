@@ -62,6 +62,7 @@ function App() {
   };
 
   const calculateTotalTokens = async () => {
+    // always recompute from scratch at the *end* ↓
     if (workspace.selectedFiles.length === 0) {
       setTotalTokens(0);
       return;
@@ -97,6 +98,13 @@ function App() {
       running += Object.values(tokenMap).reduce((s, n) => s + n, 0);
       setTotalTokens(running); // progressive total
     }
+
+    // final, authoritative total (prevents double-count)
+    const freshTotal = workspace.selectedFiles.reduce(
+      (sum, f) => (!f.is_directory && f.tokenCount ? sum + f.tokenCount : sum),
+      0
+    );
+    setTotalTokens(freshTotal);
   };
 
   const handleClose = () => {

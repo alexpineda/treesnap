@@ -1,6 +1,7 @@
 import type { FileTreeNode } from "../../types";
 import { RepoSizeCapError } from "../shared";
 import { encode } from "gpt-tokenizer";
+import { detectBinary } from "./render-ascii-tree";
 import ignore, { type Ignore } from "ignore";
 
 export const VFS_PREFIX = "fs://"; // string surface
@@ -87,10 +88,28 @@ export const calculateTokensForEntries = async (
 ): Promise<Record<string, number>> => {
   const out: Record<string, number> = {};
   for (const { rel, file } of entries) {
-    out[rel] = encode(await file.text()).length;
+    out[rel] = (await isLikelyBinary(file))
+      ? 0
+      : encode(await file.text()).length;
   }
   return out;
 };
+
+// ── byte-level heuristic mirrors Rust is_likely_binary_file ────────────
+async function isLikelyBinary(file: File): Promise<boolean> {
+  if (detectBinary(file.name)) return true; // ext check
+
+  const CHUNK = 2048;
+  const buf = await file.slice(0, CHUNK).arrayBuffer();
+  const bytes = new Uint8Array(buf);
+
+  let control = 0;
+  for (const b of bytes) {
+    if (b === 0) return true; // NUL byte
+    if (b < 32 && b !== 9 && b !== 10 && b !== 13) control++;
+  }
+  return control / bytes.length > 0.1; // >10 % ctl
+}
 
 /** turns a DirHandle into a registered virtual workspace and returns its id  */
 export const registerWorkspace = async (handle: FileSystemDirectoryHandle) => {
@@ -182,8 +201,8 @@ export function buildFileTree(
       );
   return sortRecursive(tree);
 }
-/** crude "token" count = number of whitespace-separated words */
-const countTokens = (text: string) => text.trim().split(/\s+/).length;
+// same model the Rust side uses: gpt-4o
+const countTokens = (text: string) => encode(text).length;
 
 export const getDisplayName = (id: string) => names.get(id); // << NEW
 
