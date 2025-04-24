@@ -32,7 +32,7 @@ export function SizeCapBanner({
               </span>
               .&nbsp;
               <a
-                href="https://reposnap.io/desktop"
+                href="https://www.reposnap.io/download"
                 className="underline underline-offset-2 hover:text-orange-50"
               >
                 Grab the desktop app for unlimited size →
