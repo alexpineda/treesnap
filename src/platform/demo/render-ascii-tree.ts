@@ -106,10 +106,12 @@ export function buildDemoExportText(
 ): string {
   // 1. Generate the ASCII tree (includes root path)
   const tree = renderAsciiTree(selected, workspace);
+  console.log("tree", tree);
 
   // 2. Get all file contents once
   const fileContentsMap = new Map(getEntries());
 
+  console.log("fileContentsMap", fileContentsMap);
   // 3. Format each selected file according to the example
   const fileBlocks = selected.map((f) => {
     const extension = getExtension(f.path);
@@ -126,8 +128,11 @@ export function buildDemoExportText(
     return `File: ${f.path}\n\`\`\`${extension}\n${content}\n\`\`\``;
   });
 
+  console.log("fileBlocks", fileBlocks);
+
   // 4. Join the file blocks with TWO newlines between them (matching Rust)
   const allFileBlocks = fileBlocks.join("\n\n");
+  console.log("allFileBlocks", allFileBlocks);
 
   // 5. Construct the final string
   return (

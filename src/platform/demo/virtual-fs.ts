@@ -73,7 +73,14 @@ export const registerWorkspace = async (handle: FileSystemDirectoryHandle) => {
     fileData
   );
 
-  workspaces.set(id, { id, handle, files, tokens, tree });
+  const rootNode: FileTreeNode = {
+    name: handle.name || "root",
+    path: id, // matches workspacePath you pass around
+    is_directory: true,
+    children: tree,
+  };
+
+  workspaces.set(id, { id, handle, files, tokens, tree: [rootNode] });
   return id;
 };
 

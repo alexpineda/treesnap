@@ -210,6 +210,8 @@ export const copyFilesWithTreeToClipboard = async (
 
   let exportText = "";
 
+  console.log("isVfsPath", isVfsPath(dirPath));
+
   if (isVfsPath(dirPath)) {
     const ws = getVfs(dirPath);
     if (!ws) {
@@ -226,6 +228,8 @@ export const copyFilesWithTreeToClipboard = async (
         tokenCount: ws.tokens[relativePath],
       };
     });
+
+    console.log("filesForTree", filesForTree);
     // Assuming buildDemoExportText needs the root path and file info {path, tokenCount}
     // We might need to adjust paths depending on how buildDemoExportText consumes them
     exportText = buildDemoExportText(dirPath, filesForTree);
@@ -241,42 +245,14 @@ export const copyFilesWithTreeToClipboard = async (
     return;
   }
 
-  // Check if running inside an iframe
-  const isInsideIframe = window.self !== window.top;
-
-  if (isInsideIframe) {
-    // Running in iframe: Send message to the parent window (your main site)
-    console.log("Attempting postMessage to parent");
-    const targetOrigin = "https://www.reposnap.io";
-    try {
-      // Make sure the parent window exists and has postMessage
-      if (window.parent && typeof window.parent.postMessage === "function") {
-        window.parent.postMessage(
-          { type: "copyToClipboard", text: exportText },
-          targetOrigin
-        );
-        // Optional: Show success message in the demo UI
-        console.log("Message posted to parent for clipboard write.");
-      } else {
-        console.error("Cannot access parent window or postMessage function.");
-        // Fallback or error message if parent communication isn't possible
-        alert("Copy is not supported in this browser.");
-      }
-    } catch (error) {
-      console.error("Error posting message to parent:", error);
-      // Provide feedback in the demo UI
-      alert("Copy is not supported in this browser.");
-    }
-  } else {
-    // Running standalone (new tab): Use navigator.clipboard directly
-    console.log("Attempting direct clipboard write");
-    try {
-      await navigator.clipboard.writeText(exportText);
-    } catch (err) {
-      console.error("Failed to write directly to clipboard:", err);
-      // Provide feedback in the demo UI
-      alert("Copy is not supported in this browser.");
-    }
+  // Running standalone (new tab): Use navigator.clipboard directly
+  console.log("Attempting direct clipboard write");
+  try {
+    await navigator.clipboard.writeText(exportText);
+  } catch (err) {
+    console.error("Failed to write directly to clipboard:", err);
+    // Provide feedback in the demo UI
+    alert("Copy is not supported in this browser.");
   }
 };
 
