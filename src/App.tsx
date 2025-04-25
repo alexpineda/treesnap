@@ -23,6 +23,14 @@ import { RepoSizeCapError } from "@/platform";
 import { EmptyStateWeb } from "./components/empty-state/empty-state-web";
 import { TopBanner } from "./components/empty-state/top-banner-web";
 import { SizeCapBanner } from "./components/empty-state/size-cap-banner-web";
+import { __DEV__ } from "./platform/shared";
+
+if (!__DEV__) {
+  document.addEventListener("contextmenu", function (event) {
+    event.preventDefault();
+  });
+}
+
 function App() {
   const [totalTokens, setTotalTokens] = useState(0);
   const [isShowingSettings, setIsShowingSettings] = useState(false);
@@ -81,31 +89,25 @@ function App() {
     );
 
     const BATCH = 25; // any size you like
+    const tokenMapAll: Record<string, number> = {};
     for (let i = 0; i < pending.length; i += BATCH) {
-      const slice = pending.slice(i, i + BATCH);
-      const paths = slice.map((f) => f.path);
-
-      const tokenMap = await calculateTokensForFiles(paths); // ONE IPC per batch
-
-      // update selection → clears per‑file spinners
-      workspace.setSelectedFiles((prev) =>
-        prev.map((f) =>
-          tokenMap[f.path] !== undefined
-            ? { ...f, tokenCount: tokenMap[f.path], isLoading: false }
-            : f
+      Object.assign(
+        tokenMapAll,
+        await calculateTokensForFiles(
+          pending.slice(i, i + BATCH).map((f) => f.path)
         )
       );
-
-      running += Object.values(tokenMap).reduce((s, n) => s + n, 0);
-      setTotalTokens(running); // progressive total
     }
+    workspace.setSelectedFiles((prev) =>
+      prev.map((f) =>
+        tokenMapAll[f.path] !== undefined
+          ? { ...f, tokenCount: tokenMapAll[f.path], isLoading: false }
+          : f
+      )
+    );
 
-    // final, authoritative total (prevents double-count)
-    // const freshTotal = workspace.selectedFiles.reduce(
-    //   (sum, f) => (!f.is_directory && f.tokenCount ? sum + f.tokenCount : sum),
-    //   0
-    // );
-    // setTotalTokens(freshTotal);
+    running += Object.values(tokenMapAll).reduce((s, n) => s + n, 0);
+    setTotalTokens(running); // progressive total
   };
 
   const handleClose = () => {

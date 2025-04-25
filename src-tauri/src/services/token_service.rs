@@ -8,6 +8,8 @@ use tracing::{debug, error, info};
 use crate::domain::file_tree_node::FileTreeNode;
 use crate::services::file_service::is_likely_binary_file;
 
+static TOKEN_RPC_CALLS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
 /// Calculate tokens for a specific file, using the cache if possible.
 pub async fn calculate_file_tokens(
     file_path: String,
@@ -19,42 +21,19 @@ pub async fn calculate_file_tokens(
         return Err(format!("File does not exist: {:?}", path));
     }
 
-    // Check if the file is likely binary
-    if is_likely_binary_file(&path) {
-        info!("Skipping binary file: {}", file_path);
-        // Optionally cache binary files as 0 tokens
-        if let Ok(modified_secs) = cache_service::get_current_modified_secs(&file_path) {
-            if let Err(e) =
-                cache_service::update_cache(file_path.clone(), modified_secs, 0, cache_state)
-            {
-                error!(
-                    "Failed to update cache for binary file {}: {}",
-                    file_path, e
-                );
-            } else {
-                // Attempt to save cache immediately after updating for binary file
-                if let Err(e) = cache_service::save_cache(app_handle, cache_state) {
-                    error!(
-                        "Failed to save cache after updating binary file {}: {}",
-                        file_path, e
-                    );
-                }
-            }
-        } else {
-            error!(
-                "Could not get modification time for binary file {}. Not caching.",
-                file_path
-            );
-        }
-        return Ok(0); // Return 0 tokens for binary files
-    }
-
     let current_modified_secs = cache_service::get_current_modified_secs(&file_path)?;
     if let Some(cached_tokens) =
         cache_service::check_cache(&file_path, current_modified_secs, cache_state)?
     {
         info!("Cache hit for {}: {} tokens", file_path, cached_tokens);
         return Ok(cached_tokens);
+    }
+
+    // Check if the file is likely binary
+    if is_likely_binary_file(&path) {
+        info!("Skipping binary file: {}", file_path);
+        cache_service::update_cache(file_path.clone(), current_modified_secs, 0, cache_state)?;
+        return Ok(0); // Return 0 tokens for binary files
     }
 
     info!("Cache miss/stale for {}. Calculating tokens...", file_path);
@@ -78,10 +57,6 @@ pub async fn calculate_file_tokens(
         cache_state,
     )?;
 
-    if let Err(e) = cache_service::save_cache(app_handle, cache_state) {
-        error!("Failed to save cache after updating {}: {}", file_path, e);
-    }
-
     Ok(token_count)
 }
 
@@ -91,6 +66,8 @@ pub async fn calculate_tokens_for_files(
     app_handle: &AppHandle,
     cache_state: &State<'_, CacheState>,
 ) -> Result<HashMap<String, usize>, String> {
+    let n = TOKEN_RPC_CALLS.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+    tracing::debug!("calculate_tokens_for_files() call #{}", n);
     let bpe = Arc::new(
         tiktoken_rs::get_bpe_from_model("gpt-4o")
             .map_err(|e| format!("Failed to initialize tokenizer: {}", e))?,
@@ -206,7 +183,7 @@ pub async fn calculate_tokens_for_files(
             }
         }
     } else {
-        info!("All token counts retrieved from cache.");
+        debug!("All token counts retrieved from cache.");
     }
 
     if needs_save {

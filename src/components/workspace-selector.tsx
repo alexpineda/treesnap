@@ -26,9 +26,7 @@ export const WorkspaceSelector = ({
         {/* <img src="/logo.png" alt="TreeSnap" className="w-8 h-8" /> */}
         TreeSnap
       </h2>
-      <p className="text-sm my-2.5 mb-5">
-        Open a folder to start analyzing your codebase.
-      </p>
+      <p className="text-sm my-2.5 mb-5">Snap. Trim. Prompt.</p>
 
       <div className="flex flex-wrap gap-2.5">
         {showButton && (

@@ -33,7 +33,7 @@ use chrono::Utc;
 use domain::application_settings::ApplicationSettings;
 use reqwest::Client;
 use services::license::errors::ApiError;
-use tracing::{error, info};
+use tracing::{debug, error, info};
 use tracing_subscriber;
 
 #[tauri::command]
@@ -241,7 +241,18 @@ pub fn run() {
             let initial_cache = cache_service::load_cache(&handle);
             app.manage(cache_service::CacheState(Mutex::new(initial_cache)));
 
-            // tauri::async_runtime::spawn(async move {
+            tauri::async_runtime::spawn(async move {
+                let app = handle.clone();
+                let cache = app.state::<cache_service::CacheState>().clone();
+                loop {
+                    tokio::time::sleep(std::time::Duration::from_secs(10)).await;
+                    if let Err(e) = cache_service::save_cache(&app, &cache) {
+                        error!("Failed to save cache in background: {}", e);
+                    } else {
+                        debug!("Cache saved in background.");
+                    }
+                }
+            });
             //     // --- License Check ---
             //     let license_state_result = license::get_local_license_state_internal(&handle).await;
 
