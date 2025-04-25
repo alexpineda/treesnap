@@ -11,6 +11,7 @@ export const TopBar = ({
   onQuickOpenClick,
   showQuickOpenButton,
   settings,
+  setHasExportedForWeb,
 }: {
   selectedFiles: FileTreeNode[];
   workspacePath: string;
@@ -19,6 +20,7 @@ export const TopBar = ({
   onQuickOpenClick: () => void;
   showQuickOpenButton: boolean;
   settings: ApplicationSettings;
+  setHasExportedForWeb: (hasExportedForWeb: boolean) => void;
 }) => {
   const { status, copyExportToClipboard } = useExport({
     selectedFiles,
@@ -35,7 +37,11 @@ export const TopBar = ({
           className={`flex items-center justify-center px-3 py-2 border-r border-gray-700
                       cursor-pointer hover:bg-gray-700 h-full
                       ${isDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
-          onClick={() => !isDisabled && copyExportToClipboard()}
+          onClick={() => {
+            if (isDisabled) return;
+            copyExportToClipboard();
+            setHasExportedForWeb(true);
+          }}
           title={isDisabled ? "No files selected" : "Copy ⌘/Ctrl+C"}
         >
           <span className="h-full flex items-center">

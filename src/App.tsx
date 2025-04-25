@@ -33,6 +33,7 @@ function App() {
   const [webLimitError, setWebLimitError] = useState<RepoSizeCapError | null>(
     null
   );
+  const [hasExportedForWeb, setHasExportedForWeb] = useState(false);
 
   useEffect(() => {
     calculateTotalTokens();
@@ -160,7 +161,9 @@ function App() {
 
   return (
     <div className="flex h-screen flex-col bg-gray-900">
-      {__WEB_DEMO__ && <TopBanner />}
+      {__WEB_DEMO__ &&
+        hasExportedForWeb &&
+        workspace?.status === "not-loaded" && <TopBanner />}
       <div className="flex flex-1 overflow-hidden">
         {isShowingSettings && (
           <Settings
@@ -249,6 +252,7 @@ function App() {
                     settings={settings}
                     selectedFiles={workspace.selectedFiles}
                     workspacePath={workspace.workspacePath}
+                    setHasExportedForWeb={setHasExportedForWeb}
                     handleClose={handleClose}
                     onSettingsClick={() => {
                       if (__WEB_DEMO__) {
@@ -356,7 +360,7 @@ function App() {
                         />
                       )}
 
-                      <EmptyStateWeb />
+                      <EmptyStateWeb showUpsell={hasExportedForWeb} />
                     </div>
                   ) : (
                     <div className="flex flex-col gap-4">
