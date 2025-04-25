@@ -55,7 +55,7 @@ export const EmptyStateWeb = ({ showUpsell }: { showUpsell: boolean }) => (
     {showUpsell && (
       <a
         href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(
-          `Just flattened my repo in seconds with @RepoSnapApp 🤯 #AI #devtools — grab 10% off desktop with code ${COUPON}`
+          `Just flattened my repo in seconds with @GetTreeSnap 🤯 #AI #devtools — grab 10% off desktop with code ${COUPON}`
         )}`}
         target="_blank"
         rel="noreferrer"

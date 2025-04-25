@@ -5,7 +5,7 @@ const version = process.argv[2];
 if (!version) throw new Error("Pass version as first arg");
 
 const distDir = path.normalize("src-tauri/target/release/bundle/msi");
-const artifactName = `RepoSnap_${version}_x64_en-US.msi`;
+const artifactName = `TreeSnap_${version}_x64_en-US.msi`;
 const sigName = `${artifactName}.sig`;
 
 const urlBase = `https://releases.treesnap.app/releases/${version}`;
