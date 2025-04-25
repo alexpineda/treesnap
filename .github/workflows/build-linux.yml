@@ -42,7 +42,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
           tagName: v__VERSION__
-          releaseName: "RepoSnap v__VERSION__ (Linux)"
+          releaseName: "TreeSnap v__VERSION__ (Linux)"
           releaseBody: "Linux build (AppImage)."
           releaseDraft: true
           args: "--bundles appimage --verbose"
@@ -53,7 +53,7 @@ jobs:
 
       - name: Clean Up Unneeded Build Artifacts
         run: |
-          rm -rf src-tauri/target/release/bundle/appimage/RepoSnap.AppDir
+          rm -rf src-tauri/target/release/bundle/appimage/TreeSnap.AppDir
           ls -la src-tauri/target/release/bundle/appimage/
 
       - name: Debug Deploy Condition

@@ -69,7 +69,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: v__VERSION__
-          releaseName: "RepoSnap v__VERSION__ (macOS Universal)"
+          releaseName: "TreeSnap v__VERSION__ (macOS Universal)"
           releaseBody: "macOS universal build (.dmg)."
           releaseDraft: true
           args: "--target universal-apple-darwin --bundles app,dmg --verbose"

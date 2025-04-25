@@ -8,7 +8,7 @@ const distDir = path.normalize("src-tauri/target/release/bundle/msi");
 const artifactName = `RepoSnap_${version}_x64_en-US.msi`;
 const sigName = `${artifactName}.sig`;
 
-const urlBase = `https://releases.reposnap.io/releases/${version}`;
+const urlBase = `https://releases.treesnap.app/releases/${version}`;
 const artifactUrl = `${urlBase}/${artifactName}`;
 const sigPath = path.join(distDir, sigName);
 

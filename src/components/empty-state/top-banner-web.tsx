@@ -1,7 +1,7 @@
 // src/components/TopBanner.tsx
 export const TopBanner = () => (
   <a
-    href="https://reposnap.io/download"
+    href="https://treesnap.app/download"
     target="_blank"
     rel="noreferrer"
     className="flex items-center justify-center gap-1

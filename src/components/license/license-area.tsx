@@ -112,7 +112,7 @@ export const LicenseArea = ({
                 className="text-blue-400 hover:text-blue-300 underline"
                 onClick={(e) => {
                   e.preventDefault();
-                  openUrl("https://www.reposnap.io");
+                  openUrl("https://www.treesnap.app");
                 }}
               >
                 Purchase here

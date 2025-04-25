@@ -115,7 +115,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           tagName: v__VERSION__
-          releaseName: "RepoSnap v__VERSION__ (${{ matrix.platform }})"
+          releaseName: "TreeSnap v__VERSION__ (${{ matrix.platform }})"
           releaseBody: "Build for ${{ matrix.platform }}"
           releaseDraft: true
           args: ${{ matrix.buildArgs }}
@@ -135,8 +135,8 @@ jobs:
       - name: Strip non‑distributables
         if: matrix.platform == 'macos'
         run: |
-          rm -rf src-tauri/target/universal-apple-darwin/release/bundle/macos/RepoSnap.app
-          rm -rf src-tauri/target/universal-apple-darwin/release/bundle/macos/RepoSnap.AppDir
+          rm -rf src-tauri/target/universal-apple-darwin/release/bundle/macos/TreeSnap.app
+          rm -rf src-tauri/target/universal-apple-darwin/release/bundle/macos/TreeSnap.AppDir
 
       - name: Copy DMG beside other artifacts
         if: matrix.platform == 'macos'
@@ -147,7 +147,7 @@ jobs:
       # ----- inside the linux matrix job, *after* "Build Tauri App" -----
       - name: Drop AppDir
         if: matrix.platform == 'linux'
-        run: rm -rf src-tauri/target/release/bundle/appimage/RepoSnap.AppDir
+        run: rm -rf src-tauri/target/release/bundle/appimage/TreeSnap.AppDir
 
       - name: Upload to R2
         if: ${{ github.event.inputs.deploy == 'true' }}

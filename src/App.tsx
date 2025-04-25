@@ -101,11 +101,11 @@ function App() {
     }
 
     // final, authoritative total (prevents double-count)
-    const freshTotal = workspace.selectedFiles.reduce(
-      (sum, f) => (!f.is_directory && f.tokenCount ? sum + f.tokenCount : sum),
-      0
-    );
-    setTotalTokens(freshTotal);
+    // const freshTotal = workspace.selectedFiles.reduce(
+    //   (sum, f) => (!f.is_directory && f.tokenCount ? sum + f.tokenCount : sum),
+    //   0
+    // );
+    // setTotalTokens(freshTotal);
   };
 
   const handleClose = () => {

@@ -296,7 +296,7 @@ export const Settings = ({
                       <button
                         onClick={() => {
                           copyToClipboard(
-                            `https://reposnap.io/?ref=${license.localLicenseState?.refCode}`
+                            `https://treesnap.app/?ref=${license.localLicenseState?.refCode}`
                           );
                         }}
                         className="cursor-pointer group w-full inline-flex items-center justify-center gap-2
@@ -304,7 +304,7 @@ export const Settings = ({
                                  hover:bg-indigo-500 active:scale-[.98] transition"
                       >
                         <span className="truncate">
-                          reposnap.io/?ref=
+                          treesnap.app/?ref=
                           <b>{license.localLicenseState?.refCode}</b>
                         </span>
                         <CopyIcon className="w-4 h-4 flex-shrink-0 group-active:scale-95 transition" />

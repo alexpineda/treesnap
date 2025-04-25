@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "RepoSnap",
+  "productName": "TreeSnap",
   "version": "0.1.6",
-  "identifier": "com.reposnap.app",
+  "identifier": "com.treesnap.app",
   "build": {
     "beforeDevCommand": "bun run dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "RepoSnap",
+        "title": "TreeSnap",
         "width": 1200,
         "height": 800,
         "decorations": true,
@@ -23,14 +23,12 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self' tauri:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https://asset.localhost data:; connect-src 'self' https://reposnap.io; object-src 'none'; frame-src 'none'; child-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'; upgrade-insecure-requests;",
+      "csp": "default-src 'self' tauri:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' asset: https://asset.localhost data:; connect-src 'self' https://treesnap.app; object-src 'none'; frame-src 'none'; child-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'; upgrade-insecure-requests;",
       "capabilities": [
         {
           "identifier": "main-capability",
           "description": "Main window capabilities",
-          "windows": [
-            "*"
-          ],
+          "windows": ["*"],
           "permissions": [
             "store:default",
             "dialog:default",
@@ -62,9 +60,7 @@
     "updater": {
       "active": true,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDE5QkQxOTRDQ0M1MDg0NkIKUldScmhGRE1UQm05R1U5dCt0NHVKZDN1dWp2eGtpUXZoRG9tSkJMSWVVdG1oVUYxSXdXM05OVEkK",
-      "endpoints": [
-        "https://releases.reposnap.io/latest.json"
-      ]
+      "endpoints": ["https://releases.treesnap.app/latest.json"]
     }
   }
 }

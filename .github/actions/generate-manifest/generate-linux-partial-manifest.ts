@@ -8,7 +8,7 @@ const distDir = `src-tauri/target/release/bundle/appimage`;
 const artifactName = `RepoSnap_${version}_amd64.AppImage`;
 const sigName = `${artifactName}.sig`;
 
-const urlBase = `https://releases.reposnap.io/releases/${version}`;
+const urlBase = `https://releases.treesnap.app/releases/${version}`;
 const artifactUrl = `${urlBase}/${artifactName}`;
 const sigPath = path.join(distDir, sigName);
 

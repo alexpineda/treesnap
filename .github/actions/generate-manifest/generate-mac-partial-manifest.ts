@@ -5,10 +5,10 @@ const version = process.argv[2]; // passed as CLI arg like "0.1.0"
 if (!version) throw new Error("Pass version as first arg");
 
 const distDir = `src-tauri/target/universal-apple-darwin/release/bundle/macos`;
-const artifactName = `RepoSnap.app.tar.gz`;
+const artifactName = `TreeSnap.app.tar.gz`;
 const sigName = `${artifactName}.sig`;
 
-const urlBase = `https://releases.reposnap.io/releases/${version}`;
+const urlBase = `https://releases.treesnap.app/releases/${version}`;
 const artifactUrl = `${urlBase}/${artifactName}`;
 const sigPath = path.join(distDir, sigName);
 

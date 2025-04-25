@@ -1,6 +1,6 @@
 {
-  "name": "RepoSnap Online",
-  "short_name": "RepoSnap",
+  "name": "TreeSnap Online",
+  "short_name": "TreeSnap",
   "description": "Flatten your repo for AI in seconds. Explore code visually, pick files, export tokens for GPT. Nothing leaves your machine.",
   "start_url": "/",
   "display": "standalone",

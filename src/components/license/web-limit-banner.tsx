@@ -11,7 +11,7 @@ export const WebLimitBanner = ({
       {(bytes / 1048576).toFixed(1)} MB.
     </span>
     <a
-      href="https://www.reposnap.io/download"
+      href="https://www.treesnap.app/download"
       className="underline ml-3"
       target="_blank"
     >

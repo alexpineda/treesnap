@@ -5,10 +5,10 @@ const COUPON = "TWEETSNAP"; // or env var
 export const EmptyStateWeb = ({ showUpsell }: { showUpsell: boolean }) => (
   <div className="flex h-full flex-col items-center justify-center text-gray-400">
     {/* hero */}
-    {/* <a href="https://reposnap.io" target="_blank" rel="noreferrer">
+    {/* <a href="https://treesnap.app" target="_blank" rel="noreferrer">
       <img
         src="/logo.svg"
-        alt="RepoSnap"
+        alt="TreeSnap"
         className="w-16 h-16 mb-4 hover:opacity-80"
       />
     </a> */}
@@ -21,7 +21,7 @@ export const EmptyStateWeb = ({ showUpsell }: { showUpsell: boolean }) => (
     )}
     {/* <img
       src="/flow.png"
-      alt="RepoSnap flow"
+      alt="TreeSnap flow"
       className="w-64 rounded-2xl mt-6"
     /> */}
     <p className="mt-2 max-w-xs text-center">
@@ -36,15 +36,15 @@ export const EmptyStateWeb = ({ showUpsell }: { showUpsell: boolean }) => (
             Your Privacy Matters
           </h3>
           <p className="text-sm text-gray-300">
-            RepoSnap operates entirely locally. No session recording occurs, and
+            TreeSnap operates entirely locally. No session recording occurs, and
             your files never leave your machine. Your code remains completely
             private and safe.
           </p>
         </div>
         <div className="text-sm text-gray-400 mt-2 text-center">
           Visit{" "}
-          <a href="https://www.reposnap.io" target="_blank" rel="noreferrer">
-            reposnap.io
+          <a href="https://www.treesnap.app" target="_blank" rel="noreferrer">
+            treesnap.app
           </a>{" "}
           for more information
         </div>

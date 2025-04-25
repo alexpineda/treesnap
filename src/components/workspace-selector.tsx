@@ -20,13 +20,11 @@ export const WorkspaceSelector = ({
     localLicenseState?.status == "inactive" && !workspaceLimitStatus?.allowed
   );
 
-  console.log("workspaceLimitStatus", workspaceLimitStatus);
-
   return (
     <div className="flex flex-col items-center justify-center h-full bg-gray-800 text-white px-10 text-center">
       <h2 className="text-2xl font-bold flex items-center gap-2">
-        <img src="/logo.png" alt="RepoSnap" className="w-8 h-8" />
-        RepoSnap
+        {/* <img src="/logo.png" alt="TreeSnap" className="w-8 h-8" /> */}
+        TreeSnap
       </h2>
       <p className="text-sm my-2.5 mb-5">
         Open a folder to start analyzing your codebase.

@@ -1,7 +1,7 @@
 [package]
 name = "reposnap"
 version = "0.1.0"
-description = "RepoSnap"
+description = "TreeSnap"
 authors = ["Visual Dev Labs"]
 edition = "2021"
 
