@@ -41,6 +41,7 @@ import posthog from "posthog-js";
 
 posthog.init("phc_qULc3RcdX6l4JactmU0Izknzzhk7kr3OLKCtMgmfxX3", {
   api_host: "https://us.i.posthog.com",
+  autocapture: false,
 });
 // --- Basic App Info & Control ---
 
