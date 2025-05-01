@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "vite",
     "dev:web-demo": "vite --mode web-demo",
+    "dev:vscode": "vite --mode vscode",
     "build": "tsc && vite build",
     "build:web-demo": "vite build --mode web-demo",
+    "build:vscode": "vite build --mode vscode",
     "preview": "vite preview",
     "tauri": "tauri",
     "check": "tsc --noEmit",

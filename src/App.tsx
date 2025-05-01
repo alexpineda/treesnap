@@ -351,7 +351,7 @@ function App() {
               )}
               {workspace.status === "not-loaded" && (
                 <div className="flex flex-1 w-full items-center justify-center">
-                  {import.meta.env.MODE === "web-demo" ? (
+                  {__WEB_DEMO__ ? (
                     <div className="flex flex-col items-center justify-center">
                       {webLimitError && (
                         <SizeCapBanner

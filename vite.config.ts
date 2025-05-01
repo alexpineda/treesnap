@@ -8,16 +8,20 @@ const host = process.env.TAURI_DEV_HOST;
 // https://vitejs.dev/config/
 export default defineConfig(async ({ mode }) => {
   const isWebDemo = mode === "web-demo";
+  const isVscode = mode === "vscode";
+
+  let platformPath = isWebDemo
+    ? "src/platform/tauri-web"
+    : isVscode
+    ? "src/platform/tauri-vscode"
+    : "src/platform/tauri-desktop";
 
   return {
     plugins: [react(), tailwindcss()],
 
     resolve: {
       alias: {
-        "@/platform": path.resolve(
-          __dirname,
-          isWebDemo ? "src/platform/tauri-web" : "src/platform/tauri-desktop"
-        ),
+        "@/platform": path.resolve(__dirname, platformPath),
       },
     },
     define: {
