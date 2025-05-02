@@ -180,7 +180,7 @@ pub async fn check_and_record_workspace_access(
     {
         info!("Workspace already opened in free tier, access granted.");
         Ok(()) // Already opened this one before
-    } else if app_state.usage.unique_workspaces_opened.len() < MAX_FREE_WORKSPACES {
+    } else {
         info!("Adding new workspace to free tier list.");
         app_state
             .usage
@@ -188,9 +188,6 @@ pub async fn check_and_record_workspace_access(
             .insert(canonical_path);
         save_encrypted_state(app_handle, &app_state, &machine_id)?;
         Ok(())
-    } else {
-        error!("Workspace limit reached for free tier.");
-        Err(LicenseError::WorkspaceLimitReached(MAX_FREE_WORKSPACES))
     }
 }
 

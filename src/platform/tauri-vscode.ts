@@ -85,7 +85,7 @@ window.__origConsole = console;
 });
 /* ---------------------------------------------------------------------- */
 
-export const listen = <T>() =>
+export const listen = () =>
   Promise.resolve(() => {
     /*no-op*/
   });
@@ -140,3 +140,12 @@ export const debugSetLicenseState = (p: any) =>
 export const debugClearLicenseState = () => rpc("debugClearLicenseState");
 export const debugAddUsageEntries = (c: number) =>
   rpc("debugAddUsageEntries", { c });
+
+export const openLink = async (url: string) => {
+  window.open(url, "_blank");
+};
+export const dismissUpgradeLicenseBanner = async () => {};
+
+export const isUpgradeLicenseBannerDismissed = async () => {
+  return true;
+};

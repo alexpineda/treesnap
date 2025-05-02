@@ -33,6 +33,8 @@ import {
   __WEB_DEMO__,
   RepoSizeCapError,
 } from "./shared";
+import { openUrl } from "@tauri-apps/plugin-opener";
+import { addDays, isAfter } from "date-fns";
 
 export { TauriApiError, __WEB_DEMO__, RepoSizeCapError };
 
@@ -139,6 +141,23 @@ export const saveRecentWorkspaces = async (workspaces: RecentWorkspace[]) => {
 
 export const openDirectoryDialog = async () => {
   return await open({ directory: true });
+};
+
+export const dismissUpgradeLicenseBanner = async () => {
+  const store = await getRecentWorkspacesStore();
+  await store.set("dismissed_upgrade_license_banner", new Date().toISOString());
+};
+
+export const isUpgradeLicenseBannerDismissed = async () => {
+  const store = await getRecentWorkspacesStore();
+  const dismissed = await store.get<string>("dismissed_upgrade_license_banner");
+  if (!dismissed) {
+    return false; // Not dismissed if no record exists
+  }
+  const dismissedDate = new Date(dismissed);
+  const fourteenDaysAfterDismissal = addDays(dismissedDate, 14);
+  // Return true (considered dismissed) if the current date is *before or equal* to 14 days after dismissal
+  return !isAfter(new Date(), fourteenDaysAfterDismissal);
 };
 
 // --- License Service Functions ---
@@ -324,6 +343,10 @@ export const updateApplicationSettings = async (
     const { error: apiError } = createErrorResponse(error);
     return { error: apiError };
   }
+};
+
+export const openLink = async (url: string) => {
+  await openUrl(url);
 };
 
 // --- End Settings Service Functions ---

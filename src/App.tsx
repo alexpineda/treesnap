@@ -16,7 +16,7 @@ import { calculateTokensForFiles, openDirectoryDialog } from "@/platform";
 import { DebugLicenseControls } from "./components/debug";
 import { useLicense } from "./hooks/use-license";
 import { useApplicationSettings } from "./hooks/use-application-settings";
-import { WorkspaceLimitBanner } from "./components/license/workspace-limit-banner";
+import { UpgradeLicenseBanner } from "./components/license/upgrade-license-banner";
 import { UpdateAvailable } from "./components/license/update-available";
 import { __WEB_DEMO__ } from "@/platform";
 import { RepoSizeCapError } from "@/platform";
@@ -36,7 +36,8 @@ function App() {
   const [isShowingSettings, setIsShowingSettings] = useState(false);
   const { recentWorkspaces, addToRecentWorkspaces } = useRecentWorkspaces();
   const workspace = useWorkspace(addToRecentWorkspaces);
-  const { workspaceLimitStatus, localLicenseState } = useLicense();
+  const { localLicenseState, isLicenseBannerDismissed, dismissLicenseBanner } =
+    useLicense();
   const { settings, saveSettings } = useApplicationSettings();
   const [webLimitError, setWebLimitError] = useState<RepoSizeCapError | null>(
     null
@@ -141,11 +142,6 @@ function App() {
   };
 
   const numExpandedFolders = Array.from(workspace.expandedFolders).length;
-
-  // Calculate if the quick open button should be shown
-  const showQuickOpenButton = !(
-    localLicenseState?.status === "inactive" && workspaceLimitStatus?.allowed
-  );
 
   if (!settings) {
     return (
@@ -265,7 +261,6 @@ function App() {
                       setIsShowingSettings(true);
                     }}
                     onQuickOpenClick={handleOpenDirectory}
-                    showQuickOpenButton={showQuickOpenButton}
                   />
                   {/* <div className="flex border-b border-gray-700 text-xs">
                     <div className="flex items-center px-3 py-1 bg-gray-700 text-gray-400 border-r border-gray-600">
@@ -366,13 +361,14 @@ function App() {
                     </div>
                   ) : (
                     <div className="flex flex-col gap-4">
-                      {workspaceLimitStatus && (
-                        <WorkspaceLimitBanner
-                          workspaceLimitStatus={workspaceLimitStatus}
-                          onActivate={() => setIsShowingSettings(true)}
-                        />
-                      )}
-                      {workspaceLimitStatus?.allowed && <UpdateAvailable />}
+                      {localLicenseState?.status === "inactive" &&
+                        !isLicenseBannerDismissed && (
+                          <UpgradeLicenseBanner
+                            onActivate={() => setIsShowingSettings(true)}
+                            onDismiss={dismissLicenseBanner}
+                          />
+                        )}
+                      <UpdateAvailable />
                       <DebugLicenseControls />
                     </div>
                   )}

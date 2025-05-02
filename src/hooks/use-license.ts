@@ -3,6 +3,8 @@ import {
   activateLicense,
   getLocalLicenseState,
   checkWorkspaceLimit,
+  isUpgradeLicenseBannerDismissed as isUpgradeLicenseBannerDismissedPlatform,
+  dismissUpgradeLicenseBanner as dismissUpgradeLicenseBannerPlatform,
 } from "@/platform";
 import { LocalLicenseState, ApiError, WorkspaceLimitStatus } from "../types";
 
@@ -16,6 +18,20 @@ export const useLicense = () => {
 
   const [successfulActivation, setSuccessfulActivation] =
     useState<boolean>(false);
+
+  const [isLicenseBannerDismissed, setIsLicenseBannerDismissed] =
+    useState<boolean>(true);
+
+  useEffect(() => {
+    isUpgradeLicenseBannerDismissedPlatform().then((res) => {
+      setIsLicenseBannerDismissed(res);
+    });
+  }, []);
+
+  const dismissLicenseBanner = useCallback(async () => {
+    await dismissUpgradeLicenseBannerPlatform();
+    setIsLicenseBannerDismissed(true);
+  }, []);
 
   // Function to fetch the current status (used on mount and for refresh)
   const fetchStatus = useCallback(async () => {
@@ -66,5 +82,7 @@ export const useLicense = () => {
     refreshStatus: fetchStatus, // Expose the fetch function as refresh
     workspaceLimitStatus,
     successfulActivation,
+    isLicenseBannerDismissed,
+    dismissLicenseBanner,
   };
 };

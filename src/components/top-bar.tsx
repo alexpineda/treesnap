@@ -9,7 +9,6 @@ export const TopBar = ({
   handleClose,
   onSettingsClick,
   onQuickOpenClick,
-  showQuickOpenButton,
   settings,
   setHasExportedForWeb,
 }: {
@@ -18,7 +17,6 @@ export const TopBar = ({
   handleClose: () => void;
   onSettingsClick: () => void;
   onQuickOpenClick: () => void;
-  showQuickOpenButton: boolean;
   settings: ApplicationSettings;
   setHasExportedForWeb: (hasExportedForWeb: boolean) => void;
 }) => {
@@ -77,17 +75,15 @@ export const TopBar = ({
         </div>
       </div>
       <div className="flex ">
-        {showQuickOpenButton && (
-          <div
-            className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700"
-            onClick={onQuickOpenClick}
-          >
-            <span className="mb-1">
-              <FolderOpen size={16} />
-            </span>
-            <span>Quick Open</span>
-          </div>
-        )}
+        <div
+          className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700"
+          onClick={onQuickOpenClick}
+        >
+          <span className="mb-1">
+            <FolderOpen size={16} />
+          </span>
+          <span>Quick Open</span>
+        </div>
         <div className="flex items-center h-full">
           <div
             className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700"

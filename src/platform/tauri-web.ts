@@ -450,3 +450,13 @@ export const updateApplicationSettings = async (
 };
 
 // --- End Settings Service Stubs ---
+
+export const openLink = async (url: string) => {
+  window.open(url, "_blank");
+};
+
+export const dismissUpgradeLicenseBanner = async () => {};
+
+export const isUpgradeLicenseBannerDismissed = async () => {
+  return true;
+};
