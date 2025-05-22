@@ -1,25 +1,13 @@
 import type { FileTreeNode } from "../../types";
-import { RepoSizeCapError } from "../shared";
+import { RepoSizeCapError } from "./errors";
 import { encode } from "gpt-tokenizer";
-import { detectBinary } from "./render-ascii-tree";
-import ignore, { type Ignore } from "ignore";
+import { detectBinary } from "./bin-utils";
+import  { type Ignore } from "ignore";
+import { buildIgnoreMatcher } from "./ignore";
 
 export const VFS_PREFIX = "fs://"; // string surface
 export const FILE_CAP = 200;
 export const BYTE_CAP = 2 * 1024 * 1024; // 2 MiB
-
-// keep the Rust defaults in-sync (trim as you like)
-const DEFAULT_IGNORE_PATTERNS = `
-# repo internals
-.git
-.git/**        # sub-dirs
-.gitattributes
-# noise
-node_modules
-dist
-build
-.DS_Store
-`;
 
 type WebWorkspace = {
   id: string; // "fs://<uuid>"
@@ -33,18 +21,17 @@ const names = new Map<string, string>(); // id → folder name
 
 /* walk DirHandle → File[] ------------------ */
 /* ---- ignore helper --------------------------------------------------- */
-async function buildIgnoreMatcher(
+async function buildIgnoreMatcherWeb(
   root: FileSystemDirectoryHandle
 ): Promise<Ignore> {
-  const ig = ignore().add(DEFAULT_IGNORE_PATTERNS);
   try {
     const giHandle = await root.getFileHandle(".gitignore");
     const giText = await (await giHandle.getFile()).text();
-    ig.add(giText);
+    return buildIgnoreMatcher(giText);
   } catch (_) {
     /* no root .gitignore — fine */
   }
-  return ig;
+  return buildIgnoreMatcher();
 }
 
 /* walk DirHandle respecting ignore → [{rel, file}] --------------------- */
@@ -53,7 +40,7 @@ type WalkEntry = { rel: string; file: File };
 export const getFileTree = async (
   root: FileSystemDirectoryHandle
 ): Promise<WalkEntry[]> => {
-  const ig = await buildIgnoreMatcher(root);
+  const ig = await buildIgnoreMatcherWeb(root);
   let bytes = 0;
   const out: WalkEntry[] = [];
 

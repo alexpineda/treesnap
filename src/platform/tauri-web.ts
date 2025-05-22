@@ -14,18 +14,16 @@ import {
   createDemoFileTree,
   getDemoFileTokens,
 } from "./demo/demo-repo";
-import {
-  renderAsciiTree,
-  detectBinary,
-  buildDemoExportText,
-} from "./demo/render-ascii-tree";
+import { renderAsciiTree } from "./shared/render-ascii-tree";
+import { buildDemoExportText } from "./demo/demo-ascii-tree";
+import { detectBinary } from "./shared/bin-utils";
 import {
   TauriApiError,
   LicenseStateResponse,
   TauriApiErrorInternal,
-  __WEB_DEMO__,
   RepoSizeCapError,
-} from "./shared";
+} from "./shared/errors";
+import { __WEB_DEMO__, __VSCODE__ } from "./shared/constants";
 import {
   registerWorkspace,
   get as getVfs,
@@ -33,9 +31,9 @@ import {
   unregister,
   getDisplayName,
   VFS_PREFIX,
-} from "./demo/virtual-fs";
+} from "./shared/virtual-fs";
 
-export { TauriApiError, __WEB_DEMO__, RepoSizeCapError };
+export { TauriApiError, __WEB_DEMO__, RepoSizeCapError, __VSCODE__ };
 
 import posthog from "posthog-js";
 
@@ -217,7 +215,6 @@ export const copyFilesWithTreeToClipboard = async (
   selectedFilePaths: string[],
   treeOption: TreeOption
 ): Promise<void> => {
-  void treeOption; // Acknowledge unused parameter
 
   let exportText = "";
 
@@ -264,7 +261,7 @@ export const copyFilesWithTreeToClipboard = async (
 
     // 3) final blob   —   do **NOT** stringify; raw new-lines keep formatting
     exportText =
-      `<file_map>\n${asciiTree}\n\n</file_map>\n\n` +
+      (treeOption === "do-not-include" ? "" : `<file_map>\n${asciiTree}\n\n</file_map>\n\n`) +
       `<file_contents>\n${fileBlocks.join("\n\n")}\n</file_contents>`;
     /* --------- end changes --------- */
   } else if (dirPath === DEMO_WORKSPACE_PATH) {

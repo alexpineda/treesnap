@@ -1,6 +1,6 @@
 // src/platform/demo‑repo.ts ­– runs only in the web build
 import { countTokens } from "gpt-tokenizer";
-import { buildFileTree } from "./virtual-fs";
+import { buildFileTree } from "../shared/virtual-fs";
 
 /*
  * Vite pulls every file in the demo repo into the bundle and gives you a map:

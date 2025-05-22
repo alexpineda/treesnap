@@ -23,7 +23,8 @@ import { RepoSizeCapError } from "@/platform";
 import { EmptyStateWeb } from "./components/empty-state/empty-state-web";
 import { TopBanner } from "./components/empty-state/top-banner-web";
 import { SizeCapBanner } from "./components/empty-state/size-cap-banner-web";
-import { __DEV__ } from "./platform/shared";
+import { __DEV__, __VSCODE__ } from "./platform/shared/constants";
+import { EmptyStateVscode } from "./components/empty-state/empty-state-vscode";
 
 if (!__DEV__) {
   document.addEventListener("contextmenu", function (event) {
@@ -43,6 +44,12 @@ function App() {
     null
   );
   const [hasExportedForWeb, setHasExportedForWeb] = useState(false);
+
+  useEffect(() => {
+    if (__VSCODE__) {
+      workspace.loadWorkspace("workspace");
+    }
+  }, []);
 
   useEffect(() => {
     calculateTotalTokens();
@@ -253,10 +260,10 @@ function App() {
                     setHasExportedForWeb={setHasExportedForWeb}
                     handleClose={handleClose}
                     onSettingsClick={() => {
-                      if (__WEB_DEMO__) {
-                        alert("Settings are not available in demo mode");
-                        return;
-                      }
+                      // if (__WEB_DEMO__) {
+                      //   alert("Settings are not available in demo mode");
+                      //   return;
+                      // }
 
                       setIsShowingSettings(true);
                     }}
@@ -357,7 +364,11 @@ function App() {
                         />
                       )}
 
-                      <EmptyStateWeb showUpsell={hasExportedForWeb} />
+                      {__VSCODE__ ? (
+                        <EmptyStateVscode showUpsell={hasExportedForWeb} />
+                      ) : (
+                        <EmptyStateWeb showUpsell={hasExportedForWeb} />
+                      )}
                     </div>
                   ) : (
                     <div className="flex flex-col gap-4">

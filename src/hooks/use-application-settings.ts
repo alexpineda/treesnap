@@ -8,9 +8,11 @@ export const useApplicationSettings = () => {
   useEffect(() => {
     const fetchSettings = async () => {
       const { settings, error } = await getApplicationSettings();
+      console.log(settings, error);
       if (error) {
         console.error("Error fetching settings:", error);
       } else {
+        console.log("Settings fetched:", settings);
         setSettings(settings);
       }
     };

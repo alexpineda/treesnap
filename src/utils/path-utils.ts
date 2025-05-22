@@ -1,4 +1,4 @@
-import { isVfsPath, getDisplayName } from "../platform/demo/virtual-fs";
+import { isVfsPath, getDisplayName } from "../platform/shared/virtual-fs";
 
 export const basename = (path: string) => {
   if (isVfsPath(path)) {

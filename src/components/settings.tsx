@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, ShareIcon } from "lucide-react";
-import { getVersion, confirm, check, relaunch, openLink } from "@/platform";
+import { getVersion, confirm, check, relaunch, openLink, __VSCODE__ } from "@/platform";
 import { ApplicationSettings } from "../types";
 import { useLicense } from "../hooks/use-license";
 import { LicenseArea } from "./license/license-area";
@@ -118,7 +118,7 @@ export const Settings = ({
           <h2 className="text-lg font-medium text-white">
             Application Settings
           </h2>
-          {appVersion && (
+          {appVersion && !__VSCODE__ && (
             <div className="flex items-center space-x-2">
               {/* Minimal Check for Updates button */}
               {license.localLicenseState?.status !== "expired" && (
@@ -133,6 +133,11 @@ export const Settings = ({
                 v{appVersion}
               </span>
             </div>
+          )}
+          {__VSCODE__ && (
+            <a href="https://www.treesnap.app" target="_blank">
+              Download the desktop app
+            </a>
           )}
         </div>
 

@@ -30,13 +30,14 @@ import {
   LicenseStateResponse,
   TauriApiErrorInternal,
   TauriApiError,
-  __WEB_DEMO__,
   RepoSizeCapError,
-} from "./shared";
+} from "./shared/errors";
+import { __WEB_DEMO__, __VSCODE__ } from "./shared/constants";
+
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { addDays, isAfter } from "date-fns";
 
-export { TauriApiError, __WEB_DEMO__, RepoSizeCapError };
+export { TauriApiError, __WEB_DEMO__, RepoSizeCapError, __VSCODE__ };
 
 export const listen = <T>(
   event: string,

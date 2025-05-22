@@ -1,0 +1,66 @@
+{
+  "name": "treesnap",
+  "publisher": "visualdevlabs",
+  "version": "1.0.0",
+  "description": "TreeSnap concatenates your code into a single file with total control over token counts.",
+  "displayName": "TreeSnap",
+  "icon": "./resources/icon.png",
+  "galleryBanner": {
+    "color": "#bb8d3d",
+    "theme": "dark"
+  },
+  "main": "./dist/extension.cjs",
+  "module": "index.ts",
+  "dependencies": {
+    "@types/node": "^22.10.10",
+    "@types/vscode": "^1.86.0",
+    "dotenv": "^16.4.7",
+    "gpt-tokenizer": "^2.9.0",
+    "ignore": "^7.0.4",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@vscode/vsce": "^2.23.0",
+    "esbuild": "^0.20.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "type": "module",
+  "scripts": {
+    "dev": "echo 'Open this directory in VSCode and then run your extension with F5 or `Run and Debug > Run Extension`!'",
+    "build": "bun run ./scripts/build-with-esbuild.ts",
+    "watch": "bun run ./scripts/watch-with-esbuild.ts",
+    "vsce-package": "bun run vsce package",
+    "package": "bun run build && bun run vsce-package",
+    "publish": "bun run vsce publish",
+    "clean": "rm -r ./dist",
+    "check": "tsc --noEmit"
+  },
+  "//": "START EXTENSION ATTRIBUTES",
+  "activationEvents": [
+    "onWebviewPanel:treesnapView"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "treesnap.openPanel",
+        "title": "Treesnap: Open Panel"
+      }
+    ],
+    "configuration": {
+      "title": "Treesnap",
+      "properties": {
+        "treesnap.useReasoner": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether to use the reasoner LLM to analyze the code."
+        }
+      }
+    }
+  },
+  "engines": {
+    "vscode": "^1.86.0"
+  }
+}

@@ -3,6 +3,8 @@ import { RecentWorkspace } from "../types";
 import { basename } from "../utils";
 import classNames from "classnames";
 import { __WEB_DEMO__ } from "@/platform";
+import logo from "../assets/logo.png";
+
 // Render workspace selector view when no directory is selected
 export const WorkspaceSelector = ({
   handleChooseDirectory,
@@ -16,7 +18,7 @@ export const WorkspaceSelector = ({
   return (
     <div className="flex flex-col items-center justify-center h-full bg-gray-800 text-white px-10 text-center">
       <h2 className="text-2xl font-bold flex items-center gap-2">
-        <img src="/logo.png" alt="TreeSnap" className="w-8 h-8" />
+        <img src={logo} alt="TreeSnap" className="w-8 h-8" />
         TreeSnap
       </h2>
       <p className="text-sm my-2.5 mb-5">Snap. Trim. Prompt.</p>

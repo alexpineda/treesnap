@@ -9,9 +9,9 @@ import type {
   ApplicationSettings,
   WorkspaceLimitStatus,
 } from "../types";
-import { TauriApiError, __WEB_DEMO__, RepoSizeCapError } from "./shared";
-
-export { TauriApiError, __WEB_DEMO__, RepoSizeCapError };
+import { TauriApiError, RepoSizeCapError } from "./shared/errors";
+import { __WEB_DEMO__, __VSCODE__ } from "./shared/constants";
+export { TauriApiError, __WEB_DEMO__, __VSCODE__, RepoSizeCapError };
 // @ts-ignore
 const vscode = acquireVsCodeApi();
 
@@ -29,6 +29,8 @@ const pending = new Map<number, Pending>();
 // one global listener – never removed
 window.addEventListener("message", (ev: MessageEvent<any>) => {
   const { id, result, error } = ev.data ?? {};
+  console.log("DATA", ev.data);
+  console.log("PENDING", pending.keys());
   if (!pending.has(id)) return; // unknown / late reply
   const { resolve, reject, timer } = pending.get(id)!;
   if (timer) clearTimeout(timer);
@@ -69,20 +71,6 @@ export function rpc<T = void>(
   });
 }
 
-// @ts-ignore
-window.__origConsole = console;
-
-["log", "warn", "error"].forEach((fn) => {
-  // capture the real method *before* we overwrite it
-  const orig = (console as any)[fn].bind(console);
-
-  // @ts-ignore – patch console
-  console[fn] = (...a) => {
-    rpc("console", { fn, a }, { timeout: 0 }) // fire-and-forget (0 = no timer)
-      .catch(() => {}); // ignore if panel already closed
-    orig(...a); // still print in DevTools
-  };
-});
 /* ---------------------------------------------------------------------- */
 
 export const listen = () =>
@@ -100,15 +88,36 @@ export const calculateTokensForFiles = (filePaths: string[]) =>
   rpc<Record<string, number>>("calculateTokensForFiles", { filePaths });
 export const getFileTree = (dirPath: string, withTokensSync = false) =>
   rpc<FileTreeNode[]>("getFileTree", { dirPath, withTokensSync });
-export const openWorkspace = (dirPath: string) =>
-  rpc("openWorkspace", { dirPath });
-export const closeWorkspace = () => rpc("closeWorkspace");
+export const openWorkspace = async (
+  dirPath: string
+): Promise<{
+  tree: FileTreeNode[] | null;
+  // For VS Code, error will be simpler initially, can be expanded
+  error: { code: string; message: string } | string | null;
+}> => {
+  console.log(`[tauri-vscode.ts] openWorkspace called for path: ${dirPath}`);
+  try {
+    const tree = await rpc<FileTreeNode[]>("openWorkspace", { dirPath });
+    console.log("[tauri-vscode.ts] rpc call successful, tree received:", tree);
+    const returnValue = { tree, error: null };
+    console.log("[tauri-vscode.ts] Returning from openWorkspace (success):", returnValue);
+    return returnValue;
+  } catch (e: any) {
+    const errorMessage = e?.message || String(e);
+    console.error("[tauri-vscode.ts] rpc call failed:", errorMessage, e);
+    const errorValue = { code: "vscode_rpc_error", message: errorMessage };
+    const returnValue = { tree: null, error: errorValue };
+    console.log("[tauri-vscode.ts] Returning from openWorkspace (error):", returnValue);
+    return returnValue;
+  }
+};
+export const closeWorkspace = () => rpc<void>("closeWorkspace");
 export const copyFilesWithTreeToClipboard = (
   dirPath: string,
   selectedFilePaths: string[],
   treeOption: TreeOption
-) =>
-  rpc("copyFilesWithTreeToClipboard", {
+): Promise<void> => // Ensure void return type to match others
+  rpc<void>("copyFilesWithTreeToClipboard", { // Expect void from rpc layer
     dirPath,
     selectedFilePaths,
     treeOption,
@@ -127,12 +136,25 @@ export const getLocalLicenseState = () =>
   rpc<LocalLicenseState>("getLocalLicenseState");
 export const checkWorkspaceLimit = () =>
   rpc<WorkspaceLimitStatus>("checkWorkspaceLimit");
-export const clearCache = () => rpc("clearCache");
+export const clearCache = () => rpc<void>("clearCache");
 
-export const getApplicationSettings = () =>
-  rpc<{ settings: ApplicationSettings }>("getApplicationSettings");
+export const getApplicationSettings = async (): Promise<
+  | { settings: ApplicationSettings; error: null }
+  | { settings: null; error: { code: string; message: string } | string } // Match desktop error structure loosely
+> => {
+  try {
+    // rpc.ts currently returns { settings: ApplicationSettings } without an error field
+    // So, we access result.settings
+    const result = await rpc<{ settings: ApplicationSettings }>("getApplicationSettings");
+    return { settings: result.settings, error: null };
+  } catch (e: any) {
+    const errorMessage = e?.message || String(e);
+    return { settings: null, error: { code: "vscode_rpc_error", message: errorMessage } };
+  }
+};
+
 export const updateApplicationSettings = (s: ApplicationSettings) =>
-  rpc("updateApplicationSettings", { s });
+  rpc<void>("updateApplicationSettings", { s });
 
 /* debug helpers are forwarded unchanged */
 export const debugSetLicenseState = (p: any) =>

@@ -2,6 +2,7 @@ import { Copy, FolderOpen, Settings, X } from "lucide-react";
 import { basename } from "../utils";
 import { FileTreeNode, ApplicationSettings } from "../types";
 import { useExport } from "../hooks/use-export";
+import { __VSCODE__ } from "@/platform";
 
 export const TopBar = ({
   selectedFiles,
@@ -62,28 +63,34 @@ export const TopBar = ({
 
       <div className="flex-1 flex items-center justify-center py-2 absolute left-1/2 -translate-x-1/2 h-full">
         <div className="flex items-center gap-2 text-gray-200 text-sm">
-          <p>{basename(workspacePath)}</p>
-          <button
-            onClick={handleClose}
-            className="p-1 rounded-full cursor-pointer bg-gray-700 hover:bg-gray-600"
-            data-tooltip-id="copy"
-            data-tooltip-content="Close directory"
-            title="Close directory"
-          >
-            <X size={12} />
-          </button>
+          {!__VSCODE__ && (
+            <>
+              <p>{basename(workspacePath)}</p>
+              <button
+                onClick={handleClose}
+                className="p-1 rounded-full cursor-pointer bg-gray-700 hover:bg-gray-600"
+                data-tooltip-id="copy"
+                data-tooltip-content="Close directory"
+                title="Close directory"
+              >
+                <X size={12} />
+              </button>
+            </>
+          )}
         </div>
       </div>
       <div className="flex ">
-        <div
-          className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700"
-          onClick={onQuickOpenClick}
-        >
-          <span className="mb-1">
-            <FolderOpen size={16} />
-          </span>
-          <span>Quick Open</span>
-        </div>
+        {!__VSCODE__ && (
+          <div
+            className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700"
+            onClick={onQuickOpenClick}
+          >
+            <span className="mb-1">
+              <FolderOpen size={16} />
+            </span>
+            <span>Quick Open</span>
+          </div>
+        )}
         <div className="flex items-center h-full">
           <div
             className="flex flex-col items-center justify-center px-3 py-2 border-r border-gray-700 cursor-pointer hover:bg-gray-700"
