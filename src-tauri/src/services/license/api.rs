@@ -5,7 +5,6 @@ use chrono::Utc;
 use std::path::Path;
 use tracing::{debug, error, info, instrument, warn};
 
-use super::constants::LICENSE_API_ENDPOINT;
 use super::state::{
     ActivateRequest, ActivateResponse, ApiDeviceInfo, ApiErrorResponse, AppState, LicenseStatus,
     LocalLicenseState, LocalUsageStats, WorkspaceLimitStatus,
@@ -28,90 +27,22 @@ pub async fn activate_license_internal(
     client: Client,
     license_key: String,
 ) -> Result<LocalLicenseState, LicenseError> {
+    // FREE MODE: ignore network and force local activation
+    let _ = client;
+    let _ = license_key;
     let machine_id = get_or_create_machine_id(app_handle).await?;
-    let os = get_os_type()?;
-    let app_version = app_handle.package_info().version.to_string();
-
-    let device_info = ApiDeviceInfo {
-        machine_id: machine_id.clone(), // Clone machine_id for the request
-        os,
-        app_version,
+    let mut app_state = load_encrypted_state::<AppState>(app_handle, &machine_id)?;
+    app_state.license = LocalLicenseState {
+        status: LicenseStatus::Activated,
+        license_type: Some("free".into()),
+        expires_at: None,
+        ref_code: None,
+        ref_code_expires_at: None,
     };
-
-    let request_payload = ActivateRequest {
-        license_key: license_key.trim().to_string(),
-        device_info,
-    };
-
-    debug!(payload = ?request_payload, "Sending activation request");
-
-    let response = client
-        .post(LICENSE_API_ENDPOINT)
-        .json(&request_payload)
-        .send()
-        .await?;
-
-    let status = response.status();
-    let response_body_text = response.text().await?; // Read body once
-
-    if status.is_success() {
-        info!("Activation API call successful. Status: {}", status);
-        let parsed_response: ActivateResponse =
-            serde_json::from_str(&response_body_text).map_err(|e| {
-                LicenseError::ApiResponseError(format!(
-                    "Failed to parse success response: {}. Body: {}",
-                    e, response_body_text
-                ))
-            })?;
-
-        debug!(response = ?parsed_response, "Parsed activation response");
-
-        // Load the current AppState to update it
-        let mut app_state = load_encrypted_state::<AppState>(app_handle, &machine_id)?;
-
-        // Update the license part of the state
-        app_state.license = LocalLicenseState {
-            status: LicenseStatus::Activated,
-            license_type: Some(parsed_response.license_type),
-            expires_at: parsed_response.expires_at,
-            ref_code: parsed_response.ref_code,
-            ref_code_expires_at: parsed_response.ref_code_expires_at,
-        };
-
-        // Clear the usage stats as they are no longer needed for activated state
-        app_state.usage = LocalUsageStats::default();
-
-        // Save the updated consolidated state
-        save_encrypted_state(app_handle, &app_state, &machine_id)?;
-
-        info!("Local application state updated to activated.");
-
-        // Return the updated license state portion
-        Ok(app_state.license)
-    } else {
-        // Attempt to parse the error response from the API
-        error!(
-            "Activation API call failed (Status: {})
-Body: {}",
-            status, response_body_text
-        );
-        let parsed_error = serde_json::from_str::<ApiErrorResponse>(&response_body_text);
-
-        match parsed_error {
-            Ok(error_details) => Err(LicenseError::ApiActivationError {
-                status: status.as_u16(),
-                code: error_details.code,
-                message: error_details.error,
-            }),
-            Err(e) => {
-                // If we can't even parse the error response, return a generic error
-                Err(LicenseError::ApiResponseError(format!(
-                    "API returned status {} but failed to parse error response: {}. Body: {}",
-                    status, e, response_body_text
-                )))
-            }
-        }
-    }
+    app_state.usage = LocalUsageStats::default();
+    save_encrypted_state(app_handle, &app_state, &machine_id)?;
+    info!("FREE MODE: Local application state set to activated (free).");
+    Ok(app_state.license)
 }
 
 #[instrument(skip(app_handle))]
@@ -120,22 +51,19 @@ pub async fn get_local_license_state_internal(
 ) -> Result<LocalLicenseState, LicenseError> {
     let machine_id = get_or_create_machine_id(app_handle).await?;
     let mut app_state = load_encrypted_state::<AppState>(app_handle, &machine_id)?;
-    if app_state.license.status == LicenseStatus::Activated {
-        // Check expiry if the license has an expiration date
-        if let Some(expires_at) = app_state.license.expires_at {
-            if Utc::now() > expires_at {
-                warn!(
-                    "License has expired (Expired at: {}). Updating state.",
-                    expires_at
-                );
-                // Optionally, could reset the status here before returning error
-                app_state.license.status = LicenseStatus::Expired;
-                save_encrypted_state(app_handle, &app_state, &machine_id)?;
-            }
-        }
-        // If no expiry date or not expired, access is granted
+    // FREE MODE: always activated
+    if app_state.license.status != LicenseStatus::Activated {
+        app_state.license = LocalLicenseState {
+            status: LicenseStatus::Activated,
+            license_type: Some("free".into()),
+            expires_at: None,
+            ref_code: None,
+            ref_code_expires_at: None,
+        };
+        save_encrypted_state(app_handle, &app_state, &machine_id)?;
+        info!("FREE MODE: Auto-set license to activated.");
     }
-    Ok(app_state.license)
+    Ok(app_state.license.clone())
 }
 
 /// Checks if opening a new workspace is allowed based on the license state.
@@ -145,86 +73,18 @@ pub async fn check_and_record_workspace_access(
     app_handle: &AppHandle,
     new_workspace_path: &str,
 ) -> Result<(), LicenseError> {
-    let machine_id = get_or_create_machine_id(app_handle).await?;
-    let mut app_state = load_encrypted_state::<AppState>(app_handle, &machine_id)?;
-
-    if app_state.license.status == LicenseStatus::Activated {
-        // If no expiry date or not expired, access is granted
-        info!("License activated and valid, access granted.");
-        return Ok(());
-    }
-
-    if app_state.license.status == LicenseStatus::Expired {
-        warn!("License expired, access granted.");
-        return Ok(());
-    }
-
-    // If inactive, check the limit
-    info!("License inactive, checking workspace limit.");
-
-    let canonical_path = Path::new(new_workspace_path)
-        .canonicalize()
-        .map_err(|e| {
-            LicenseError::InternalError(format!(
-                "Invalid workspace path {}: {}",
-                new_workspace_path, e
-            ))
-        })?
-        .to_string_lossy()
-        .to_string();
-
-    if app_state
-        .usage
-        .unique_workspaces_opened
-        .contains(&canonical_path)
-    {
-        info!("Workspace already opened in free tier, access granted.");
-        Ok(()) // Already opened this one before
-    } else {
-        info!("Adding new workspace to free tier list.");
-        app_state
-            .usage
-            .unique_workspaces_opened
-            .insert(canonical_path);
-        save_encrypted_state(app_handle, &app_state, &machine_id)?;
-        Ok(())
-    }
+    let _ = app_handle;
+    let _ = new_workspace_path;
+    // FREE MODE: always allow
+    info!("FREE MODE: workspace access granted.");
+    Ok(())
 }
 
 #[instrument(skip(app_handle))]
 pub async fn check_workspace_limit_internal(
     app_handle: &AppHandle,
 ) -> Result<WorkspaceLimitStatus, LicenseError> {
-    let machine_id = get_or_create_machine_id(app_handle).await?;
-    let app_state = load_encrypted_state::<AppState>(app_handle, &machine_id)?;
-
-    if app_state.license.status == LicenseStatus::Activated {
-        return Ok(WorkspaceLimitStatus {
-            allowed: true,
-            used: 0,
-            limit: MAX_FREE_WORKSPACES,
-        });
-    }
-
-    if app_state.license.status == LicenseStatus::Expired {
-        return Ok(WorkspaceLimitStatus {
-            allowed: true,
-            used: 0,
-            limit: MAX_FREE_WORKSPACES,
-        });
-    }
-
-    if app_state.usage.unique_workspaces_opened.len() >= MAX_FREE_WORKSPACES {
-        return Ok(WorkspaceLimitStatus {
-            allowed: false,
-            used: app_state.usage.unique_workspaces_opened.len(),
-            limit: MAX_FREE_WORKSPACES,
-        });
-    }
-
-    Ok(WorkspaceLimitStatus {
-        allowed: true,
-        used: app_state.usage.unique_workspaces_opened.len(),
-        limit: MAX_FREE_WORKSPACES,
-    })
+    let _ = app_handle;
+    // FREE MODE: unlimited (report 0/limit and allowed=true)
+    Ok(WorkspaceLimitStatus { allowed: true, used: 0, limit: MAX_FREE_WORKSPACES })
 }
