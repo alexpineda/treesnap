@@ -6,7 +6,7 @@
 
 TreeSnap is a GUI for quickly concatenating your code files for inputting into your favorite LLM. Useful for when you need analysis or design help on existing code files across a codebase. Cross-platform, web, and VS Code extensions available.
 
-<a href="www.treesnap.app" target="_blank"><img src="https://littlehtmxbook.com/ad1-300x250.png"/></a>
+<a href="https://www.treesnap.app" target="_blank"><img src="https://littlehtmxbook.com/ad1-300x250.png"/></a>
 
 
 [Visit the website](www.treesnap.app)
